@@ -90,6 +90,38 @@ Function is a scaffolded stub for phase 2 (server-side Purchase/
 PaymentVerified event on admin "Payment Approved") — not wired into the
 admin flow yet.
 
+## Deploying to Cloudflare Pages
+
+This repo builds as a static SPA (`npm run build` → `dist/`). `public/_redirects`
+already routes all paths to `index.html` (required — the app uses real routed
+pages per §1, not hash routes, and Pages needs an explicit SPA fallback rule or
+`/checkout`, `/admin`, etc. 404 on direct load/refresh). `public/_headers` sets
+baseline security headers.
+
+1. **Connect the repo** — Cloudflare dashboard → Workers & Pages → Create →
+   Pages → Connect to Git → select `altasme/lean-fit`.
+2. **Build settings**:
+   - Framework preset: Vite
+   - Build command: `npm run build`
+   - Build output directory: `dist`
+   - Root directory: `/`
+3. **Environment variables** (Pages project → Settings → Environment
+   variables, for both Production and Preview): `VITE_SUPABASE_URL`,
+   `VITE_SUPABASE_ANON_KEY`, `VITE_META_PIXEL_ID`. These must exist *before*
+   the first build that needs them, since Vite inlines `VITE_*` vars at
+   build time.
+4. **Custom domain** — Pages project → Custom domains → Add
+   `leanfit.altasme.com`. If `altasme.com`'s DNS zone is already on this
+   Cloudflare account, Pages adds the CNAME automatically; otherwise add
+   `leanfit → <project>.pages.dev` as a CNAME manually in that zone.
+5. Every push to `claude/lean-fit-project-spec-82vyqt` (or whichever branch
+   is set as the production branch) triggers a new deploy; other branches
+   get preview URLs.
+
+Supabase/Resend/Meta secrets (§ above) are separate from Pages — they're
+Supabase Edge Function secrets, not Cloudflare env vars, since they must
+never reach the client bundle.
+
 ## Out of scope (MVP)
 
 Online payment gateway, automated payment verification, card processing,
