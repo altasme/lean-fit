@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-lf-black text-lf-white font-body antialiased;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display uppercase tracking-wide2;
+  }
+}
+
+@layer components {
+  .kicker {
+    @apply font-kicker uppercase tracking-wide3 text-lf-gold text-sm;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm bg-lf-gold px-8 py-4
+      font-kicker text-lg uppercase tracking-wide2 text-lf-black
+      transition-shadow duration-200 hover:shadow-gold-glow focus-visible:shadow-gold-glow
+      outline-none focus-visible:ring-2 focus-visible:ring-lf-gold focus-visible:ring-offset-2
+      focus-visible:ring-offset-lf-black;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm border border-lf-gold
+      px-8 py-4 font-kicker text-lg uppercase tracking-wide2 text-lf-gold
+      transition-colors duration-200 hover:bg-lf-gold hover:text-lf-black;
+  }
+}
