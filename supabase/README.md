@@ -27,6 +27,12 @@
 6. Copy the project URL + anon key into `.env` (see `.env.example` at the
    repo root) as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
 
+**Status for the live project:** schema applied, `RESEND_API_KEY`,
+`BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
+(`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
+Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
+not required for MVP launch).
+
 ## Order → Payment → Provider (v2)
 
 CLAUDE.md §6/§11 (v2) splits payment out of the order entirely: `orders`

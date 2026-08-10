@@ -84,10 +84,13 @@ for the canonical list:
 6. Real GCash, Maya, and bank account details + **GCash and Maya QR
    images** (`src/content/payment.ts`). Cash on Delivery needs no account
    details and is ready as-is.
-7. Business notification inbox + who verifies payments
-   (`BUSINESS_NOTIFICATION_EMAIL` secret).
-8. Testimonials, FAQ answers. (Logo, hero, product, and lifestyle
+7. Testimonials, FAQ answers. (Logo, hero, product, and lifestyle
    photography are now in from the client.)
+
+Resolved: business notification inbox (`vanamaranto1@gmail.com`) and
+sender identity (`realfitorders@altasme.com`, domain verified in Resend)
+are set as Supabase Edge Function secrets - see
+[`supabase/README.md`](./supabase/README.md).
 
 ## Conversion instrumentation
 
