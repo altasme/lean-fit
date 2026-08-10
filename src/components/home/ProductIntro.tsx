@@ -5,6 +5,7 @@ import { PRODUCT } from '../../content/product';
 import { useInView } from '../../hooks/useInView';
 import { useEffect } from 'react';
 import { trackViewContent } from '../../lib/pixel';
+import productShot from '../../assets/product-shot.jpg';
 
 const metrics = [
   { label: 'Protein', value: PRODUCT.metrics.protein },
@@ -23,14 +24,10 @@ export function ProductIntro() {
   return (
     <section id="product" className="bg-lf-black py-20 sm:py-28">
       <Container ref={ref} className="grid items-center gap-12 md:grid-cols-2">
-        <div
-          className="mx-auto aspect-square w-full max-w-sm rounded-sm border border-lf-gold/20"
-          style={{
-            background:
-              'radial-gradient(circle at 50% 40%, rgba(212,175,55,0.18), rgba(13,13,13,0.9) 70%)',
-          }}
-          role="img"
-          aria-label={`${PRODUCT.name} product shot placeholder`}
+        <img
+          src={productShot}
+          alt={`${PRODUCT.name} sachet`}
+          className="mx-auto aspect-square w-full max-w-sm rounded-sm border border-lf-gold/20 object-cover"
         />
         <div>
           <SectionKicker>{PRODUCT.variant}</SectionKicker>
