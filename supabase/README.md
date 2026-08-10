@@ -21,7 +21,7 @@
    supabase secrets set META_CAPI_TOKEN=...
    supabase secrets set META_PIXEL_ID=...
    # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are provided automatically
-   # in the Edge Function runtime — no need to set them manually.
+   # in the Edge Function runtime - no need to set them manually.
    ```
 6. Copy the project URL + anon key into `.env` (see `.env.example` at the
    repo root) as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
@@ -31,14 +31,14 @@
 CLAUDE.md §11 describes the RLS as "orders: allow anon INSERT (checkout).
 No anon SELECT/UPDATE." Implemented literally, checkout would insert
 correctly but the client could never read back the new order's
-`order_no`/`id` — Postgres applies the table's SELECT policy to the
+`order_no`/`id` - Postgres applies the table's SELECT policy to the
 `RETURNING` clause of an INSERT, and there's no anon SELECT policy (by
 design, since that would let anyone read every customer's name, address,
 email, and phone number).
 
 `create_order()` is a `SECURITY DEFINER` function that performs the insert
 as its owner (bypassing RLS, same intent as "allow anon insert") and
-returns only `{id, order_no, status}` — never the row's PII. The `orders`
+returns only `{id, order_no, status}` - never the row's PII. The `orders`
 table itself has no anon-facing policy at all; `authenticated` (the admin)
 has full access as specified.
 

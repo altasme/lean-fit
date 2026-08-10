@@ -22,7 +22,7 @@ export function ProductIntro() {
   }, [inView]);
 
   return (
-    <section id="product" className="bg-lf-black py-20 sm:py-28">
+    <section id="product" className="scroll-mt-16 bg-lf-black py-20 sm:scroll-mt-20 sm:py-28">
       <Container ref={ref} className="grid items-center gap-12 md:grid-cols-2">
         <img
           src={productShot}
@@ -33,7 +33,7 @@ export function ProductIntro() {
           <SectionKicker>{PRODUCT.variant}</SectionKicker>
           <h2 className="text-4xl text-lf-white sm:text-5xl">{PRODUCT.name}</h2>
           <p className="mt-4 max-w-md text-lf-cream/80">
-            A functional coffee built for people who train, work, and move hard — protein,
+            A functional coffee built for people who train, work, and move hard - protein,
             focus, and flavor in every sachet.
           </p>
           <dl className="tabular mt-8 grid grid-cols-2 gap-6 sm:grid-cols-4">

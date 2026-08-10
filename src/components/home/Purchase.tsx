@@ -20,7 +20,7 @@ export function Purchase() {
         <div className="mx-auto max-w-xl rounded-sm border border-lf-gold/40 bg-lf-charcoal p-8 shadow-gold-glow sm:p-12">
           <SectionKicker>Get Yours</SectionKicker>
           <h2 className="text-3xl text-lf-white sm:text-4xl">
-            {PRODUCT.name} — {PRODUCT.variant}
+            {PRODUCT.name} - {PRODUCT.variant}
           </h2>
           <p className="mt-2 text-sm text-lf-cream/70">
             {PRODUCT.sachetsPerBox} sachets · {PRODUCT.boxGrams}g box
@@ -57,7 +57,7 @@ export function Purchase() {
           </button>
           {priceUnavailable && (
             <p className="mt-3 text-center text-xs text-lf-cream/50">
-              Pricing is being finalized — check back soon.
+              Pricing is being finalized - check back soon.
             </p>
           )}
         </div>

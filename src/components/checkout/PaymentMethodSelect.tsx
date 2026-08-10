@@ -48,7 +48,7 @@ export function PaymentMethodSelect({
                 <img src={active.qrImageUrl} alt="GCash QR code" className="mt-3 w-40" />
               ) : (
                 <p className="mt-3 text-xs text-lf-cream/50">
-                  QR code coming soon — please pay using the account details above.
+                  QR code coming soon - please pay using the account details above.
                 </p>
               )}
             </dl>

@@ -1,5 +1,5 @@
 /**
- * FAQ content. ⛔ Placeholder answers — client must supply final copy
+ * FAQ content. ⛔ Placeholder answers - client must supply final copy
  * (see CLAUDE.md §15.8). Keep grouping (Product / Ordering) when replacing.
  */
 
@@ -26,7 +26,7 @@ export const FAQ: FaqItem[] = [
     group: 'Product',
     question: 'Is this suitable for a low-sugar or keto diet?',
     answer:
-      'Yes — Lean & Fit is formulated to be low sugar and keto friendly. Check the badges and nutrition panel for exact figures.',
+      'Yes - Lean & Fit is formulated to be low sugar and keto friendly. Check the badges and nutrition panel for exact figures.',
   },
   {
     group: 'Product',

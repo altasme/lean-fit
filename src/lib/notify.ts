@@ -3,7 +3,7 @@ import type { OrderStatus } from '../types/order';
 
 /**
  * Fires the send-order-email Edge Function. Failures are logged, not
- * thrown — email delivery must never block the checkout/admin flow that
+ * thrown - email delivery must never block the checkout/admin flow that
  * triggered it (see CLAUDE.md §10).
  */
 export async function notifyOrderEvent(

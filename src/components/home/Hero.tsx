@@ -38,7 +38,7 @@ export function Hero() {
   return (
     <section id="hero" className="relative overflow-hidden bg-lf-black">
       {/* Desktop / tablet: full-bleed wide shot, subjects on the right, text
-          sits in the image's own empty left third — no overlap by construction. */}
+          sits in the image's own empty left third - no overlap by construction. */}
       <div className="relative hidden min-h-[620px] items-center sm:flex lg:min-h-[760px]">
         <img
           src={heroWide}
@@ -64,7 +64,7 @@ export function Hero() {
       </div>
 
       {/* Mobile: full-bleed portrait shot, subjects in the lower ~55% of
-          frame, text sits in the image's own empty top zone — same
+          frame, text sits in the image's own empty top zone - same
           overlap-free-by-construction approach as desktop, just rotated
           from left/right to top/bottom. Compact spacing keeps this clear
           of the subjects even on short viewports (e.g. iPhone SE). */}

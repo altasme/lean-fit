@@ -11,7 +11,7 @@ if (!url || !anonKey) {
 }
 
 // Fall back to a syntactically valid placeholder so the app can still
-// render (landing page, etc.) when Supabase hasn't been configured yet —
+// render (landing page, etc.) when Supabase hasn't been configured yet -
 // any actual request will fail loudly instead of crashing on import.
 export const supabase = createClient(url || 'https://placeholder.supabase.co', anonKey || 'placeholder');
 

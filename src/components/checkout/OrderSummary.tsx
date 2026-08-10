@@ -16,7 +16,7 @@ export function OrderSummary() {
       <div className="mt-5 flex items-start justify-between gap-4">
         <div>
           <p className="font-medium text-lf-white">
-            {PRODUCT.name} — {PRODUCT.variant}
+            {PRODUCT.name} - {PRODUCT.variant}
           </p>
           <p className="text-sm text-lf-cream/60">{formatPHP(PRODUCT.price)} / box</p>
         </div>

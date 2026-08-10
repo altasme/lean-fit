@@ -90,9 +90,9 @@ export default function AdminOrderDetail() {
               <Row label="Delivery Fee" value={formatPHP(order.delivery_fee)} />
               <Row label="Total" value={formatPHP(order.total)} />
               <Row label="Payment Method" value={order.payment_method} />
-              <Row label="Reference" value={order.payment_reference ?? '—'} />
-              <Row label="Amount Paid" value={order.payment_amount ? formatPHP(order.payment_amount) : '—'} />
-              <Row label="Payment Date" value={order.payment_date ?? '—'} />
+              <Row label="Reference" value={order.payment_reference ?? ' - '} />
+              <Row label="Amount Paid" value={order.payment_amount ? formatPHP(order.payment_amount) : ' - '} />
+              <Row label="Payment Date" value={order.payment_date ?? ' - '} />
               {order.courier && <Row label="Courier" value={order.courier} />}
               {order.tracking_number && <Row label="Tracking" value={order.tracking_number} />}
             </dl>
@@ -122,7 +122,7 @@ export default function AdminOrderDetail() {
                   </p>
                   <p className="text-xs text-lf-cream/50">
                     {new Date(h.created_at).toLocaleString('en-PH')}
-                    {h.note ? ` — ${h.note}` : ''}
+                    {h.note ? ` - ${h.note}` : ''}
                   </p>
                 </li>
               ))}

@@ -1,4 +1,4 @@
-# Lean & Fit Protein Coffee — Website MVP
+# Lean & Fit Protein Coffee - Website MVP
 
 Premium, CTR-focused product landing page with a manual-payment checkout
 and order-verification backend, for Lean & Fit Protein Coffee (paid
@@ -22,10 +22,10 @@ cp .env.example .env   # fill in Supabase + Pixel values
 npm run dev
 ```
 
-- `npm run dev` — local dev server
-- `npm run build` — typecheck + production build
-- `npm run typecheck` — TypeScript only
-- `npm run lint` — ESLint
+- `npm run dev` - local dev server
+- `npm run build` - typecheck + production build
+- `npm run typecheck` - TypeScript only
+- `npm run lint` - ESLint
 
 Backend setup (Supabase project, schema, Edge Functions, secrets): see
 [`supabase/README.md`](./supabase/README.md).
@@ -35,7 +35,7 @@ Backend setup (Supabase project, schema, Edge Functions, secrets): see
 ```
 src/
   content/       product.ts, faq.ts, payment.ts, emails.ts, site.ts
-                 — single source of truth for all product facts, claims,
+                 - single source of truth for all product facts, claims,
                  pricing, FAQ, payment details, and email copy. Nothing
                  product-related is hardcoded in components.
   components/
@@ -62,14 +62,14 @@ placeholders pending client sign-off (`src/content/product.ts` and
 `src/content/payment.ts` are flagged inline with `⛔`):
 
 1. **Delivery fee/coverage.** Base price is locked at ₱250. `PRODUCT.deliveryFee`
-   is still `0` as a placeholder — client must confirm actual delivery
+   is still `0` as a placeholder - client must confirm actual delivery
    pricing and coverage areas.
-2. Confirm the 20g/soya "image 11" design is dead — all copy currently
+2. Confirm the 20g/soya "image 11" design is dead - all copy currently
    assumes 15g whey / `@leanfitcoffee`.
 3. Final ingredient list + whether Senna Leaf Extract stays in the formula
    (changes "daily / anytime" usage framing if it does).
 4. Approved final claims list (some claims on the source materials are
-   unconfirmed medical/functional claims — currently framed as lifestyle
+   unconfirmed medical/functional claims - currently framed as lifestyle
    claims by default).
 5. Locked tagline (a default set is in place).
 6. Real GCash + bank account details and GCash QR image
@@ -83,22 +83,22 @@ placeholders pending client sign-off (`src/content/product.ts` and
 
 Meta Pixel fires `PageView`, `ViewContent` (product section in view),
 `InitiateCheckout`, `AddPaymentInfo`, and `Purchase` (on order submission,
-client-side, with `eventID = orderId` for future CAPI dedup) — see
+client-side, with `eventID = orderId` for future CAPI dedup) - see
 `src/lib/pixel.ts`. Routing is real routed pages (not hash routes) so
 Meta's URL-based custom conversions work. The `capi-purchase` Edge
 Function is a scaffolded stub for phase 2 (server-side Purchase/
-PaymentVerified event on admin "Payment Approved") — not wired into the
+PaymentVerified event on admin "Payment Approved") - not wired into the
 admin flow yet.
 
 ## Deploying to Cloudflare Pages
 
 This repo builds as a static SPA (`npm run build` → `dist/`). `public/_redirects`
-already routes all paths to `index.html` (required — the app uses real routed
+already routes all paths to `index.html` (required - the app uses real routed
 pages per §1, not hash routes, and Pages needs an explicit SPA fallback rule or
 `/checkout`, `/admin`, etc. 404 on direct load/refresh). `public/_headers` sets
 baseline security headers.
 
-1. **Connect the repo** — Cloudflare dashboard → Workers & Pages → Create →
+1. **Connect the repo** - Cloudflare dashboard → Workers & Pages → Create →
    Pages → Connect to Git → select `altasme/lean-fit`.
 2. **Build settings**:
    - Framework preset: Vite
@@ -110,7 +110,7 @@ baseline security headers.
    `VITE_SUPABASE_ANON_KEY`, `VITE_META_PIXEL_ID`. These must exist *before*
    the first build that needs them, since Vite inlines `VITE_*` vars at
    build time.
-4. **Custom domain** — Pages project → Custom domains → Add
+4. **Custom domain** - Pages project → Custom domains → Add
    `leanfit.altasme.com`. If `altasme.com`'s DNS zone is already on this
    Cloudflare account, Pages adds the CNAME automatically; otherwise add
    `leanfit → <project>.pages.dev` as a CNAME manually in that zone.
@@ -118,7 +118,7 @@ baseline security headers.
    is set as the production branch) triggers a new deploy; other branches
    get preview URLs.
 
-Supabase/Resend/Meta secrets (§ above) are separate from Pages — they're
+Supabase/Resend/Meta secrets (§ above) are separate from Pages - they're
 Supabase Edge Function secrets, not Cloudflare env vars, since they must
 never reach the client bundle.
 

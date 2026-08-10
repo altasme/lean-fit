@@ -1,4 +1,4 @@
-// Supabase Edge Function — sends customer + business order emails via Resend.
+// Supabase Edge Function - sends customer + business order emails via Resend.
 //
 // Invoked by:
 //  - the client, right after a successful checkout (`event: "submitted"`)
@@ -9,7 +9,7 @@
 // SUPABASE_URL is provided automatically in the Edge Function runtime.
 //
 // See CLAUDE.md §10 for the subject/status mapping this mirrors from
-// src/content/emails.ts (kept in sync manually — see note there).
+// src/content/emails.ts (kept in sync manually - see note there).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -32,11 +32,11 @@ type OrderStatus =
   | 'payment_rejected';
 
 const CUSTOMER_SUBJECTS: Partial<Record<OrderStatus, (orderNo: string) => string>> = {
-  payment_verification: (orderNo) => `Lean & Fit Order Received — #${orderNo}`,
+  payment_verification: (orderNo) => `Lean & Fit Order Received - #${orderNo}`,
   payment_approved: () => 'Your Lean & Fit Payment Has Been Verified',
   packing: () => 'Your Lean & Fit Order Is Being Packed',
   shipped: () => 'Your Lean & Fit Order Has Shipped',
-  payment_rejected: () => 'Action Required — Lean & Fit Payment Verification',
+  payment_rejected: () => 'Action Required - Lean & Fit Payment Verification',
 };
 
 function renderCustomerBody(status: OrderStatus, order: Record<string, unknown>): string {
@@ -51,7 +51,7 @@ function renderCustomerBody(status: OrderStatus, order: Record<string, unknown>)
     case 'packing':
       return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is being packed and will ship soon.</p>`;
     case 'shipped':
-      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is on its way via ${order.courier ?? 'our courier'} — tracking number ${order.tracking_number ?? 'TBD'}.</p>`;
+      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is on its way via ${order.courier ?? 'our courier'} - tracking number ${order.tracking_number ?? 'TBD'}.</p>`;
     case 'payment_rejected':
       return `<p>Hi ${name},</p><p>We couldn't verify the payment details submitted for order <strong>#${orderNo}</strong>. Please reply to this email or resubmit your proof of payment so we can continue processing your order.</p>`;
     default:
@@ -61,7 +61,7 @@ function renderCustomerBody(status: OrderStatus, order: Record<string, unknown>)
 
 async function sendResendEmail(to: string, subject: string, html: string) {
   if (!RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set — skipping email send.', { to, subject });
+    console.warn('RESEND_API_KEY not set - skipping email send.', { to, subject });
     return;
   }
 
@@ -109,10 +109,10 @@ Deno.serve(async (req) => {
     if (isNewOrder && BUSINESS_EMAIL) {
       await sendResendEmail(
         BUSINESS_EMAIL,
-        `New Order — #${order.order_no}`,
+        `New Order - #${order.order_no}`,
         `<p>New order <strong>#${order.order_no}</strong> from ${order.customer_name} (${order.email}, ${order.mobile}).</p>
          <p>Product: ${order.product} × ${order.quantity}<br/>Total: ₱${order.total}</p>
-         <p>Payment method: ${order.payment_method} — ref ${order.payment_reference ?? 'n/a'}</p>`,
+         <p>Payment method: ${order.payment_method} - ref ${order.payment_reference ?? 'n/a'}</p>`,
       );
     }
 

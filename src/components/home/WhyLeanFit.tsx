@@ -5,7 +5,7 @@ import { COMPARISON } from '../../content/site';
 
 export function WhyLeanFit() {
   return (
-    <section id="why" className="bg-lf-charcoal py-20 sm:py-28">
+    <section id="why" className="scroll-mt-16 bg-lf-charcoal py-20 sm:scroll-mt-20 sm:py-28">
       <Container className="text-center">
         <SectionKicker>Why Lean &amp; Fit</SectionKicker>
         <h2 className="mx-auto max-w-2xl text-4xl text-lf-white sm:text-5xl">

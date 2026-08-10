@@ -37,7 +37,7 @@ export function FAQ() {
   const groups: Array<'Product' | 'Ordering'> = ['Product', 'Ordering'];
 
   return (
-    <section id="faq" className="bg-lf-charcoal py-20 sm:py-28">
+    <section id="faq" className="scroll-mt-16 bg-lf-charcoal py-20 sm:scroll-mt-20 sm:py-28">
       <Container className="max-w-3xl">
         <div className="text-center">
           <SectionKicker>FAQ</SectionKicker>

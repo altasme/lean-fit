@@ -1,5 +1,5 @@
 /**
- * Payment method details. ⛔ Placeholder account details — client must
+ * Payment method details. ⛔ Placeholder account details - client must
  * supply final GCash + bank account info and QR image (see §15.6).
  */
 

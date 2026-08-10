@@ -1,8 +1,8 @@
 /**
  * Single source of truth for product facts, claims, and pricing.
- * Do not hardcode any of this in components — see CLAUDE.md §4.
+ * Do not hardcode any of this in components - see CLAUDE.md §4.
  *
- * ⛔ BLOCKING ITEMS — see §4c / §15. This file ships with locked facts plus
+ * ⛔ BLOCKING ITEMS - see §4c / §15. This file ships with locked facts plus
  * placeholders for everything the client has not yet confirmed. The site
  * must not go live until those are resolved.
  */
@@ -17,7 +17,7 @@ export const PRODUCT = {
   price: 250 as number | null,
 
   /**
-   * Delivery fee(s). ⛔ Still a placeholder flat rate — client must confirm
+   * Delivery fee(s). ⛔ Still a placeholder flat rate - client must confirm
    * coverage and pricing (see §15.1). Keep at 0 until confirmed rather than
    * guessing.
    */
@@ -57,9 +57,9 @@ export const PRODUCT = {
   prep: ['Tear 1 sachet', 'Add 180ml hot water', 'Stir', 'Enjoy'],
 
   /**
-   * ⚠️ SEE §4c.4 — ingredient list differs across supplied assets.
+   * ⚠️ SEE §4c.4 - ingredient list differs across supplied assets.
    * Placeholder list below; client must approve one final list before launch.
-   * Includes Senna Leaf Extract per image 5 — confirm §4c.3 before launch,
+   * Includes Senna Leaf Extract per image 5 - confirm §4c.3 before launch,
    * this changes "daily / anytime" usage copy if it stays in the formula.
    */
   ingredients: [
@@ -72,11 +72,11 @@ export const PRODUCT = {
     'Collagen Peptides',
     'Natural Flavors',
     'Stevia',
-    'Laxative (Senna Leaf Extract)', // ⛔ confirm before launch — §4c.3
+    'Laxative (Senna Leaf Extract)', // ⛔ confirm before launch - §4c.3
   ],
 
   /**
-   * ⚠️ SEE §4c.5 — client owns final claim approval. Kept here so the
+   * ⚠️ SEE §4c.5 - client owns final claim approval. Kept here so the
    * approved list is a one-file edit. Default to lifestyle framing for
    * anything unconfirmed rather than asserting a medical/functional claim.
    */
@@ -85,7 +85,7 @@ export const PRODUCT = {
     'Supports muscle recovery',
     'Made for your morning routine',
     'Low sugar, high protein',
-    'Aids digestion', // ⛔ unconfirmed functional claim — verify before launch
+    'Aids digestion', // ⛔ unconfirmed functional claim - verify before launch
   ],
 
   functionalIngredients: [

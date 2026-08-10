@@ -1,7 +1,7 @@
--- Lean & Fit — Supabase schema, RLS, and storage setup.
+-- Lean & Fit - Supabase schema, RLS, and storage setup.
 -- See CLAUDE.md §11 for the spec this implements. One deliberate deviation
 -- is documented inline below (anon order creation goes through an RPC
--- rather than a direct table INSERT policy) — see the note above
+-- rather than a direct table INSERT policy) - see the note above
 -- `create_order`.
 
 create extension if not exists pgcrypto;
@@ -118,13 +118,13 @@ create policy "admin full access on order_status_history"
 -- practice a direct anon INSERT policy still isn't enough: Postgres RLS
 -- applies the SELECT policy to the RETURNING clause of an INSERT, so the
 -- client would get back an empty row and never learn the new order's
--- order_no/id — and a broad anon SELECT policy to fix that would expose
+-- order_no/id - and a broad anon SELECT policy to fix that would expose
 -- every customer's name/address/email/phone to anyone.
 --
 -- Instead, checkout goes through `create_order()` below: a SECURITY
 -- DEFINER function that performs the insert as its owner (bypassing RLS
 -- entirely, same intent as "allow anon insert") and returns only
--- {id, order_no, status} — never the row's PII — to the caller.
+-- {id, order_no, status} - never the row's PII - to the caller.
 
 create or replace function create_order(
   p_customer_name text,
@@ -178,7 +178,7 @@ begin
 end;
 $$;
 
--- Anyone (including guest checkout) may call this — it's the only write
+-- Anyone (including guest checkout) may call this - it's the only write
 -- path into `orders` available to unauthenticated users.
 grant execute on function create_order to anon, authenticated;
 

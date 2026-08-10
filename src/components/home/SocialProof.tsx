@@ -3,7 +3,7 @@ import { SectionKicker } from '../ui/SectionKicker';
 import { SITE, TESTIMONIALS } from '../../content/site';
 
 /**
- * ⛔ Testimonial quotes/names are placeholders — see the note in
+ * ⛔ Testimonial quotes/names are placeholders - see the note in
  * content/site.ts. Swap for real, attributed customer reviews before
  * launch. No fabricated review counts/star ratings per §5.8.
  */

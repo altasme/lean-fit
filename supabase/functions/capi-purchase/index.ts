@@ -1,7 +1,7 @@
-// Supabase Edge Function — CAPI Purchase stub (phase 2, not MVP-blocking).
+// Supabase Edge Function - CAPI Purchase stub (phase 2, not MVP-blocking).
 //
 // CLAUDE.md §8: once volume allows, fire a server-side event on admin
-// "Payment Approved" — a clean, verified-revenue signal deduped against
+// "Payment Approved" - a clean, verified-revenue signal deduped against
 // the client-side Purchase pixel event via `eventID = orderId`.
 //
 // Wiring this up (not done yet):
@@ -26,7 +26,7 @@ const supabaseAdmin = createClient(
 Deno.serve(async (req) => {
   if (!META_CAPI_TOKEN || !META_PIXEL_ID) {
     return new Response(
-      JSON.stringify({ error: 'CAPI not configured — set META_CAPI_TOKEN and META_PIXEL_ID' }),
+      JSON.stringify({ error: 'CAPI not configured - set META_CAPI_TOKEN and META_PIXEL_ID' }),
       { status: 501 },
     );
   }

@@ -4,7 +4,7 @@ import { PRODUCT } from '../../content/product';
 
 export function IngredientsSpotlight() {
   return (
-    <section id="ingredients" className="bg-lf-black py-20 sm:py-28">
+    <section id="ingredients" className="scroll-mt-16 bg-lf-black py-20 sm:scroll-mt-20 sm:py-28">
       <Container>
         <div className="text-center">
           <SectionKicker>Functional Ingredients</SectionKicker>

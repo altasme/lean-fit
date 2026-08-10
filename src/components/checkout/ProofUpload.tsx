@@ -71,7 +71,7 @@ export function ProofUpload({
 
         <div>
           <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
-            Upload Proof (JPG, PNG, PDF — max 5MB)
+            Upload Proof (JPG, PNG, PDF - max 5MB)
           </label>
           <input
             type="file"
