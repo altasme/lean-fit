@@ -7,11 +7,13 @@ import { PaymentMethodSelect } from '../components/checkout/PaymentMethodSelect'
 import { ProofUpload } from '../components/checkout/ProofUpload';
 import { useCartStore } from '../store/cart';
 import { PRODUCT } from '../content/product';
+import { PAYMENT_METHODS } from '../content/payment';
 import { createOrder } from '../lib/orders';
 import { notifyOrderEvent } from '../lib/notify';
 import { validateDeliveryDetails, validateProof } from '../lib/validation';
 import { trackInitiateCheckout, trackAddPaymentInfo, trackPurchase } from '../lib/pixel';
 import type { DeliveryDetails } from '../types/order';
+import type { PaymentMethodId } from '../types/payment';
 
 const LAST_ORDER_KEY = 'lf_last_order';
 
@@ -20,6 +22,9 @@ export default function Checkout() {
   const { delivery, setDelivery, paymentMethod, setPaymentMethod, quantity } = useCartStore();
   const subtotal = useCartStore((s) => s.subtotal());
   const total = useCartStore((s) => s.total());
+
+  const selectedMethod = PAYMENT_METHODS.find((m) => m.code === paymentMethod);
+  const requiresProof = selectedMethod?.requiresProof ?? false;
 
   const [deliveryErrors, setDeliveryErrors] = useState<ReturnType<typeof validateDeliveryDetails>>({});
   const [referenceNumber, setReferenceNumber] = useState('');
@@ -44,7 +49,7 @@ export default function Checkout() {
     if (deliveryErrors[field]) setDeliveryErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  const handlePaymentSelect = (method: 'gcash' | 'bank_transfer') => {
+  const handlePaymentSelect = (method: PaymentMethodId) => {
     setPaymentMethod(method);
     if (total !== null) trackAddPaymentInfo(total);
   };
@@ -65,12 +70,14 @@ export default function Checkout() {
     setSubmitError(null);
 
     const dErrors = validateDeliveryDetails(delivery);
-    const pErrors = validateProof({
-      referenceNumber,
-      amountPaid: amountPaid === '' ? null : Number(amountPaid),
-      paymentDate,
-      file,
-    });
+    const pErrors = requiresProof
+      ? validateProof({
+          referenceNumber,
+          amountPaid: amountPaid === '' ? null : Number(amountPaid),
+          paymentDate,
+          file,
+        })
+      : {};
     setDeliveryErrors(dErrors);
     setProofErrors(pErrors);
 
@@ -82,7 +89,7 @@ export default function Checkout() {
       setSubmitError('Please select a payment method.');
       return;
     }
-    if (PRODUCT.price === null || subtotal === null || total === null || !file) {
+    if (PRODUCT.price === null || subtotal === null || total === null) {
       setSubmitError('Pricing is not yet available for checkout.');
       return;
     }
@@ -97,27 +104,37 @@ export default function Checkout() {
         deliveryFee: PRODUCT.deliveryFee,
         total,
         paymentMethod,
-        referenceNumber,
-        amountPaid: Number(amountPaid),
-        paymentDate,
-        proofFile: file,
+        ...(requiresProof
+          ? {
+              referenceNumber,
+              amountPaid: Number(amountPaid),
+              paymentDate,
+              proofFile: file ?? undefined,
+            }
+          : {}),
       });
 
       trackPurchase({
         value: total,
         numItems: quantity,
-        orderId: order.id,
+        orderId: order.orderId,
       });
 
-      void notifyOrderEvent(order.id, order.status, { isNewOrder: true });
+      void notifyOrderEvent(order.orderId, requiresProof ? 'order_submitted' : 'order_confirmed_cod', {
+        isNewOrder: true,
+      });
 
       sessionStorage.setItem(
         LAST_ORDER_KEY,
-        JSON.stringify({ orderNo: order.orderNo, customerName: delivery.customerName }),
+        JSON.stringify({
+          orderNo: order.orderNo,
+          customerName: delivery.customerName,
+          isCod: !requiresProof,
+        }),
       );
 
       navigate('/order-confirmed', {
-        state: { orderNo: order.orderNo, customerName: delivery.customerName },
+        state: { orderNo: order.orderNo, customerName: delivery.customerName, isCod: !requiresProof },
       });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -138,14 +155,16 @@ export default function Checkout() {
           <OrderSummary />
           <DeliveryForm values={delivery} errors={deliveryErrors} onChange={handleDeliveryChange} />
           <PaymentMethodSelect selected={paymentMethod} onSelect={handlePaymentSelect} />
-          <ProofUpload
-            referenceNumber={referenceNumber}
-            amountPaid={amountPaid}
-            paymentDate={paymentDate}
-            file={file}
-            errors={proofErrors}
-            onChange={handleProofChange}
-          />
+          {requiresProof && (
+            <ProofUpload
+              referenceNumber={referenceNumber}
+              amountPaid={amountPaid}
+              paymentDate={paymentDate}
+              file={file}
+              errors={proofErrors}
+              onChange={handleProofChange}
+            />
+          )}
 
           {submitError && (
             <p className="rounded-sm border border-lf-error/40 bg-lf-error/10 px-4 py-3 text-sm text-lf-error">

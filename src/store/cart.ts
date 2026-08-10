@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { PRODUCT } from '../content/product';
-import type { DeliveryDetails, PaymentMethodId } from '../types/order';
+import type { DeliveryDetails } from '../types/order';
+import type { PaymentMethodId } from '../types/payment';
 
 type CartState = {
   quantity: number;

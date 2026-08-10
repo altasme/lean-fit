@@ -1,6 +1,7 @@
 import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
 import { PRODUCT } from '../content/product';
-import type { DeliveryDetails, OrderStatus, PaymentMethodId } from '../types/order';
+import type { DeliveryDetails, OrderStatus } from '../types/order';
+import type { PaymentMethodId, PaymentStatus } from '../types/payment';
 
 export type CreateOrderInput = {
   delivery: DeliveryDetails;
@@ -10,16 +11,20 @@ export type CreateOrderInput = {
   deliveryFee: number;
   total: number;
   paymentMethod: PaymentMethodId;
-  referenceNumber: string;
-  amountPaid: number;
-  paymentDate: string;
-  proofFile: File;
+  /** Manual methods only (gcash/maya/bank_transfer) - omitted for COD. */
+  referenceNumber?: string;
+  amountPaid?: number;
+  paymentDate?: string;
+  proofFile?: File;
 };
 
 export type CreatedOrder = {
-  id: string;
+  orderId: string;
   orderNo: string;
-  status: OrderStatus;
+  orderStatus: OrderStatus;
+  paymentId: string;
+  paymentNo: string;
+  paymentStatus: PaymentStatus;
 };
 
 async function uploadProof(file: File): Promise<string> {
@@ -36,9 +41,9 @@ async function uploadProof(file: File): Promise<string> {
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder> {
-  const proofPath = await uploadProof(input.proofFile);
+  const proofPath = input.proofFile ? await uploadProof(input.proofFile) : null;
 
-  const { data, error } = await supabase.rpc('create_order', {
+  const { data, error } = await supabase.rpc('create_order_with_payment', {
     p_customer_name: input.delivery.customerName,
     p_email: input.delivery.email,
     p_mobile: input.delivery.mobile,
@@ -55,9 +60,9 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     p_delivery_fee: input.deliveryFee,
     p_total: input.total,
     p_payment_method: input.paymentMethod,
-    p_payment_reference: input.referenceNumber,
-    p_payment_amount: input.amountPaid,
-    p_payment_date: input.paymentDate,
+    p_payment_reference: input.referenceNumber ?? null,
+    p_payment_amount: input.amountPaid ?? null,
+    p_payment_date: input.paymentDate ?? null,
     p_payment_proof_path: proofPath,
   });
 
@@ -65,5 +70,12 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error('Order was not created.');
 
-  return { id: row.id, orderNo: row.order_no, status: row.status };
+  return {
+    orderId: row.order_id,
+    orderNo: row.order_no,
+    orderStatus: row.order_status,
+    paymentId: row.payment_id,
+    paymentNo: row.payment_no,
+    paymentStatus: row.payment_status,
+  };
 }

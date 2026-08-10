@@ -1,12 +1,16 @@
 # Lean & Fit Protein Coffee - Website MVP
 
 Premium, CTR-focused product landing page with a manual-payment checkout
-and order-verification backend, for Lean & Fit Protein Coffee (paid
-social → landing page → checkout, no online payment gateway for MVP).
+(GCash, Maya, Bank Transfer, Cash on Delivery) and order-verification
+backend, for Lean & Fit Protein Coffee (paid social → landing page →
+checkout). Payment is architected as `Order → Payment → Provider` so a
+future PayMongo integration slots in as another provider without
+rebuilding checkout, orders, or admin - see [`CLAUDE.md`](./CLAUDE.md) §6.
 
-Full build spec: see the client CLAUDE.md this repo was built from (build
-sequence, brand system, content rules, RLS design, conversion
-instrumentation plan).
+Full build spec: [`CLAUDE.md`](./CLAUDE.md) (build sequence, brand system,
+content rules, payment architecture, RLS design, conversion
+instrumentation plan). v2 supersedes the original v1 payment schema - see
+CLAUDE.md §16 if you're trying to reconcile the two.
 
 ## Stack
 
@@ -36,22 +40,26 @@ Backend setup (Supabase project, schema, Edge Functions, secrets): see
 src/
   content/       product.ts, faq.ts, payment.ts, emails.ts, site.ts
                  - single source of truth for all product facts, claims,
-                 pricing, FAQ, payment details, and email copy. Nothing
-                 product-related is hardcoded in components.
+                 pricing, FAQ, payment methods (config-driven, CLAUDE.md
+                 §6a), and email copy. Nothing product-related is
+                 hardcoded in components.
   components/
-    layout/      Nav, Footer, StickyCTA, PublicLayout, Logo
+    layout/      Nav, Footer, StickyCTA, PublicLayout, Logo, ScrollToTop
     home/        the 11 homepage sections
     checkout/    order summary, delivery form, payment method, proof upload
-    admin/       auth gate, layout, status controls
+    admin/       auth gate, layout, status controls (order + payment)
     ui/          shared primitives (buttons, badges, qty stepper, ...)
   pages/         route-level components (Home, Checkout, OrderConfirmed,
                  admin/*)
   store/         Zustand cart/checkout state
-  lib/           supabase client, order creation, admin queries, Meta
-                 Pixel helpers, validation, formatting, email notify
-  types/         Order / OrderStatus types (mirrors the DB schema)
+  lib/           supabase client, order+payment creation, admin queries,
+                 Meta Pixel helpers, validation, formatting, email notify
+  types/         order.ts (fulfillment) + payment.ts (payment lifecycle) -
+                 deliberately separate types mirroring the DB split, see
+                 CLAUDE.md §6.8/§10
 supabase/
-  schema.sql     tables, RLS, storage bucket, create_order() RPC
+  schema.sql     orders/payments/history tables, RLS, storage bucket,
+                 create_order_with_payment() RPC
   functions/     send-order-email, capi-purchase (Deno Edge Functions)
 ```
 
@@ -59,7 +67,8 @@ supabase/
 
 The site is fully built and functional, but several product facts are
 placeholders pending client sign-off (`src/content/product.ts` and
-`src/content/payment.ts` are flagged inline with `⛔`):
+`src/content/payment.ts` are flagged inline with `⛔`) - see CLAUDE.md §15
+for the canonical list:
 
 1. **Delivery fee/coverage.** Base price is locked at ₱250. `PRODUCT.deliveryFee`
    is still `0` as a placeholder - client must confirm actual delivery
@@ -72,8 +81,9 @@ placeholders pending client sign-off (`src/content/product.ts` and
    unconfirmed medical/functional claims - currently framed as lifestyle
    claims by default).
 5. Locked tagline (a default set is in place).
-6. Real GCash + bank account details and GCash QR image
-   (`src/content/payment.ts`).
+6. Real GCash, Maya, and bank account details + **GCash and Maya QR
+   images** (`src/content/payment.ts`). Cash on Delivery needs no account
+   details and is ready as-is.
 7. Business notification inbox + who verifies payments
    (`BUSINESS_NOTIFICATION_EMAIL` secret).
 8. Testimonials, FAQ answers. (Logo, hero, product, and lifestyle
@@ -82,13 +92,17 @@ placeholders pending client sign-off (`src/content/product.ts` and
 ## Conversion instrumentation
 
 Meta Pixel fires `PageView`, `ViewContent` (product section in view),
-`InitiateCheckout`, `AddPaymentInfo`, and `Purchase` (on order submission,
-client-side, with `eventID = orderId` for future CAPI dedup) - see
-`src/lib/pixel.ts`. Routing is real routed pages (not hash routes) so
-Meta's URL-based custom conversions work. The `capi-purchase` Edge
-Function is a scaffolded stub for phase 2 (server-side Purchase/
-PaymentVerified event on admin "Payment Approved") - not wired into the
-admin flow yet.
+`InitiateCheckout`, `AddPaymentInfo`, and `Purchase` (on order submission -
+manual or COD alike, client-side, with `eventID = orderId` for future CAPI
+dedup) - see `src/lib/pixel.ts`. Routing is real routed pages (not hash
+routes) so Meta's URL-based custom conversions work.
+
+The `capi-purchase` Edge Function is a scaffolded stub for phase 2: a
+server-side `Purchase` fired whenever `payment.status → paid` (verified
+manual payment, COD collected, or a future gateway) - not wired into the
+admin flow yet. Because payment is its own record independent of the
+order, this one trigger point will cover every current and future payment
+method without further checkout changes.
 
 ## Deploying to Cloudflare Pages
 
@@ -122,9 +136,16 @@ Supabase/Resend/Meta secrets (§ above) are separate from Pages - they're
 Supabase Edge Function secrets, not Cloudflare env vars, since they must
 never reach the client bundle.
 
-## Out of scope (MVP)
+## Out of scope (this launch)
 
-Online payment gateway, automated payment verification, card processing,
-GCash/Maya API, customer accounts, subscriptions, loyalty, inventory,
-courier API, marketplace integrations, advanced CRM/analytics,
-coupon/promo engine.
+Live PayMongo integration · PayMongo API implementation · automated
+payment gateway processing · automated payment reconciliation ·
+automated refunds/payouts · customer accounts · subscriptions · loyalty ·
+inventory · courier API · Shopee/Lazada/TikTok Shop · advanced
+CRM/analytics · coupon/promo engine.
+
+**Included:** manual GCash/Maya/Bank Transfer, Cash on Delivery, proof
+upload, admin verification, two-axis payment/order status management,
+and a payment-provider-ready architecture (tables, `provider` field,
+status abstraction) so PayMongo can be added later as config, not a
+rebuild - see CLAUDE.md §13 for the hard build-scope rule this follows.

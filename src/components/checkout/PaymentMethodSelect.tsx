@@ -1,5 +1,5 @@
-import { PAYMENT_METHODS, PAYMENT_INSTRUCTIONS } from '../../content/payment';
-import type { PaymentMethodId } from '../../types/order';
+import { PAYMENT_METHODS } from '../../content/payment';
+import type { PaymentMethodId } from '../../types/payment';
 
 export function PaymentMethodSelect({
   selected,
@@ -8,21 +8,24 @@ export function PaymentMethodSelect({
   selected: PaymentMethodId | null;
   onSelect: (id: PaymentMethodId) => void;
 }) {
-  const active = PAYMENT_METHODS.find((m) => m.id === selected);
+  const active = PAYMENT_METHODS.find((m) => m.code === selected);
 
   return (
     <div className="rounded-sm border border-white/10 bg-lf-charcoal p-6 sm:p-8">
       <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Payment Method</h2>
-      <p className="mt-2 text-sm text-lf-cream/70">{PAYMENT_INSTRUCTIONS}</p>
+      <p className="mt-2 text-sm text-lf-cream/70">
+        Choose how you'd like to pay. GCash, Maya, and Bank Transfer require proof of payment;
+        Cash on Delivery doesn't.
+      </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         {PAYMENT_METHODS.map((method) => (
           <button
-            key={method.id}
+            key={method.code}
             type="button"
-            onClick={() => onSelect(method.id)}
+            onClick={() => onSelect(method.code)}
             className={`rounded-sm border px-4 py-3 text-left font-kicker text-sm uppercase tracking-wide2 transition-colors ${
-              selected === method.id
+              selected === method.code
                 ? 'border-lf-gold bg-lf-gold/10 text-lf-gold'
                 : 'border-white/15 text-lf-cream/80 hover:border-lf-gold/50'
             }`}
@@ -34,39 +37,51 @@ export function PaymentMethodSelect({
 
       {active && (
         <div className="mt-5 rounded-sm border border-white/10 bg-lf-black p-5 text-sm">
-          {active.id === 'gcash' ? (
-            <dl className="tabular space-y-1.5">
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Account Name</dt>
-                <dd className="text-lf-white">{active.accountName}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Account Number</dt>
-                <dd className="text-lf-white">{active.accountNumber}</dd>
-              </div>
-              {active.qrImageUrl ? (
-                <img src={active.qrImageUrl} alt="GCash QR code" className="mt-3 w-40" />
+          {active.code === 'cod' && (
+            <p className="text-lf-cream/80">{active.instructions}</p>
+          )}
+
+          {(active.code === 'gcash' || active.code === 'maya') && (
+            <>
+              <p className="mb-3 text-lf-cream/70">{active.instructions}</p>
+              <dl className="tabular space-y-1.5">
+                <div className="flex justify-between">
+                  <dt className="text-lf-cream/60">Account Name</dt>
+                  <dd className="text-lf-white">{active.account.name}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-lf-cream/60">Account Number</dt>
+                  <dd className="text-lf-white">{active.account.number}</dd>
+                </div>
+              </dl>
+              {active.qr ? (
+                <img src={active.qr} alt={`${active.label} QR code`} className="mt-3 w-40" />
               ) : (
                 <p className="mt-3 text-xs text-lf-cream/50">
                   QR code coming soon - please pay using the account details above.
                 </p>
               )}
-            </dl>
-          ) : (
-            <dl className="tabular space-y-1.5">
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Bank</dt>
-                <dd className="text-lf-white">{active.bankName}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Account Name</dt>
-                <dd className="text-lf-white">{active.accountName}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Account Number</dt>
-                <dd className="text-lf-white">{active.accountNumber}</dd>
-              </div>
-            </dl>
+            </>
+          )}
+
+          {active.code === 'bank_transfer' && (
+            <>
+              <p className="mb-3 text-lf-cream/70">{active.instructions}</p>
+              <dl className="tabular space-y-1.5">
+                <div className="flex justify-between">
+                  <dt className="text-lf-cream/60">Bank</dt>
+                  <dd className="text-lf-white">{active.account.bank}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-lf-cream/60">Account Name</dt>
+                  <dd className="text-lf-white">{active.account.name}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-lf-cream/60">Account Number</dt>
+                  <dd className="text-lf-white">{active.account.number}</dd>
+                </div>
+              </dl>
+            </>
           )}
         </div>
       )}

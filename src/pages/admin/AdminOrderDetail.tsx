@@ -2,26 +2,50 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { StatusControls } from '../../components/admin/StatusControls';
-import { getOrder, getOrderHistory, getProofSignedUrl } from '../../lib/adminOrders';
+import {
+  getOrder,
+  getOrderHistory,
+  getPayment,
+  getPaymentHistory,
+  getProofSignedUrl,
+} from '../../lib/adminOrders';
 import { formatPHP } from '../../lib/format';
-import { STATUS_EMOJI, STATUS_LABELS } from '../../types/order';
+import { ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../types/order';
 import type { Order, OrderStatusHistory } from '../../types/order';
+import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
+import type { Payment, PaymentStatusHistory } from '../../types/payment';
+
+const METHOD_LABELS: Record<string, string> = {
+  gcash: 'GCash',
+  maya: 'Maya',
+  bank_transfer: 'Bank Transfer',
+  cod: 'Cash on Delivery',
+};
+
+const PROVIDER_LABELS: Record<string, string> = {
+  manual: 'Manual',
+  cod: 'COD',
+};
 
 export default function AdminOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
-  const [history, setHistory] = useState<OrderStatusHistory[]>([]);
+  const [payment, setPayment] = useState<Payment | null>(null);
+  const [orderHistory, setOrderHistory] = useState<OrderStatusHistory[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentStatusHistory[]>([]);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const [o, h] = await Promise.all([getOrder(id), getOrderHistory(id)]);
+      const [o, p, oh] = await Promise.all([getOrder(id), getPayment(id), getOrderHistory(id)]);
       setOrder(o);
-      setHistory(h);
-      if (o.payment_proof_path) {
-        setProofUrl(await getProofSignedUrl(o.payment_proof_path));
+      setPayment(p);
+      setOrderHistory(oh);
+      if (p) {
+        setPaymentHistory(await getPaymentHistory(p.id));
+        if (p.proof_path) setProofUrl(await getProofSignedUrl(p.proof_path));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load order.');
@@ -59,7 +83,7 @@ export default function AdminOrderDetail() {
           {order.order_no}
         </h1>
         <span className="rounded-full border border-white/10 bg-lf-charcoal px-4 py-1.5 text-sm">
-          {STATUS_EMOJI[order.status]} {STATUS_LABELS[order.status]}
+          {ORDER_STATUS_EMOJI[order.status]} {ORDER_STATUS_LABELS[order.status]}
         </span>
       </div>
 
@@ -80,45 +104,91 @@ export default function AdminOrderDetail() {
           </section>
 
           <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-              Product &amp; Payment
-            </h2>
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Product</h2>
             <dl className="tabular mt-3 space-y-1.5 text-sm">
               <Row label="Product" value={`${order.product} × ${order.quantity}`} />
               <Row label="Unit Price" value={formatPHP(order.unit_price)} />
               <Row label="Subtotal" value={formatPHP(order.subtotal)} />
               <Row label="Delivery Fee" value={formatPHP(order.delivery_fee)} />
               <Row label="Total" value={formatPHP(order.total)} />
-              <Row label="Payment Method" value={order.payment_method} />
-              <Row label="Reference" value={order.payment_reference ?? ' - '} />
-              <Row label="Amount Paid" value={order.payment_amount ? formatPHP(order.payment_amount) : ' - '} />
-              <Row label="Payment Date" value={order.payment_date ?? ' - '} />
               {order.courier && <Row label="Courier" value={order.courier} />}
               {order.tracking_number && <Row label="Tracking" value={order.tracking_number} />}
             </dl>
+          </section>
 
-            {proofUrl ? (
-              <a href={proofUrl} target="_blank" rel="noreferrer" className="mt-4 block">
-                <img src={proofUrl} alt="Payment proof" className="max-h-64 rounded-sm border border-white/10" />
-              </a>
+          {/* Unified payment panel - identical layout regardless of provider, per CLAUDE.md §9. */}
+          <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Payment</h2>
+            {payment ? (
+              <>
+                <dl className="tabular mt-3 space-y-1.5 text-sm">
+                  <Row label="Method" value={METHOD_LABELS[payment.method] ?? payment.method} />
+                  <Row label="Provider" value={PROVIDER_LABELS[payment.provider] ?? payment.provider} />
+                  <Row
+                    label="Payment Status"
+                    value={`${PAYMENT_STATUS_EMOJI[payment.status]} ${PAYMENT_STATUS_LABELS[payment.status]}`}
+                  />
+                  <Row label="Amount" value={formatPHP(payment.amount)} />
+                  {payment.reference && <Row label="Reference" value={payment.reference} />}
+                  {payment.payment_date && <Row label="Payment Date" value={payment.payment_date} />}
+                  {payment.verified_at && (
+                    <Row label="Verified At" value={new Date(payment.verified_at).toLocaleString('en-PH')} />
+                  )}
+                </dl>
+
+                {payment.provider === 'manual' &&
+                  (proofUrl ? (
+                    <a href={proofUrl} target="_blank" rel="noreferrer" className="mt-4 block">
+                      <img
+                        src={proofUrl}
+                        alt="Payment proof"
+                        className="max-h-64 rounded-sm border border-white/10"
+                      />
+                    </a>
+                  ) : (
+                    <p className="mt-4 text-xs text-lf-cream/50">No proof of payment on file.</p>
+                  ))}
+              </>
             ) : (
-              <p className="mt-4 text-xs text-lf-cream/50">No proof of payment on file.</p>
+              <p className="mt-3 text-sm text-lf-cream/50">No payment record found.</p>
             )}
           </section>
         </div>
 
         <div className="space-y-6">
-          <StatusControls order={order} onUpdated={load} />
+          <StatusControls order={order} payment={payment} onUpdated={load} />
 
           <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
             <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-              Status History
+              Order Status History
             </h2>
             <ol className="mt-3 space-y-3 text-sm">
-              {history.map((h) => (
+              {orderHistory.map((h) => (
                 <li key={h.id} className="border-l-2 border-lf-gold/40 pl-3">
                   <p className="text-lf-white">
-                    {STATUS_EMOJI[h.status]} {STATUS_LABELS[h.status]}
+                    {ORDER_STATUS_EMOJI[h.status]} {ORDER_STATUS_LABELS[h.status]}
+                  </p>
+                  <p className="text-xs text-lf-cream/50">
+                    {new Date(h.created_at).toLocaleString('en-PH')}
+                    {h.note ? ` - ${h.note}` : ''}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+              Payment Status History
+            </h2>
+            <ol className="mt-3 space-y-3 text-sm">
+              {paymentHistory.length === 0 && (
+                <li className="text-xs text-lf-cream/50">No payment history yet.</li>
+              )}
+              {paymentHistory.map((h) => (
+                <li key={h.id} className="border-l-2 border-lf-gold/40 pl-3">
+                  <p className="text-lf-white">
+                    {PAYMENT_STATUS_EMOJI[h.status]} {PAYMENT_STATUS_LABELS[h.status]}
                   </p>
                   <p className="text-xs text-lf-cream/50">
                     {new Date(h.created_at).toLocaleString('en-PH')}

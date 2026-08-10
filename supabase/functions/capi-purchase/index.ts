@@ -1,17 +1,24 @@
 // Supabase Edge Function - CAPI Purchase stub (phase 2, not MVP-blocking).
 //
-// CLAUDE.md §8: once volume allows, fire a server-side event on admin
-// "Payment Approved" - a clean, verified-revenue signal deduped against
-// the client-side Purchase pixel event via `eventID = orderId`.
+// CLAUDE.md §8: fire a server-side event whenever `payment.status -> paid`
+// - a clean, verified-revenue signal covering manual GCash/Maya/Bank
+// (admin-approved), COD (admin marks paid on collection), and a future
+// gateway alike, deduped against the client-side Purchase pixel event via
+// `eventID = orderId`. Because payment is its own record (§6.8/§11), this
+// one trigger point covers every provider with zero checkout changes.
 //
 // Wiring this up (not done yet):
-//   1. Call this function from the admin "Approve Payment" action
-//      (StatusControls in src/components/admin/StatusControls.tsx), passing
+//   1. Call this function whenever a payment's status transitions to `paid`
+//      (StatusControls in src/components/admin/StatusControls.tsx -
+//      "Approve Payment" for manual, "Mark Paid" for COD), passing
 //      { orderId }.
 //   2. Set META_CAPI_TOKEN via `supabase secrets set META_CAPI_TOKEN=...`.
 //   3. Decide: dedupe as `Purchase` (same eventID as the client pixel event)
 //      or send a distinct `PaymentVerified` custom event and switch ad
 //      optimization to it once volume allows. This stub sends `Purchase`.
+//   COD caveat (§8): the client-side Purchase already fired at order
+//   confirmation, before cash was actually collected - this CAPI event is
+//   what makes the COD "paid" signal trustworthy for optimization.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 

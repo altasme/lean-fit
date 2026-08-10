@@ -1,15 +1,19 @@
 // Supabase Edge Function - sends customer + business order emails via Resend.
 //
 // Invoked by:
-//  - the client, right after a successful checkout (`event: "submitted"`)
-//  - the admin dashboard, right after a status change (`event: "<new status>"`)
+//  - the client, right after a successful checkout (`event: "order_submitted"` /
+//    `"order_confirmed_cod"`)
+//  - the admin dashboard, right after a status change (`event: "payment_approved"` /
+//    `"payment_rejected"` / `"packing"` / `"shipped"`)
 //
 // Secrets required (set with `supabase secrets set KEY=value`):
 //   RESEND_API_KEY, BUSINESS_NOTIFICATION_EMAIL, SUPABASE_SERVICE_ROLE_KEY
 // SUPABASE_URL is provided automatically in the Edge Function runtime.
 //
-// See CLAUDE.md §10 for the subject/status mapping this mirrors from
-// src/content/emails.ts (kept in sync manually - see note there).
+// See CLAUDE.md §10 for the subject/event mapping this mirrors from
+// src/content/emails.ts (kept in sync manually - see note there). Order and
+// payment now live in separate tables (CLAUDE.md §6/§11), so this function
+// joins both by order_id rather than reading payment fields off `orders`.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -22,38 +26,40 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
 );
 
-type OrderStatus =
-  | 'pending_payment'
-  | 'payment_verification'
+type OrderEmailEvent =
+  | 'order_submitted'
+  | 'order_confirmed_cod'
   | 'payment_approved'
+  | 'payment_rejected'
   | 'packing'
-  | 'shipped'
-  | 'completed'
-  | 'payment_rejected';
+  | 'shipped';
 
-const CUSTOMER_SUBJECTS: Partial<Record<OrderStatus, (orderNo: string) => string>> = {
-  payment_verification: (orderNo) => `Lean & Fit Order Received - #${orderNo}`,
+const CUSTOMER_SUBJECTS: Record<OrderEmailEvent, (orderNo: string) => string> = {
+  order_submitted: (orderNo) => `Lean & Fit Order Received - #${orderNo}`,
+  order_confirmed_cod: () => 'Your Lean & Fit COD Order Is Confirmed',
   payment_approved: () => 'Your Lean & Fit Payment Has Been Verified',
+  payment_rejected: () => 'Action Required - Lean & Fit Payment Verification',
   packing: () => 'Your Lean & Fit Order Is Being Packed',
   shipped: () => 'Your Lean & Fit Order Has Shipped',
-  payment_rejected: () => 'Action Required - Lean & Fit Payment Verification',
 };
 
-function renderCustomerBody(status: OrderStatus, order: Record<string, unknown>): string {
+function renderCustomerBody(event: OrderEmailEvent, order: Record<string, unknown>): string {
   const name = order.customer_name as string;
   const orderNo = order.order_no as string;
 
-  switch (status) {
-    case 'payment_verification':
+  switch (event) {
+    case 'order_submitted':
       return `<p>Hi ${name},</p><p>Thanks for your order. We've received your order and payment details for <strong>#${orderNo}</strong> and our team is verifying your payment now. We'll email you as soon as it's confirmed.</p>`;
+    case 'order_confirmed_cod':
+      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is confirmed for Cash on Delivery. Please have ₱${order.total} ready when your order arrives.</p>`;
     case 'payment_approved':
       return `<p>Hi ${name},</p><p>Your payment for order <strong>#${orderNo}</strong> has been verified. We're getting your Lean & Fit Protein Coffee ready.</p>`;
+    case 'payment_rejected':
+      return `<p>Hi ${name},</p><p>We couldn't verify the payment details submitted for order <strong>#${orderNo}</strong>. Please reply to this email or resubmit your proof of payment so we can continue processing your order.</p>`;
     case 'packing':
       return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is being packed and will ship soon.</p>`;
     case 'shipped':
       return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is on its way via ${order.courier ?? 'our courier'} - tracking number ${order.tracking_number ?? 'TBD'}.</p>`;
-    case 'payment_rejected':
-      return `<p>Hi ${name},</p><p>We couldn't verify the payment details submitted for order <strong>#${orderNo}</strong>. Please reply to this email or resubmit your proof of payment so we can continue processing your order.</p>`;
     default:
       return `<p>Hi ${name}, there's an update on your order #${orderNo}.</p>`;
   }
@@ -82,28 +88,34 @@ async function sendResendEmail(to: string, subject: string, html: string) {
 
 Deno.serve(async (req) => {
   try {
-    const { orderId, status: rawStatus, isNewOrder } = await req.json();
-    if (!orderId || !rawStatus) {
-      return new Response(JSON.stringify({ error: 'orderId and status are required' }), {
+    const { orderId, event: rawEvent, isNewOrder } = await req.json();
+    if (!orderId || !rawEvent) {
+      return new Response(JSON.stringify({ error: 'orderId and event are required' }), {
         status: 400,
       });
     }
 
-    const { data: order, error } = await supabaseAdmin
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single();
 
-    if (error || !order) {
+    if (orderError || !order) {
       return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
     }
 
-    const status = rawStatus as OrderStatus;
-    const subjectFn = CUSTOMER_SUBJECTS[status];
+    const { data: payment } = await supabaseAdmin
+      .from('payments')
+      .select('*')
+      .eq('order_id', orderId)
+      .maybeSingle();
+
+    const event = rawEvent as OrderEmailEvent;
+    const subjectFn = CUSTOMER_SUBJECTS[event];
 
     if (subjectFn) {
-      await sendResendEmail(order.email, subjectFn(order.order_no), renderCustomerBody(status, order));
+      await sendResendEmail(order.email, subjectFn(order.order_no), renderCustomerBody(event, order));
     }
 
     if (isNewOrder && BUSINESS_EMAIL) {
@@ -112,7 +124,7 @@ Deno.serve(async (req) => {
         `New Order - #${order.order_no}`,
         `<p>New order <strong>#${order.order_no}</strong> from ${order.customer_name} (${order.email}, ${order.mobile}).</p>
          <p>Product: ${order.product} × ${order.quantity}<br/>Total: ₱${order.total}</p>
-         <p>Payment method: ${order.payment_method} - ref ${order.payment_reference ?? 'n/a'}</p>`,
+         <p>Payment method: ${payment?.method ?? 'n/a'} - ref ${payment?.reference ?? 'n/a'}</p>`,
       );
     }
 

@@ -1,13 +1,6 @@
-export type OrderStatus =
-  | 'pending_payment'
-  | 'payment_verification'
-  | 'payment_approved'
-  | 'packing'
-  | 'shipped'
-  | 'completed'
-  | 'payment_rejected';
-
-export type PaymentMethodId = 'gcash' | 'bank_transfer';
+// Fulfillment lifecycle only - payment lives in its own record, see
+// types/payment.ts. Do not merge these two axes; see CLAUDE.md §10.
+export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'shipped' | 'completed' | 'cancelled';
 
 export type Order = {
   id: string;
@@ -27,14 +20,11 @@ export type Order = {
   subtotal: number;
   delivery_fee: number;
   total: number;
-  payment_method: PaymentMethodId;
-  payment_reference: string | null;
-  payment_amount: number | null;
-  payment_date: string | null;
-  payment_proof_path: string | null;
   status: OrderStatus;
   courier: string | null;
   tracking_number: string | null;
+  ref_code: string | null;
+  reseller_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -59,30 +49,20 @@ export type DeliveryDetails = {
   deliveryNotes?: string;
 };
 
-export type PaymentProof = {
-  method: PaymentMethodId;
-  referenceNumber: string;
-  amountPaid: number;
-  paymentDate: string;
-  file: File | null;
-};
-
-export const STATUS_LABELS: Record<OrderStatus, string> = {
-  pending_payment: 'Pending Payment',
-  payment_verification: 'Payment Verification',
-  payment_approved: 'Payment Approved',
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
   packing: 'Packing',
   shipped: 'Shipped',
   completed: 'Completed',
-  payment_rejected: 'Payment Rejected',
+  cancelled: 'Cancelled',
 };
 
-export const STATUS_EMOJI: Record<OrderStatus, string> = {
-  pending_payment: '⚪',
-  payment_verification: '🟡',
-  payment_approved: '🟢',
+export const ORDER_STATUS_EMOJI: Record<OrderStatus, string> = {
+  pending: '⚪',
+  confirmed: '🟢',
   packing: '🟣',
   shipped: '🔵',
   completed: '✅',
-  payment_rejected: '🔴',
+  cancelled: '⚫',
 };

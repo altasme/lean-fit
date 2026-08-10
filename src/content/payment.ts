@@ -1,40 +1,80 @@
 /**
- * Payment method details. ⛔ Placeholder account details - client must
- * supply final GCash + bank account info and QR image (see §15.6).
+ * Payment method configuration - CLAUDE.md §6a. Config-driven so adding a
+ * method never requires touching checkout/order/admin structure.
+ *
+ * ⛔ Placeholder account details/QR - client must supply final GCash, Maya,
+ * and bank account info + QR images (see CLAUDE.md §15.6).
  */
 
-export type PaymentMethod =
+export type PaymentMethodConfig =
   | {
-      id: 'gcash';
-      label: 'GCash';
-      accountName: string;
-      accountNumber: string;
-      qrImageUrl: string | null;
+      code: 'gcash' | 'maya';
+      label: string;
+      provider: 'manual';
+      requiresProof: true;
+      instructions: string;
+      account: { name: string; number: string };
+      qr: string | null;
     }
   | {
-      id: 'bank_transfer';
-      label: 'Bank Transfer';
-      bankName: string;
-      accountName: string;
-      accountNumber: string;
+      code: 'bank_transfer';
+      label: string;
+      provider: 'manual';
+      requiresProof: true;
+      instructions: string;
+      account: { bank: string; name: string; number: string };
+    }
+  | {
+      code: 'cod';
+      label: string;
+      provider: 'cod';
+      requiresProof: false;
+      instructions: string;
     };
 
-export const PAYMENT_METHODS: PaymentMethod[] = [
+export const PAYMENT_METHODS: PaymentMethodConfig[] = [
   {
-    id: 'gcash',
+    code: 'gcash',
     label: 'GCash',
-    accountName: 'Lean & Fit Protein Coffee', // ⛔ confirm with client
-    accountNumber: '09XX XXX XXXX', // ⛔ confirm with client
-    qrImageUrl: null, // ⛔ client to supply GCash QR image
+    provider: 'manual',
+    requiresProof: true,
+    instructions: 'Pay first via GCash, then upload your proof of payment to submit your order.',
+    account: {
+      name: 'Lean & Fit Protein Coffee', // ⛔ confirm with client
+      number: '09XX XXX XXXX', // ⛔ confirm with client
+    },
+    qr: null, // ⛔ client to supply GCash QR image
   },
   {
-    id: 'bank_transfer',
+    code: 'maya',
+    label: 'Maya',
+    provider: 'manual',
+    requiresProof: true,
+    instructions: 'Pay first via Maya, then upload your proof of payment to submit your order.',
+    account: {
+      name: 'Lean & Fit Protein Coffee', // ⛔ confirm with client
+      number: '09XX XXX XXXX', // ⛔ confirm with client
+    },
+    qr: null, // ⛔ client to supply Maya QR image
+  },
+  {
+    code: 'bank_transfer',
     label: 'Bank Transfer',
-    bankName: 'TBD', // ⛔ confirm with client
-    accountName: 'Lean & Fit Protein Coffee', // ⛔ confirm with client
-    accountNumber: 'TBD', // ⛔ confirm with client
+    provider: 'manual',
+    requiresProof: true,
+    instructions:
+      'Pay first via bank transfer, then upload your proof of payment to submit your order.',
+    account: {
+      bank: 'TBD', // ⛔ confirm with client
+      name: 'Lean & Fit Protein Coffee', // ⛔ confirm with client
+      number: 'TBD', // ⛔ confirm with client
+    },
+  },
+  {
+    code: 'cod',
+    label: 'Cash on Delivery',
+    provider: 'cod',
+    requiresProof: false,
+    instructions: 'Pay in cash when your order arrives.',
   },
 ];
-
-export const PAYMENT_INSTRUCTIONS =
-  'Pay first using your selected method below, then upload your proof of payment to submit your order.';
