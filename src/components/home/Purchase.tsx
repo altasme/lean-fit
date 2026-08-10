@@ -53,7 +53,7 @@ export function Purchase() {
             disabled={priceUnavailable}
             onClick={() => navigate('/checkout')}
           >
-            {priceUnavailable ? 'Price Coming Soon' : 'Order Now'}
+            {priceUnavailable ? 'Price Coming Soon' : 'Buy Now'}
           </button>
           {priceUnavailable && (
             <p className="mt-3 text-center text-xs text-lf-cream/50">

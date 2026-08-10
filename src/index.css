@@ -28,8 +28,9 @@
 
   .btn-gold {
     @apply inline-flex items-center justify-center gap-2 rounded-sm bg-lf-gold px-8 py-4
-      font-kicker text-lg uppercase tracking-wide2 text-lf-black
-      transition-shadow duration-200 hover:shadow-gold-glow focus-visible:shadow-gold-glow
+      font-kicker text-lg uppercase tracking-wide3 text-lf-black shadow-gold-glow
+      animate-pulse-glow transition-transform duration-200 hover:scale-[1.04]
+      hover:shadow-gold-glow focus-visible:shadow-gold-glow
       outline-none focus-visible:ring-2 focus-visible:ring-lf-gold focus-visible:ring-offset-2
       focus-visible:ring-offset-lf-black;
   }

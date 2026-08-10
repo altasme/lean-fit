@@ -3,7 +3,7 @@ import { OrderNowButton } from '../ui/OrderNowButton';
 
 /**
  * Sticky mobile CTA bar - appears once the #hero section has scrolled out
- * of view. Desktop already shows the nav's Order Now button, so this stays
+ * of view. Desktop already shows the nav's Buy Now button, so this stays
  * mobile-only.
  */
 export function StickyCTA() {

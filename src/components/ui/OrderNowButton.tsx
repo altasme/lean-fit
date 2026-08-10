@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 export function OrderNowButton({
   className = '',
   variant = 'solid',
-  children = 'Order Now',
+  children = 'Buy Now',
 }: {
   className?: string;
   variant?: 'solid' | 'outline';

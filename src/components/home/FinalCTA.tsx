@@ -16,7 +16,7 @@ export function FinalCTA() {
           {TAGLINE.primary}
         </h2>
         <p className="mx-auto mt-6 max-w-md text-lf-cream/80">{TAGLINE.supporting}</p>
-        <OrderNowButton className="mt-10">Order Lean &amp; Fit</OrderNowButton>
+        <OrderNowButton className="mt-10">Buy Lean &amp; Fit</OrderNowButton>
       </Container>
     </section>
   );

@@ -27,6 +27,15 @@ export default {
         wide2: '0.08em',
         wide3: '0.14em',
       },
+      keyframes: {
+        pulseGlow: {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(212, 175, 55, 0.55)' },
+          '50%': { boxShadow: '0 0 0 10px rgba(212, 175, 55, 0)' },
+        },
+      },
+      animation: {
+        'pulse-glow': 'pulseGlow 2.2s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
