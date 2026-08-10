@@ -14,16 +14,12 @@ export const PRODUCT = {
   sachetsPerBox: 10,
   boxGrams: 250,
 
-  /**
-   * ⛔ BLOCKING — client must supply base price (PHP). `null` until then.
-   * Every consumer of this value (purchase section, checkout, cart math)
-   * must handle `null` by disabling ordering, not by silently defaulting.
-   */
-  price: null as number | null,
+  price: 250 as number | null,
 
   /**
-   * Delivery fee(s). Placeholder flat rate — client must confirm coverage
-   * and pricing (see §15.1). Keep at 0 until confirmed rather than guessing.
+   * Delivery fee(s). ⛔ Still a placeholder flat rate — client must confirm
+   * coverage and pricing (see §15.1). Keep at 0 until confirmed rather than
+   * guessing.
    */
   deliveryFee: 0,
 

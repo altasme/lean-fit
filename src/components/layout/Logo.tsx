@@ -8,7 +8,7 @@ export function Logo({ full = false }: { full?: boolean }) {
       {full ? (
         <>
           <img src={monogram} alt="Lean & Fit" className="h-8 w-8 sm:hidden" />
-          <img src={lockup} alt="Lean & Fit Protein Coffee" className="hidden h-7 sm:block" />
+          <img src={lockup} alt="Lean & Fit Protein Coffee" className="hidden h-11 sm:block lg:h-12" />
         </>
       ) : (
         <img src={monogram} alt="Lean & Fit" className="h-8 w-8" />

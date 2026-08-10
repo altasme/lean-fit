@@ -61,9 +61,9 @@ The site is fully built and functional, but several product facts are
 placeholders pending client sign-off (`src/content/product.ts` and
 `src/content/payment.ts` are flagged inline with `⛔`):
 
-1. **Base price (PHP) + delivery fee/coverage.** `PRODUCT.price` is `null`
-   until supplied — the Purchase section and checkout both detect this and
-   block ordering ("Price Coming Soon") rather than guessing.
+1. **Delivery fee/coverage.** Base price is locked at ₱250. `PRODUCT.deliveryFee`
+   is still `0` as a placeholder — client must confirm actual delivery
+   pricing and coverage areas.
 2. Confirm the 20g/soya "image 11" design is dead — all copy currently
    assumes 15g whey / `@leanfitcoffee`.
 3. Final ingredient list + whether Senna Leaf Extract stays in the formula
@@ -76,8 +76,8 @@ placeholders pending client sign-off (`src/content/product.ts` and
    (`src/content/payment.ts`).
 7. Business notification inbox + who verifies payments
    (`BUSINESS_NOTIFICATION_EMAIL` secret).
-8. Vector logo (a text-token placeholder wordmark is used for nav/favicon
-   until supplied), final product photography, testimonials, FAQ answers.
+8. Testimonials, FAQ answers. (Logo, hero, product, and lifestyle
+   photography are now in from the client.)
 
 ## Conversion instrumentation
 
