@@ -7,6 +7,7 @@ import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
 import { PublicLayout } from './components/layout/PublicLayout';
+import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/admin/AuthProvider';
 import { RequireAuth } from './components/admin/RequireAuth';
 import { initPixel } from './lib/pixel';
@@ -30,6 +31,7 @@ function PixelInit() {
 export default function App() {
   return (
     <AuthProvider>
+      <ScrollToTop />
       <PixelInit />
       <Routes>
         <Route

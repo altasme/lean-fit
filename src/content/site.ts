@@ -41,6 +41,31 @@ export const LIFESTYLE_MOMENTS = [
   { label: 'On the Go', copy: 'Discipline doesn\'t wait for a kitchen.' },
 ] as const;
 
+/**
+ * ⛔ PLACEHOLDER — no real customer testimonials yet. These are illustrative
+ * only (structure/layout reference) and must be swapped for real, attributed
+ * customer quotes before launch. No fabricated review counts/ratings per
+ * §5.8 — that's why there are no star ratings or "N reviews" copy here.
+ */
+export const TESTIMONIALS = [
+  {
+    quote:
+      "It's the first coffee that actually fits my routine — protein and my caffeine fix in one sachet.",
+    name: 'Marco T.',
+    role: 'Placeholder — Lean & Fit Customer',
+  },
+  {
+    quote: 'Easy to prep, tastes good, and keeps me full until my next meal.',
+    name: 'Andrea L.',
+    role: 'Placeholder — Lean & Fit Customer',
+  },
+  {
+    quote: "Finally a coffee that doesn't derail the rest of my day.",
+    name: 'Jules R.',
+    role: 'Placeholder — Lean & Fit Customer',
+  },
+] as const;
+
 export const COMPARISON = {
   traditional: {
     title: 'Traditional Coffee',
