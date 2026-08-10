@@ -1,6 +1,19 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
 import { BENEFITS } from '../../content/site';
+import iconFuelsDiscipline from '../../assets/icons/fuels-discipline.svg';
+import iconLowSugar from '../../assets/icons/low-sugar-high-purpose.svg';
+import iconSupportsRecovery from '../../assets/icons/supports-recovery.svg';
+import iconGrabAndGo from '../../assets/icons/grab-and-go.svg';
+import iconGlutenFree from '../../assets/icons/gluten-free-keto-friendly.svg';
+
+const BENEFIT_ICONS: Record<string, string> = {
+  'Fuels Discipline': iconFuelsDiscipline,
+  'Low Sugar, High Purpose': iconLowSugar,
+  'Supports Recovery': iconSupportsRecovery,
+  'Grab & Go': iconGrabAndGo,
+  'Gluten Free & Keto Friendly': iconGlutenFree,
+};
 
 export function Benefits() {
   return (
@@ -16,9 +29,11 @@ export function Benefits() {
         <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
           {BENEFITS.map((b) => (
             <div key={b.title} className="text-center sm:text-left">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-lf-gold text-lf-gold sm:mx-0">
-                <span className="font-kicker text-xl">+</span>
-              </div>
+              <img
+                src={BENEFIT_ICONS[b.title]}
+                alt=""
+                className="mx-auto mb-4 h-16 w-16 sm:mx-0"
+              />
               <h3 className="font-kicker text-base uppercase tracking-wide2 text-lf-white">
                 {b.title}
               </h3>
