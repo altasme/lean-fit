@@ -136,6 +136,28 @@ Supabase/Resend/Meta secrets (§ above) are separate from Pages - they're
 Supabase Edge Function secrets, not Cloudflare env vars, since they must
 never reach the client bundle.
 
+### Admin on its own subdomain
+
+The admin app runs from this same deployment - no second Pages project,
+no separate build. `src/lib/hostRouting.ts` detects any hostname starting
+with `admin` at runtime and serves the order list at `/` instead of the
+marketing homepage; every `/admin/*` path keeps working normally on the
+main domain too, so this is purely additive.
+
+To turn it on, add the extra custom domain on the **same** Pages project
+(step 4 above, repeated) - no code change, no redeploy, no new env vars:
+- Dev: `adminleanfit.altasme.com`
+- Launch: `admin.<client-domain>` (domain TBD - client hasn't locked
+  `.ph` vs `.com` yet, see CLAUDE.md §15)
+
+A reseller portal (`rsleanfit.altasme.com` dev / `reseller.<client-domain>`
+launch) is intentionally not built yet - Phase 2 only added the
+`ref_code`/`reseller_id` stub columns on `orders` for future attribution
+(CLAUDE.md §11/§13). When that panel gets built, the same pattern applies:
+extend `ADMIN_HOST_PREFIXES`-style matching in `hostRouting.ts` for a
+`reseller`/`rs` prefix and add the domain in Cloudflare - no new
+deployment required.
+
 ## Out of scope (this launch)
 
 Live PayMongo integration · PayMongo API implementation · automated

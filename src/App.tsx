@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Checkout from './pages/Checkout';
 import OrderConfirmed from './pages/OrderConfirmed';
@@ -11,6 +11,7 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/admin/AuthProvider';
 import { RequireAuth } from './components/admin/RequireAuth';
 import { initPixel } from './lib/pixel';
+import { isAdminHost } from './lib/hostRouting';
 
 function PixelInit() {
   const location = useLocation();
@@ -29,19 +30,31 @@ function PixelInit() {
 }
 
 export default function App() {
+  // Same build/deployment serves the admin app on its own subdomain
+  // (adminleanfit.altasme.com today, admin.<client-domain> at launch) -
+  // see src/lib/hostRouting.ts. "/" on that host goes straight to the
+  // order list instead of the marketing homepage; every /admin/* path
+  // keeps working normally either way, so nothing breaks if DNS for the
+  // subdomain isn't live yet.
+  const onAdminHost = isAdminHost();
+
   return (
     <AuthProvider>
       <ScrollToTop />
       <PixelInit />
       <Routes>
-        <Route
-          path="/"
-          element={
-            <PublicLayout>
-              <Home />
-            </PublicLayout>
-          }
-        />
+        {onAdminHost ? (
+          <Route path="/" element={<Navigate to="/admin" replace />} />
+        ) : (
+          <Route
+            path="/"
+            element={
+              <PublicLayout>
+                <Home />
+              </PublicLayout>
+            }
+          />
+        )}
         <Route
           path="/checkout"
           element={
