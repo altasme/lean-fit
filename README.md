@@ -84,13 +84,16 @@ for the canonical list:
 6. Real GCash, Maya, and bank account details + **GCash and Maya QR
    images** (`src/content/payment.ts`). Cash on Delivery needs no account
    details and is ready as-is.
-7. Testimonials, FAQ answers. (Logo, hero, product, and lifestyle
+7. Testimonials, and final client-approved FAQ answers (`src/content/faq.ts`
+   now has an expanded placeholder set covering Product/Ordering while we
+   wait on the client's copy). (Logo, hero, product, and lifestyle
    photography are now in from the client.)
 
 Resolved: business notification inbox (`vanamaranto1@gmail.com`) and
 sender identity (`realfitorders@altasme.com`, domain verified in Resend)
 are set as Supabase Edge Function secrets - see
-[`supabase/README.md`](./supabase/README.md).
+[`supabase/README.md`](./supabase/README.md). Cloudflare Pages env vars
+and the `adminleanfit.altasme.com` custom domain are also live.
 
 ## Conversion instrumentation
 
