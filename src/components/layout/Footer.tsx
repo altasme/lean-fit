@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Container } from '../ui/Container';
 import { Logo } from './Logo';
 import { SITE } from '../../content/site';
@@ -11,6 +12,12 @@ export function Footer() {
           We don&apos;t just make coffee. We fuel your discipline and power your transformation.
         </p>
         <p className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">{SITE.social}</p>
+        <Link
+          to="/reseller"
+          className="font-kicker text-sm uppercase tracking-wide2 text-lf-cream transition-colors hover:text-lf-gold"
+        >
+          Become A Reseller
+        </Link>
         <p className="text-xs text-lf-cream/40">
           &copy; {new Date().getFullYear()} {SITE.fullName}. All rights reserved.
         </p>

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Checkout from './pages/Checkout';
 import OrderConfirmed from './pages/OrderConfirmed';
+import Reseller from './pages/Reseller';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
@@ -68,6 +69,14 @@ export default function App() {
           element={
             <PublicLayout>
               <OrderConfirmed />
+            </PublicLayout>
+          }
+        />
+        <Route
+          path="/reseller"
+          element={
+            <PublicLayout>
+              <Reseller />
             </PublicLayout>
           }
         />

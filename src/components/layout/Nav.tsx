@@ -33,7 +33,15 @@ export function Nav() {
             ),
           )}
         </nav>
-        <OrderNowButton className="!px-5 !py-2.5 !text-sm" />
+        <div className="flex items-center gap-3">
+          <Link
+            to="/reseller"
+            className="hidden font-kicker text-sm uppercase tracking-wide2 text-lf-cream transition-colors hover:text-lf-gold sm:inline"
+          >
+            Become A Reseller
+          </Link>
+          <OrderNowButton className="!px-5 !py-2.5 !text-sm" />
+        </div>
       </Container>
     </header>
   );
