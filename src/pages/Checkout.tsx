@@ -10,6 +10,7 @@ import { useActiveProduct } from '../hooks/useActiveProduct';
 import { PAYMENT_METHODS } from '../content/payment';
 import { createOrder } from '../lib/orders';
 import { notifyOrderEvent } from '../lib/notify';
+import { getStoredReferralCode } from '../lib/referral';
 import { validateDeliveryDetails, validateProof } from '../lib/validation';
 import { trackInitiateCheckout, trackAddPaymentInfo, trackPurchase } from '../lib/pixel';
 import type { DeliveryDetails } from '../types/order';
@@ -109,6 +110,7 @@ export default function Checkout() {
         deliveryFee,
         total,
         paymentMethod,
+        referralCode: getStoredReferralCode(),
         ...(requiresProof
           ? {
               referenceNumber,

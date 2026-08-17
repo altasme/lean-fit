@@ -43,14 +43,18 @@
    `CLOUDINARY_API_SECRET` must only ever be set here (an Edge Function
    secret) - never in `.env`, never as a `VITE_*` var. See "Admin Panel
    Phase 5" below for why.
-10. Run `migrations/0004` through `0007` in the SQL editor, in order (see
+10. Run `migrations/0004` through `0008` in the SQL editor, in order (see
     "Reseller Portal Part 1" sections below for what each adds). After
     0004, mark your admin account: find its id in **Authentication →
     Users** and run `insert into admin_users (user_id) values ('<uuid>');`
     - `RequireAuth` (the `/admin` route guard) now requires this row, not
     just a session, so skipping it locks the admin app's UI (data access
     was already RLS-gated on it since 0004/0007 - see "RLS retrofit"
-    below).
+    below). **If your project already has migrations 0002-0007 applied,
+    still run 0008** - it fixes a real pricing bug (see "Reseller Portal
+    Part 1, Phase E" below: `partner_pricing_tiers` had no anon-read
+    policy, so every partner package has been quoted at full SRP with 0%
+    tier discount since Phase C shipped).
 11. Deploy the partner-portal invite function and set its secret:
     ```bash
     supabase functions deploy invite-partner
@@ -67,7 +71,9 @@
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
 (`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
 Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
-not required for MVP launch). Migrations 0002-0007 have been applied.
+not required for MVP launch). Migrations 0002-0007 have been applied;
+**0008 still needs to be run** (see the pricing bug fix note above/below -
+it's additive/safe to run any time, no backfill required).
 `invite-partner` and its `SITE_URL` secret are not yet deployed/set - do
 that before relying on the "Approve Partner" button to also send the
 partner's portal invite (approval itself still works either way; only the
@@ -655,3 +661,93 @@ Not yet built: referral attribution during checkout, tier-aware partner
 pricing on orders, and the earnings/order/downline sections of the
 dashboard (Phase E/F) - see the repo's task list, "Reseller P1-E" and
 "P1-F".
+
+## Reseller Portal Part 1, Phase E (order routing, partner pricing, earnings)
+
+**Bug fix found and shipped in this migration:** `partner_pricing_tiers`
+has had no anon-read policy since it was created in migration 0002
+("partner pricing is not retail-facing" - true at the time, before
+`/reseller` existed). But Phase C's public package-payment step
+(`fetchPartnerPackage` in `src/lib/partners.ts`) already reads this table
+as `anon` to price an applicant's package - under RLS that select silently
+returned zero rows (not an error), `calculatePartnerPrice()` fell back to
+a 0% discount, and **every partner applicant has been quoted/charged full
+SRP instead of their tier price since Phase C shipped**, on the live
+project. `migrations/0008_referral_attribution_earnings.sql` adds
+`"anyone can read partner pricing tiers"` (`for select to anon,
+authenticated using (true)`) to fix this - tier discount percentages
+aren't sensitive, same reasoning as the public product/promotion read
+policies. **Action needed:** re-run migration 0008 on the live project;
+there's nothing to backfill (no completed/approved applications during
+the bug window per the current partner list), but any partner who
+submitted a package payment before this fix should have their package
+amount reviewed against their actual tier discount before approval.
+
+**`create_order_with_payment()`** (schema.sql's checkout RPC) gains one
+new optional trailing param, `p_referral_code` - existing callers that
+omit it are unaffected. The old 20-param signature is explicitly dropped
+first (same reason migration 0005 dropped `apply_for_partner`'s old
+signature - otherwise `create or replace` leaves it as a second, dead,
+still-callable overload with the pre-referral logic). When a code is
+given:
+- Resolves it against `partners` (`upper(referral_code) = upper(trim(...))`,
+  `status = 'active'` only) - an unknown/inactive/expired code is silently
+  ignored, checkout still succeeds, just unattributed.
+- On a match, snapshots `referral_partner_id`, `referral_partner_type`,
+  `referral_parent_partner_id`, `referral_territory_id` onto the new order
+  (spec §54-55: historical integrity - these are copied at order time, not
+  live-joined later, so they stay correct even if the partner's territory
+  or parent later changes).
+- Computes `partner_price` (the referring partner's tier price, from the
+  same active product + `partner_pricing_tiers` the retail price came
+  from) and `partner_earnings` = `greatest(0, (customer's actual unit
+  price - partner_price) * quantity)` - spec §26-27/§34's worked examples.
+  Clamped at 0 so a promo that undercuts the partner's tier price can't
+  produce a negative "earning."
+
+**Computed server-side, not client-supplied**, unlike `unit_price`/`total`
+(already client-trusted for the customer's own retail price, lower
+stakes): `partner_earnings` feeds a partner's future payout, so a tampered
+anon RPC call can't inflate it - the RPC looks up SRP and the tier
+discount itself at insert time.
+
+**Client wiring:**
+- `src/lib/referral.ts` - `captureReferralFromUrl()` reads `?ref=CODE`
+  from the URL into `localStorage` (spec §26: "must persist through
+  website browsing, product viewing, checkout, payment, order creation").
+  Called on every route change from `App.tsx`'s `PixelInit`, since a
+  referral link can land anywhere, not just `/`. No expiry/validation
+  client-side - last code seen wins until overwritten or replaced by a
+  real order attribution server-side; validation happens once,
+  authoritatively, in the RPC above.
+- `Checkout.tsx` reads `getStoredReferralCode()` and passes it through
+  `createOrder()` as `p_referral_code`.
+- `/admin/orders/:id` shows a new "Referral Attribution" section (partner
+  name, type, code, partner price, partner earnings) when an order has one
+  - read-only, no new admin actions yet.
+
+**Deliberately not built this phase** (see the spec's own §32-39, but note
+the document's own header already defers "dropship vs partner-fulfilled
+order visibility" to the Part 2 addendum): fulfillment routing to an
+upstream partner, manual-fulfillment vs. dropship selection, and
+partner-to-partner restock purchases with their own earnings chain
+(spec §28-29's distributor/franchise scenarios - a different transaction
+than a retail order, with no purchase flow built for it at all). Every
+order is still fulfilled by Lean & Fit admin exactly as before; this phase
+only adds attribution + earnings data, not a second fulfillment path.
+Partner-facing order/earnings visibility (spec §41-44) is Phase F.
+
+Verified: the RPC changes against a throwaway Postgres instance with the
+full migration chain applied (schema.sql + 0002-0008) - confirmed anon can
+now read `partner_pricing_tiers` (previously 0 rows, now 3); a valid
+referral code correctly attributes the order and computes
+`partner_price`/`partner_earnings` (reseller, 20% tier, SRP 250, qty 2 ->
+`partner_price` 200.00, `partner_earnings` 100.00); no code and an unknown
+code both leave every referral column null and the order still succeeds;
+a heavily-discounted order (paid less than the partner's tier price)
+clamps earnings to 0.00 rather than going negative. Client wiring verified
+interactively (mocked Supabase client, reverted before this commit):
+`?ref=MARIA` on any route persists to `localStorage`; submitting checkout
+sends `p_referral_code: 'MARIA'` through to the RPC call; `/admin/orders/:id`
+for an order with a referral partner renders the attribution section with
+the correct name, type, price, and earnings.

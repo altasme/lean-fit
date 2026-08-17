@@ -17,6 +17,8 @@ export type CreateOrderInput = {
   amountPaid?: number;
   paymentDate?: string;
   proofFile?: File;
+  /** From getStoredReferralCode() - resolved/validated server-side, see migration 0008. */
+  referralCode?: string | null;
 };
 
 export type CreatedOrder = {
@@ -52,6 +54,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     p_payment_amount: input.amountPaid ?? null,
     p_payment_date: input.paymentDate ?? null,
     p_payment_proof_path: proofPath,
+    p_referral_code: input.referralCode ?? null,
   });
 
   if (error) throw new Error(`Failed to create order: ${error.message}`);

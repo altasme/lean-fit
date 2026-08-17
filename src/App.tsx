@@ -28,6 +28,7 @@ import { RequirePartnerAuth } from './components/reseller/RequirePartnerAuth';
 import { ToastProvider } from './components/ui/Toast';
 import { initPixel } from './lib/pixel';
 import { isAdminHost } from './lib/hostRouting';
+import { captureReferralFromUrl } from './lib/referral';
 
 function PixelInit() {
   const location = useLocation();
@@ -41,6 +42,12 @@ function PixelInit() {
     // beyond the first load re-fire it so SPA navigation is captured.
     window.fbq?.('track', 'PageView');
   }, [location.pathname]);
+
+  useEffect(() => {
+    // A partner's referral link can land anywhere, not just "/" - capture
+    // `?ref=` on every route change (spec Part 1 §26).
+    captureReferralFromUrl();
+  }, [location.search]);
 
   return null;
 }

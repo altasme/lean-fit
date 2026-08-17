@@ -19,8 +19,16 @@
 > `/reseller/login`, `/reseller/set-password`, `/reseller/dashboard`,
 > `src/components/reseller/`) is done too: partners get a portal login
 > (invited on approval), their referral code/URL/QR, and an account
-> summary. Order routing/pricing/earnings and the rest of the dashboard
-> (spec §40) are still Phase E/F.
+> summary. Phase E (referral attribution + partner earnings on retail
+> orders - `migrations/0008_referral_attribution_earnings.sql`,
+> `src/lib/referral.ts`) is done: `?ref=CODE` is captured and attached to
+> checkout, `create_order_with_payment()` resolves it server-side and
+> computes `partner_price`/`partner_earnings`, and `/admin/orders/:id`
+> shows the attribution. Fulfillment routing to an upstream partner
+> (§32-39) is NOT built - every order is still fulfilled by Lean & Fit
+> admin; the spec's own header defers dropship-vs-partner-fulfilled
+> visibility to the Part 2 addendum anyway. The rest of the partner
+> dashboard (orders/earnings/downline, spec §40-44) is still Phase F.
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System

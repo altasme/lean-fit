@@ -9,11 +9,14 @@ import {
   getPaymentHistory,
   getProofSignedUrl,
 } from '../../lib/adminOrders';
+import { getPartner } from '../../lib/adminPartners';
 import { formatPHP } from '../../lib/format';
 import { ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../types/order';
 import type { Order, OrderStatusHistory } from '../../types/order';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
 import type { Payment, PaymentStatusHistory } from '../../types/payment';
+import { PARTNER_TYPE_LABELS } from '../../types/partner';
+import type { Partner } from '../../types/partner';
 
 const METHOD_LABELS: Record<string, string> = {
   gcash: 'GCash',
@@ -34,6 +37,7 @@ export default function AdminOrderDetail() {
   const [orderHistory, setOrderHistory] = useState<OrderStatusHistory[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentStatusHistory[]>([]);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
+  const [referralPartner, setReferralPartner] = useState<Partner | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -47,6 +51,7 @@ export default function AdminOrderDetail() {
         setPaymentHistory(await getPaymentHistory(p.id));
         if (p.proof_path) setProofUrl(await getProofSignedUrl(p.proof_path));
       }
+      setReferralPartner(o.referral_partner_id ? await getPartner(o.referral_partner_id) : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load order.');
     }
@@ -115,6 +120,30 @@ export default function AdminOrderDetail() {
               {order.tracking_number && <Row label="Tracking" value={order.tracking_number} />}
             </dl>
           </section>
+
+          {order.referral_partner_id && (
+            <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+              <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+                Referral Attribution
+              </h2>
+              <dl className="tabular mt-3 space-y-1.5 text-sm">
+                <Row
+                  label="Partner"
+                  value={referralPartner ? referralPartner.full_name : 'Loading…'}
+                />
+                {order.referral_partner_type && (
+                  <Row label="Type" value={PARTNER_TYPE_LABELS[order.referral_partner_type]} />
+                )}
+                <Row label="Referral Code" value={order.ref_code ?? '—'} />
+                {order.partner_price != null && (
+                  <Row label="Partner Price" value={formatPHP(order.partner_price)} />
+                )}
+                {order.partner_earnings != null && (
+                  <Row label="Partner Earnings" value={formatPHP(order.partner_earnings)} />
+                )}
+              </dl>
+            </section>
+          )}
 
           {/* Unified payment panel - identical layout regardless of provider, per CLAUDE.md §9. */}
           <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
