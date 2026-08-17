@@ -12,9 +12,10 @@ export const SITE = {
 } as const;
 
 /**
- * ⛔ PLACEHOLDER - no reseller program details from the client yet. This is
- * a holding page (interest/contact only, no application backend) until the
- * client confirms wholesale terms and the real inquiry channel.
+ * ⛔ PLACEHOLDER copy - final wholesale terms/benefits still pending
+ * client sign-off. The application itself is real (Reseller Portal Part 1
+ * Phase B) - submissions create a pending `partners` row for admin review;
+ * package selection + payment come in a later phase.
  */
 export const RESELLER = {
   kicker: 'Partner With Us',

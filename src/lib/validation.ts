@@ -1,4 +1,5 @@
 import type { DeliveryDetails } from '../types/order';
+import type { PartnerType } from '../types/partner';
 
 const PH_MOBILE_RE = /^(?:\+63|0)9\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -24,6 +25,35 @@ export function validateDeliveryDetails(details: DeliveryDetails): DeliveryFormE
 
 export function isDeliveryFormValid(details: DeliveryDetails): boolean {
   return Object.keys(validateDeliveryDetails(details)).length === 0;
+}
+
+export type PartnerApplication = {
+  fullName: string;
+  email: string;
+  mobile: string;
+  address: string;
+  region: string;
+  city: string;
+  barangay: string;
+  partnerType: PartnerType;
+};
+
+export type PartnerApplicationErrors = Partial<Record<keyof PartnerApplication, string>>;
+
+export function validatePartnerApplication(app: PartnerApplication): PartnerApplicationErrors {
+  const errors: PartnerApplicationErrors = {};
+
+  if (!app.fullName.trim()) errors.fullName = 'Full name is required.';
+  if (!EMAIL_RE.test(app.email.trim())) errors.email = 'Enter a valid email address.';
+  if (!PH_MOBILE_RE.test(app.mobile.trim())) {
+    errors.mobile = 'Enter a valid PH mobile number (e.g. 09171234567).';
+  }
+  if (!app.address.trim()) errors.address = 'Address is required.';
+  if (!app.region.trim()) errors.region = 'Region is required.';
+  if (!app.city.trim()) errors.city = 'City / municipality is required.';
+  if (!app.barangay.trim()) errors.barangay = 'Barangay is required.';
+
+  return errors;
 }
 
 export type ProofFormErrors = {

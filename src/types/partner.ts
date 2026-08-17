@@ -26,6 +26,12 @@ export type Partner = {
   email: string;
   mobile: string;
   address: string | null;
+  // Applicant-provided location (plain text, spec §16) - distinct from
+  // territory_id, the formal admin-assigned + capacity-checked territory
+  // link set later at approval (spec §18-19).
+  region: string | null;
+  city: string | null;
+  barangay: string | null;
   territory_id: string | null;
   parent_partner_id: string | null;
   referral_code: string | null;

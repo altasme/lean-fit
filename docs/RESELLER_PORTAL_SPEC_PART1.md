@@ -6,7 +6,9 @@
 > yet implemented. See the repo's task list ("Reseller P1-*") for phase
 > status. Phase A (territories + partners data model,
 > `supabase/migrations/0004_reseller_territories_partners.sql`,
-> `src/types/territory.ts`, `src/types/partner.ts`) is done.
+> `src/types/territory.ts`, `src/types/partner.ts`) and Phase B (the real
+> `/reseller` application form, `migrations/0005_partner_application_fields.sql`,
+> `src/lib/partners.ts`) are done.
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System

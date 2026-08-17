@@ -398,7 +398,42 @@ with a second unrelated partner present in the table; the
 `reseller_id` → `referral_partner_id` rename plus all five new `orders`
 columns landed correctly.
 
-Not yet built: the application form itself, packages/payment/approval,
-partner login, referral attribution + tier-aware checkout pricing, the
-partner dashboard, admin partner/territory management, and territory
-visualization (see the repo's task list, "Reseller P1-B" through "P1-H").
+Not yet built: packages/payment/approval, partner login, referral
+attribution + tier-aware checkout pricing, the partner dashboard, admin
+partner/territory management, and territory visualization (see the repo's
+task list, "Reseller P1-C" through "P1-H").
+
+## Reseller Portal Part 1, Phase B (public partner application)
+
+`migrations/0005_partner_application_fields.sql` corrects a design gap
+found while building the actual form: Phase A's `apply_for_partner()` was
+written expecting a live `territory_id` picked from the `territories`
+table, but no territories exist yet (that's an admin-side planning
+concept, built later in Phase G) and there's no UI yet to create them
+either. Spec Part 1 §16 actually lists Region/City/Barangay as plain
+applicant-provided fields - the same shape as an order's delivery address
+- not a live-linked picker; formal territory assignment + capacity
+checking happens later, at admin approval (spec §18-19). This migration
+adds plain-text `region`/`city`/`barangay` columns to `partners` and
+recreates `apply_for_partner()` with the corrected parameter list. Safe:
+the function had never been called from production.
+
+`/reseller` is now a real application form (previously a static holding
+page): partner type selector (Reseller/Distributor/Franchise - the CTA
+still says "Become a Reseller" per spec §15, but the applicant can pick
+any type), full name, email, mobile, address, region, city, barangay,
+client-side validated (`src/lib/validation.ts`,
+`validatePartnerApplication`), submitted through `apply_for_partner()`
+(`src/lib/partners.ts`). On success shows a confirmation screen explaining
+that package selection and payment come next (not built yet - Phase C).
+
+Verified interactively (mocked `submitPartnerApplication`, reverted before
+this commit): submitting an empty form surfaces all 7 required-field
+errors and blocks submission; a fully filled-out Distributor application
+submits successfully and the confirmation screen correctly reflects the
+selected partner type.
+
+Not yet built: packages/payment/approval, partner login, referral
+attribution + tier-aware checkout pricing, the partner dashboard, admin
+partner/territory management, and territory visualization (see the repo's
+task list, "Reseller P1-C" through "P1-H").
