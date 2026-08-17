@@ -26,6 +26,11 @@
    ```
 6. Copy the project URL + anon key into `.env` (see `.env.example` at the
    repo root) as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
+7. Run `supabase/migrations/0002_admin_panel_products_pricing.sql` in the
+   SQL editor, **after** `schema.sql`. It's additive only (new tables/types,
+   nothing touches `orders`/`payments`/history) so it's safe to run against
+   a project that already has real order data - see "Admin Panel Phase 2"
+   below.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -97,3 +102,36 @@ call the `send-order-email` Edge Function (already wired from
 `src/components/admin/StatusControls.tsx`) so the customer gets the
 matching email from CLAUDE.md §10. Checkout submission does the same for
 the initial order-received / order-confirmed-COD email.
+
+## Admin Panel Phase 2 (products, pricing, promotions, partners)
+
+`migrations/0002_admin_panel_products_pricing.sql` adds the data model for
+the "Lean & Fit Phase 2 - Admin Panel" spec (uploaded 2026-08-17): a
+centralized `products` table (SRP, status, promo eligibility), fixed-tier
+`partner_pricing_tiers` (reseller 20% / distributor 30% / franchise 40%,
+seeded and admin-editable), code-based `promotions`, and a generic
+`audit_log`. This is phases 1-3 of that spec's build order (data model +
+pricing engine + promo engine) - schema and calculation logic only, no
+admin UI yet (that's phase 4, tracked separately).
+
+**RLS differs from orders/payments on purpose.** `products` and
+`promotions` grant anon a direct `SELECT` (filtered to `status = 'active'`)
+because this is public marketing/pricing data the website needs to read
+directly, not customer PII - unlike orders/payments, no RPC indirection is
+needed here. `partner_pricing_tiers` and `audit_log` stay admin-only; there
+is no partner-facing auth surface yet (phase 8, not built).
+
+**Pricing engine** lives in `src/lib/pricing.ts`, not the database - it's
+the single place retail price (SRP, optionally reduced by a promo code)
+and partner price (SRP reduced by a fixed tier %) get calculated, per the
+spec's "never calculate price independently in product cards / checkout /
+admin" rule (§12). Retail promotions never apply to partner pricing (§16).
+Verified locally against the spec's own worked examples (SRP ₱380 →
+reseller ₱304 / distributor ₱266 / franchise ₱228) plus promo edge cases
+(exempt products, expired/future/usage-capped promotions, product-targeted
+promos, case-insensitive code matching) - all pass.
+
+Not yet wired to anything - no admin UI to manage this data (phase 4), the
+public site still reads `src/content/product.ts` (phase 7), and there's no
+partner portal to consume partner pricing (phase 8). Those are tracked as
+separate follow-up work.
