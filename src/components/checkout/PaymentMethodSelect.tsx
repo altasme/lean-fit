@@ -4,22 +4,24 @@ import type { PaymentMethodId } from '../../types/payment';
 export function PaymentMethodSelect({
   selected,
   onSelect,
+  methods = PAYMENT_METHODS,
+  helpText = "Choose how you'd like to pay. GCash, Maya, and Bank Transfer require proof of payment; Cash on Delivery doesn't.",
 }: {
   selected: PaymentMethodId | null;
   onSelect: (id: PaymentMethodId) => void;
+  /** Defaults to all configured methods (retail checkout). Pass a filtered list to exclude e.g. COD. */
+  methods?: typeof PAYMENT_METHODS;
+  helpText?: string;
 }) {
-  const active = PAYMENT_METHODS.find((m) => m.code === selected);
+  const active = methods.find((m) => m.code === selected);
 
   return (
     <div className="rounded-sm border border-white/10 bg-lf-charcoal p-6 sm:p-8">
       <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Payment Method</h2>
-      <p className="mt-2 text-sm text-lf-cream/70">
-        Choose how you'd like to pay. GCash, Maya, and Bank Transfer require proof of payment;
-        Cash on Delivery doesn't.
-      </p>
+      <p className="mt-2 text-sm text-lf-cream/70">{helpText}</p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        {PAYMENT_METHODS.map((method) => (
+        {methods.map((method) => (
           <button
             key={method.code}
             type="button"

@@ -1,4 +1,4 @@
-import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
+import { supabase, uploadPaymentProof } from './supabase';
 import type { DeliveryDetails, OrderStatus } from '../types/order';
 import type { PaymentMethodId, PaymentStatus } from '../types/payment';
 
@@ -28,21 +28,8 @@ export type CreatedOrder = {
   paymentStatus: PaymentStatus;
 };
 
-async function uploadProof(file: File): Promise<string> {
-  const ext = file.name.split('.').pop() ?? 'bin';
-  const path = `${crypto.randomUUID()}.${ext}`;
-
-  const { error } = await supabase.storage.from(PAYMENT_PROOFS_BUCKET).upload(path, file, {
-    contentType: file.type,
-    upsert: false,
-  });
-
-  if (error) throw new Error(`Failed to upload payment proof: ${error.message}`);
-  return path;
-}
-
 export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder> {
-  const proofPath = input.proofFile ? await uploadProof(input.proofFile) : null;
+  const proofPath = input.proofFile ? await uploadPaymentProof(input.proofFile) : null;
 
   const { data, error } = await supabase.rpc('create_order_with_payment', {
     p_customer_name: input.delivery.customerName,

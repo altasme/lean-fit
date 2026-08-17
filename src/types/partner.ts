@@ -1,3 +1,5 @@
+import type { PaymentMethodId, PaymentStatus } from './payment';
+
 export type PartnerType = 'reseller' | 'distributor' | 'franchise';
 
 export type PartnerPricingTier = {
@@ -36,6 +38,17 @@ export type Partner = {
   parent_partner_id: string | null;
   referral_code: string | null;
   package: string | null;
+  // Package + payment (Phase C, spec §17-20) - attached to the same
+  // partner row created at application time (Phase B), same manual-payment
+  // shape as retail orders (method/reference/proof/amount/date).
+  package_boxes: number | null;
+  package_amount: number | null;
+  payment_method: PaymentMethodId | null;
+  payment_reference: string | null;
+  payment_proof_path: string | null;
+  payment_amount: number | null;
+  payment_date: string | null;
+  payment_status: PaymentStatus;
   activated_at: string | null;
   created_at: string;
   updated_at: string;

@@ -16,3 +16,17 @@ if (!url || !anonKey) {
 export const supabase = createClient(url || 'https://placeholder.supabase.co', anonKey || 'placeholder');
 
 export const PAYMENT_PROOFS_BUCKET = 'payment-proofs';
+
+/** Shared by retail checkout and partner package payment - same bucket/policy either way. */
+export async function uploadPaymentProof(file: File): Promise<string> {
+  const ext = file.name.split('.').pop() ?? 'bin';
+  const path = `${crypto.randomUUID()}.${ext}`;
+
+  const { error } = await supabase.storage.from(PAYMENT_PROOFS_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+
+  if (error) throw new Error(`Failed to upload payment proof: ${error.message}`);
+  return path;
+}

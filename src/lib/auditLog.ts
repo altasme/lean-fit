@@ -1,6 +1,13 @@
 import { supabase } from './supabase';
 
-export type AuditEntityType = 'product' | 'promotion' | 'partner_pricing' | 'media' | 'order' | 'payment';
+export type AuditEntityType =
+  | 'product'
+  | 'promotion'
+  | 'partner_pricing'
+  | 'media'
+  | 'order'
+  | 'payment'
+  | 'partner';
 
 async function currentAdminId(): Promise<string | null> {
   const {

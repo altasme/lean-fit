@@ -437,3 +437,70 @@ Not yet built: packages/payment/approval, partner login, referral
 attribution + tier-aware checkout pricing, the partner dashboard, admin
 partner/territory management, and territory visualization (see the repo's
 task list, "Reseller P1-C" through "P1-H").
+
+## Reseller Portal Part 1, Phase C (packages, payment, admin approval)
+
+`migrations/0006_partner_packages_payment_approval.sql` adds package +
+payment fields to the same `partners` row created at application time
+(`package`, `package_boxes`, `package_amount`, `payment_method`,
+`payment_reference`, `payment_proof_path`, `payment_amount`,
+`payment_date`, `payment_status` - `payment_status` reuses the existing
+`payment_status` enum from the retail order schema) plus three functions:
+
+- `submit_partner_package_payment(...)` - anon-callable, like
+  `apply_for_partner`. Attaches package + payment info to an existing
+  partner row and sets `payment_status = 'pending_verification'`. Blocked
+  once the partner's `status` is no longer `'pending'`, so it can't be used
+  to tamper with an already-decided application or someone else's payment
+  fields via a guessed id.
+- `generate_referral_code(full_name)` - first word of the name, uppercased,
+  alphanumeric only, with a numeric suffix appended on collision
+  (`JUAN` → `JUAN1` → `JUAN2` ...). Called from `approve_partner`, not
+  exposed directly.
+- `approve_partner(partner_id)` - admin-only (checked via `is_admin()`).
+  Verifies the payment and activates the partner in one action: generates
+  the referral code, sets `status = 'active'`, `payment_status = 'paid'`,
+  `activated_at = now()`. Combines payment verification and application
+  approval into a single step for this phase's scope, unlike retail
+  orders' independent order/payment axes - the spec presents partner
+  onboarding as one linear pipeline (Payment → Verification → Approved →
+  Activated). Deliberately does **not** touch `territory_id` - no
+  territories exist yet and there's no admin UI to create/assign them
+  (Phase G); territory assignment + capacity checking stay deferred to
+  that phase.
+
+Package price is computed client-side via the same `calculatePartnerPrice`
+pricing engine admin/website already use (SRP × partner tier discount ×
+box count - `src/lib/partners.ts`'s `fetchPartnerPackage`), never a
+separately hardcoded number.
+
+`/reseller` is now a 3-step flow: application (Phase B, unchanged) →
+package summary + payment (box count/price/total, payment method picker
+reusing `PaymentMethodSelect` filtered to manual methods only - a package
+payment is a one-time upfront investment, not a delivery order, so COD is
+excluded - and the same `ProofUpload` component checkout uses) →
+confirmation. New admin pages `/admin/partners` (list, filterable by
+status/type, flags pending payment review) and `/admin/partners/:id`
+(applicant details, unified package/payment panel with signed-URL proof
+image, Approve/Reject actions) - both wired into `AdminLayout`'s nav.
+
+Verified locally end-to-end against a throwaway Postgres instance with the
+full migration chain applied (schema.sql + 0002-0006): applied as an
+anonymous role, submitted package payment, confirmed the resubmission
+guard rejects a second `submit_partner_package_payment` call once the
+partner is no longer `pending`, confirmed a non-admin authenticated user
+is rejected by `approve_partner`'s `is_admin()` check, confirmed an admin
+successfully approves and gets back a generated referral code, and
+confirmed the collision suffix (`JUAN` → `JUAN1`) on a second same-first-
+name applicant. Also verified interactively in the browser (mocked
+Supabase client + bypassed route auth, reverted before this commit): the
+full application → package → payment submission flow, and the admin
+list/detail/approve flow with a pre-seeded pending partner.
+
+Not yet built: partner login/referral identity, referral attribution +
+tier-aware checkout pricing, the partner dashboard, admin territory
+management, and territory visualization (see the repo's task list,
+"Reseller P1-D" through "P1-H"). Partner-facing emails (application
+received, payment approved) are also not wired yet - the existing
+`notify.ts`/Resend Edge Function path is order-specific; a partner
+equivalent is future work.
