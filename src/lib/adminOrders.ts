@@ -1,6 +1,7 @@
 import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
 import type { Order, OrderStatus, OrderStatusHistory } from '../types/order';
 import type { Payment, PaymentStatus, PaymentStatusHistory } from '../types/payment';
+import { writeAuditLog } from './auditLog';
 
 export type OrderWithPayment = Order & { payment: Payment | null };
 
@@ -98,6 +99,15 @@ async function setPaymentStatus(
     .from('payment_status_history')
     .insert({ payment_id: paymentId, status, note, changed_by: changedBy });
   if (historyError) throw new Error(historyError.message);
+
+  await writeAuditLog({
+    entity_type: 'payment',
+    entity_id: paymentId,
+    action: 'status_changed',
+    field: 'Payment Status',
+    new_value: status,
+    note,
+  });
 }
 
 async function setOrderStatus(
@@ -116,6 +126,15 @@ async function setOrderStatus(
     .from('order_status_history')
     .insert({ order_id: orderId, status, note });
   if (historyError) throw new Error(historyError.message);
+
+  await writeAuditLog({
+    entity_type: 'order',
+    entity_id: orderId,
+    action: 'status_changed',
+    field: 'Order Status',
+    new_value: status,
+    note,
+  });
 }
 
 /**

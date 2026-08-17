@@ -163,6 +163,9 @@ just the database. Still open: the public site itself still reads
 `src/content/product.ts` rather than the `products` table (phase 7), and
 there's no partner portal to consume partner pricing (phase 8).
 
+Every write from these three pages also logs to `audit_log` - see "Admin
+Panel Phase 6" below.
+
 ## Admin Panel Phase 5 (media management)
 
 `migrations/0003_admin_panel_media.sql` adds `media_assets` (one row per
@@ -206,3 +209,54 @@ client-side before ever reaching Cloudinary.
 
 Not yet wired: the public website still renders its own static imported
 images rather than reading from `media_assets` (phase 7, same as products).
+
+Uploads also log to `audit_log` (`image_replaced`) - see "Admin Panel
+Phase 6" below.
+
+## Admin Panel Phase 6 (audit system)
+
+No new migration - `audit_log` already existed from migration 0002, just
+unused until now. This phase wires writes into it and adds the viewer UI.
+
+**Where entries come from:**
+- `src/lib/auditLog.ts` - `writeAuditLog()` (one entry) and
+  `logFieldChanges()` (diffs a before/after object field-by-field, writing
+  one row per changed field - this is what produces the spec §19-style
+  "Previous: ₱380 / New: ₱400" entries).
+- Products: `create` logs one `created` entry; `update` fetches the row
+  first and diffs name/description/SRP/status/promo-exempt.
+- Promotions: same pattern - `created` on insert, field diff on update
+  (code, discount type/value, dates, usage limit, status, applicable
+  products, auto-apply).
+- Partner pricing: `updatePartnerDiscount` logs
+  `Previous: 20% / New: 25%` for whichever tier changed.
+- Media: every successful upload logs `image_replaced` for that slot.
+- Orders/payments: `setOrderStatus`/`setPaymentStatus` in
+  `src/lib/adminOrders.ts` (the two chokepoints every order/payment
+  mutation already funnels through) each also write an audit_log entry
+  alongside their existing dedicated history-table insert - so
+  `order_status_history`/`payment_status_history` keep driving the
+  per-order timeline UI unchanged, while `audit_log` gets a matching
+  cross-entity record for the unified Audit Log view.
+
+**Audit logging is best-effort, on purpose.** `writeAuditLog` catches its
+own errors and logs to the console rather than throwing - a logging
+failure must never roll back or block the real mutation it's describing.
+
+**Also new this round: save confirmation toasts.** Every admin write
+(products, promotions, partner pricing, media, and every order/payment
+action in `StatusControls`) now shows a toast on success or failure
+(`src/components/ui/Toast.tsx`), not just a silent state change - flagged
+as a UX gap after products/promotions saves gave no feedback.
+
+`/admin/audit-log` is the viewer: entity-type filter, search across
+entity id/field/note, most recent first. `changed_by` resolves to "Admin"
+rather than an email, since `auth.users` isn't queryable from the client
+and this is a single-admin-account MVP (CLAUDE.md) - not worth a lookup
+mechanism for one account.
+
+Verified interactively (mocked Supabase, since this sandbox can't reach
+the live project): editing a product's SRP and status produced exactly
+two audit rows (`SRP: 250 → 399`, `Status: active → inactive`); the
+entity-type filter and search both narrowed the list correctly; the save
+toast appeared alongside the new audit rows.

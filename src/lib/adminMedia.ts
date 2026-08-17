@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import type { MediaAsset, MediaAssetHistoryEntry } from '../types/media';
 import type { CloudinaryUploadResult } from './cloudinary';
+import { writeAuditLog } from './auditLog';
 
 export async function listMediaAssets(): Promise<MediaAsset[]> {
   const { data, error } = await supabase.from('media_assets').select('*');
@@ -47,6 +48,14 @@ export async function saveMediaAsset(
 
   const { error: historyError } = await supabase.from('media_asset_history').insert(shared);
   if (historyError) throw new Error(historyError.message);
+
+  await writeAuditLog({
+    entity_type: 'media',
+    entity_id: slot,
+    action: 'image_replaced',
+    field: slot,
+    new_value: upload.secure_url,
+  });
 
   return data as MediaAsset;
 }

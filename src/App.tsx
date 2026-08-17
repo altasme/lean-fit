@@ -13,6 +13,7 @@ import AdminPromotions from './pages/admin/AdminPromotions';
 import AdminPromotionForm from './pages/admin/AdminPromotionForm';
 import AdminPartnerPricing from './pages/admin/AdminPartnerPricing';
 import AdminMedia from './pages/admin/AdminMedia';
+import AdminAuditLog from './pages/admin/AdminAuditLog';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/admin/AuthProvider';
@@ -167,6 +168,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminMedia />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/audit-log"
+            element={
+              <RequireAuth>
+                <AdminAuditLog />
               </RequireAuth>
             }
           />

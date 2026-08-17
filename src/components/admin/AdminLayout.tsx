@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { to: '/admin/promotions', label: 'Promotions' },
   { to: '/admin/partner-pricing', label: 'Partner Pricing' },
   { to: '/admin/media', label: 'Media' },
+  { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 
 export function AdminLayout({ children }: PropsWithChildren) {
