@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/admin/partner-pricing', label: 'Partner Pricing' },
   { to: '/admin/partners', label: 'Partners' },
   { to: '/admin/territories', label: 'Territories' },
+  { to: '/admin/territory-map', label: 'Territory Map' },
   { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 

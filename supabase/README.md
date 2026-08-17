@@ -935,3 +935,66 @@ disables full options, assigning a territory/parent partner and
 suspending/reactivating all update the UI correctly - also caught and
 fixed a real pluralization bug ("City / Municipalitys" as a section
 heading) during this pass.
+
+## Reseller Portal Part 1, Phase H (territory visualization) - Part 1 complete
+
+No migration - this phase is read-only, built entirely on tables and RLS
+that already existed (`territories`, `partners`, both admin-readable
+since migration 0004/0007).
+
+**Scoping decision, flagged from the start of Reseller Portal work and
+followed through here:** spec Part 1 §12-14 asks for "an interactive map
+of the Philippines" with zoom/pan/region-city-barangay selection. This is
+built as a **coverage tree/list**, not a literal geographic map -
+rendering an accurate Philippines map down to barangay boundaries needs
+real GeoJSON boundary data (region/city/barangay polygons), which doesn't
+exist anywhere in this project and wasn't provided. A schematic
+placeholder map (e.g. a grid of boxes standing in for provinces) would
+look like a map while actually misrepresenting real geography, which is
+worse than not having one - a tree conveys the exact same information
+spec §12's "map objective" list asks for (franchise/distributor/reseller
+coverage, vacant territories, capacity, occupied territories, partner
+density) without the false precision.
+
+**`src/lib/adminTerritoryMap.ts`** (new): `fetchTerritoryTree()` builds
+the full region -> city -> barangay tree in one pass (two queries -
+territories, and partners with a non-null `territory_id` - joined
+client-side by `parent_id`), each node carrying its own occupant list
+(name + status, not just a count - Phase G's `listTerritories()` only
+needed a count for capacity math, this phase needs *who*).
+`summarizeCoverage()` walks the tree for spec §59's strategic counts
+(occupied/vacant per level). `findVacantTerritories()` lists every
+territory with zero active occupants - "potential expansion areas" per
+§59, the simplest correct reading of that requirement (no scoring/ranking
+logic invented beyond "does anyone cover this yet").
+
+**`/admin/territory-map`** (new page, `AdminTerritoryMap.tsx` +
+`components/admin/TerritoryTreeNode.tsx`): three coverage-stat tiles
+(Region/City/Barangay: occupied / total, vacant count), an expandable
+tree (regions open by default, cities/barangays collapsed - click the
+`▸`/`▾` to expand; each row shows the territory name, expected partner
+type, occupied/capacity, a status badge - Full/Active Coverage/Available
+- and the occupant(s) by name, linking to `/admin/partners/:id`, with a
+non-active occupant's status shown in parenthesis), and a "Potential
+Expansion Areas" list of every vacant territory with its parent for
+context. Distinct from `/admin/territories` (Phase G, still the page for
+adding territories and editing capacity) - this one is read-only,
+strategic-overview-focused, cross-linked from its intro text.
+
+Verified interactively (mocked Supabase client, reverted before this
+commit) against a seeded 2-branch tree (NCR region occupied by a
+franchise, with an occupied-and-full Marikina City / vacant Quezon City,
+and under Marikina an occupied Concepcion Uno / vacant Malanday, plus a
+second, fully vacant CALABARZON region): coverage tiles read the correct
+occupied/total/vacant counts at every level; the tree renders each city
+as a sibling of the other under its region (not nested under one
+another) with correct indentation; occupant names/status render and link
+correctly; the vacant/full status badges match each territory's actual
+capacity state; the Potential Expansion list contains exactly the three
+vacant territories with correct parent names.
+
+**This closes out Reseller Portal Part 1** (Phases A through H). Part 2
+(the addendum - partner onboarding permissions hierarchy, dropship vs
+partner-fulfilled order visibility, staff admin roles) remains
+deliberately not started, per the original "start with Part 1" scoping
+instruction - see `docs/RESELLER_PORTAL_SPEC_PART2_ADDENDUM.md`.

@@ -50,10 +50,16 @@
 > territory-availability checking during the *public* application form
 > (§19 - applicants still submit free-text location, Phase B) and
 > automated "missing partner" upstream routing (§23-24 - admin applies it
-> by hand via the eligible-parents dropdown). Territory visualization
-> (§12-14, a real map) is Phase H - not started; see that task's scoping
-> note (list/tree view planned instead of a literal map, no barangay-level
-> boundary data available).
+> by hand via the eligible-parents dropdown). Phase H (territory
+> visualization - `src/lib/adminTerritoryMap.ts`, `/admin/territory-map`)
+> is done, closing out Part 1: a coverage tree/list (Region -> City ->
+> Barangay, occupants, capacity, status) rather than a literal geographic
+> map, since no barangay-level boundary (GeoJSON) data exists to render
+> one accurately - same information spec §12's map objective asks for,
+> honest presentation instead of a misleading schematic. **Part 1 (Phases
+> A-H) is now complete.** Part 2 (the addendum - onboarding permissions
+> hierarchy, dropship vs partner-fulfilled order visibility, staff admin
+> roles) remains deliberately not started.
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System
