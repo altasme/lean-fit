@@ -11,15 +11,21 @@ import type { TerritoryWithOccupancy } from '../../lib/adminTerritories';
 import { TERRITORY_LEVEL_LABELS } from '../../types/territory';
 import type { TerritoryLevel } from '../../types/territory';
 
-const LEVELS: TerritoryLevel[] = ['region', 'city', 'barangay'];
+const LEVELS: TerritoryLevel[] = ['region', 'province', 'city', 'barangay'];
 const TERRITORY_LEVEL_PLURAL_LABELS: Record<TerritoryLevel, string> = {
   region: 'Regions',
+  province: 'Provinces',
   city: 'Cities / Municipalities',
   barangay: 'Barangays',
 };
+// Migration 0012: cities' real parent is a province, not a region directly
+// (25 real same-region city-name collisions across provinces confirmed
+// this can't be flattened) - kept in sync with the seeded hierarchy so
+// this admin form's own inserts nest correctly too.
 const PARENT_LEVEL: Record<TerritoryLevel, TerritoryLevel | null> = {
   region: null,
-  city: 'region',
+  province: 'region',
+  city: 'province',
   barangay: 'city',
 };
 

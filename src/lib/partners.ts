@@ -1,5 +1,6 @@
 import { supabase, uploadPaymentProof } from './supabase';
 import { calculatePartnerPrice } from './pricing';
+import { notifyPartnerEvent } from './notify';
 import type { OnboardPartnerInput, PartnerApplication } from './validation';
 import type { Partner, PartnerPricingTier, PartnerStatus, PartnerType } from '../types/partner';
 import { PARTNER_PACKAGE_BOXES } from '../types/partner';
@@ -73,6 +74,13 @@ export type SubmittedApplication = {
   status: PartnerStatus;
 };
 
+/**
+ * Migration 0012 rebuilt apply_for_partner() around a real picked
+ * territory (territoryId = the city for Reseller/Distributor, the region
+ * for Franchise; barangayName only for Reseller, resolved/lazily created
+ * server-side) instead of free-text region/city/barangay - closes the
+ * live-availability gap spec §19 always asked for on this form.
+ */
 export async function submitPartnerApplication(
   app: PartnerApplication,
 ): Promise<SubmittedApplication> {
@@ -81,10 +89,9 @@ export async function submitPartnerApplication(
     p_email: app.email,
     p_mobile: app.mobile,
     p_address: app.address,
-    p_region: app.region,
-    p_city: app.city,
-    p_barangay: app.barangay,
     p_partner_type: app.partnerType,
+    p_territory_id: app.territoryId,
+    p_barangay_name: app.barangayName,
   });
 
   if (error) throw new Error(`Failed to submit application: ${error.message}`);
@@ -138,9 +145,6 @@ export type PartnerPackagePaymentInput = {
   partnerId: string;
   pkg: PartnerPackage;
   paymentMethod: PaymentMethodId;
-  referenceNumber: string;
-  amountPaid: number;
-  paymentDate: string;
   proofFile: File;
 };
 
@@ -160,15 +164,17 @@ export async function submitPartnerPackagePayment(
     p_package_boxes: input.pkg.boxes,
     p_package_amount: input.pkg.packageAmount,
     p_payment_method: input.paymentMethod,
-    p_payment_reference: input.referenceNumber,
-    p_payment_amount: input.amountPaid,
-    p_payment_date: input.paymentDate,
+    p_payment_reference: null,
+    p_payment_amount: input.pkg.packageAmount,
+    p_payment_date: null,
     p_payment_proof_path: proofPath,
   });
 
   if (error) throw new Error(`Failed to submit payment: ${error.message}`);
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error('Payment was not submitted.');
+
+  void notifyPartnerEvent(row.partner_id, 'package_payment_submitted');
 
   return { partnerId: row.partner_id, paymentStatus: row.payment_status };
 }
@@ -213,6 +219,7 @@ export async function onboardPartner(input: OnboardPartnerInput): Promise<Onboar
     p_address: input.address,
     p_partner_type: input.partnerType,
     p_territory_id: input.territoryId,
+    p_barangay_name: input.barangayName,
   });
 
   if (error) throw new Error(error.message);

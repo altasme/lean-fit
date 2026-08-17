@@ -67,3 +67,22 @@ export const BUSINESS_NEW_ORDER_EMAIL = {
   subject: (orderNo: string) => `New Order - #${orderNo}`,
   heading: 'NEW ORDER SUBMITTED',
 };
+
+/**
+ * Partner-side email events, sent via supabase/functions/send-partner-email
+ * (mirrors send-order-email's structure, kept as its own function since it
+ * reads from `partners` rather than `orders`/`payments`). Just the one event
+ * for now (Issue #1's confirmation email) - `payment_approved`'s "portal
+ * login details" email is already covered separately by the invite-partner
+ * Edge Function's own Supabase auth invite email, not this one.
+ */
+export type PartnerEmailEvent = 'package_payment_submitted';
+
+export const PARTNER_EMAILS: Record<PartnerEmailEvent, EmailTemplate> = {
+  package_payment_submitted: {
+    subject: () => 'Lean & Fit Partner Application - Payment Received',
+    heading: 'PAYMENT RECEIVED',
+    body: (v) =>
+      `Hi ${v.fullName}, thanks for applying to become a Lean & Fit ${v.partnerTypeLabel} partner. We've received your package payment and our team is reviewing it now. Once it's verified, you'll get a separate email with your partner portal login details and referral code.`,
+  },
+};

@@ -46,6 +46,7 @@ export function useActiveProduct() {
     price: data?.price ?? null,
     srp: data?.srp ?? null,
     appliedPromotion: data?.appliedPromotion ?? null,
+    partnerPricing: data?.partnerPricing ?? false,
     loading,
     error,
   };

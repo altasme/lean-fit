@@ -69,6 +69,7 @@ export async function fetchTerritoryTree(): Promise<TerritoryNode[]> {
 export type CoverageBucket = { total: number; occupied: number; vacant: number };
 export type TerritoryCoverageStats = {
   region: CoverageBucket;
+  province: CoverageBucket;
   city: CoverageBucket;
   barangay: CoverageBucket;
 };
@@ -77,6 +78,7 @@ export type TerritoryCoverageStats = {
 export function summarizeCoverage(roots: TerritoryNode[]): TerritoryCoverageStats {
   const stats: TerritoryCoverageStats = {
     region: { total: 0, occupied: 0, vacant: 0 },
+    province: { total: 0, occupied: 0, vacant: 0 },
     city: { total: 0, occupied: 0, vacant: 0 },
     barangay: { total: 0, occupied: 0, vacant: 0 },
   };

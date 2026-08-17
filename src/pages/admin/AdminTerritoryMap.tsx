@@ -11,7 +11,7 @@ import type { TerritoryNode } from '../../lib/adminTerritoryMap';
 import { TERRITORY_LEVEL_LABELS } from '../../types/territory';
 import type { TerritoryLevel } from '../../types/territory';
 
-const LEVELS: TerritoryLevel[] = ['region', 'city', 'barangay'];
+const LEVELS: TerritoryLevel[] = ['region', 'province', 'city', 'barangay'];
 
 // Spec Part 1 §12-14/§59: a "Philippines Territory Map" as a strategic
 // planning tool - coverage, vacancy, capacity, density, expansion
@@ -36,7 +36,8 @@ export default function AdminTerritoryMap() {
     <AdminLayout>
       <h1 className="font-kicker text-2xl uppercase tracking-wide2 text-lf-white">Territory Map</h1>
       <p className="mt-2 max-w-2xl text-sm text-lf-cream/60">
-        Coverage and expansion overview across the full Region → City → Barangay hierarchy. For
+        Coverage and expansion overview across the full Region → Province → City → Barangay
+        hierarchy. For
         adding territories or editing capacity, see{' '}
         <Link to="/admin/territories" className="text-lf-gold hover:underline">
           Territories
@@ -48,7 +49,7 @@ export default function AdminTerritoryMap() {
       {!roots && !error && <p className="mt-4 text-sm text-lf-cream/60">Loading…</p>}
 
       {stats && (
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {LEVELS.map((level) => {
             const bucket = stats[level];
             return (

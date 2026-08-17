@@ -13,9 +13,6 @@ export type CreateOrderInput = {
   total: number;
   paymentMethod: PaymentMethodId;
   /** Manual methods only (gcash/maya/bank_transfer) - omitted for COD. */
-  referenceNumber?: string;
-  amountPaid?: number;
-  paymentDate?: string;
   proofFile?: File;
   /** From getStoredReferralCode() - resolved/validated server-side, see migration 0008. */
   referralCode?: string | null;
@@ -50,9 +47,9 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     p_delivery_fee: input.deliveryFee,
     p_total: input.total,
     p_payment_method: input.paymentMethod,
-    p_payment_reference: input.referenceNumber ?? null,
-    p_payment_amount: input.amountPaid ?? null,
-    p_payment_date: input.paymentDate ?? null,
+    p_payment_reference: null,
+    p_payment_amount: null,
+    p_payment_date: null,
     p_payment_proof_path: proofPath,
     p_referral_code: input.referralCode ?? null,
   });

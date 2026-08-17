@@ -66,21 +66,60 @@
     must also be added to **Authentication → URL Configuration → Redirect
     URLs** in the Supabase dashboard, or Supabase will reject the redirect
     and the link will silently fall back to its default.
+12. Run `supabase/migrations/0012_ph_territory_data.sql` in the SQL editor,
+    after 0011. Seeds the real PSGC region/province/city hierarchy (~1,750
+    rows) that the public application form and partner-assisted onboarding
+    now use for live, capacity-checked location pickers, adds `province` as
+    a real (never partner-assignable) `territories` level, and adds the
+    barangay lazy-creation/containment RPCs the new pickers call. No
+    Edge Function or secret involved - just SQL. The two bundled JSON files
+    it pairs with client-side (`public/data/ph-locations.json`,
+    `public/data/ph-barangays.json`) are already committed to the repo and
+    ship with the normal frontend deploy, nothing extra to upload.
+13. Deploy the partner package-payment confirmation email function:
+    ```bash
+    supabase functions deploy send-partner-email
+    ```
+    Reuses the same `RESEND_API_KEY`/`EMAIL_FROM` secrets already set in
+    step 5 - nothing new to configure. Fired right after a partner submits
+    their package payment (Route A or Route B), tells them their payment is
+    being reviewed and that portal login details follow separately once
+    approved (the actual login email is `invite-partner`, step 11).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
 (`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
 Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
-not required for MVP launch). Migrations 0002-0007 have been applied;
-**0008 through 0011 still need to be run** (0008 fixes a real pricing
-bug, see the note above/below - it's additive/safe to run any time, no
-backfill required; 0009 is pure RLS for the partner dashboard; 0010 adds
-the territory/partner-assignment RPCs for the admin panel; 0011 adds
-partner-assisted onboarding - all safe to run any time).
-`invite-partner` and its `SITE_URL` secret are not yet deployed/set - do
-that before relying on the "Approve Partner" button to also send the
-partner's portal invite (approval itself still works either way; only the
-invite email step needs it).
+not required for MVP launch). Migrations 0002-0011 have all been applied
+(0008-0011 confirmed run - 0008 fixes a real pricing bug: `partner_pricing_tiers`
+had no anon-read policy, so every partner package was quoted at full SRP
+with 0% tier discount until this ran; 0009 is pure RLS for the partner
+dashboard; 0010 adds the territory/partner-assignment RPCs for the admin
+panel; 0011 adds partner-assisted onboarding). **Migration 0012 (PH
+territory data + province level + lazy barangay creation) still needs to
+be run** - paste it in after 0011. **`send-partner-email` (the partner
+package-payment confirmation email) is also new and not yet deployed** -
+run step 13 above; it reuses secrets already set, nothing extra needed
+there.
+
+**`invite-partner` is still not deployed and its `SITE_URL` secret is
+still not set - this is the confirmed cause of "Approve Partner"/"Resend
+Portal Invite" failing to send any email.** The client code and the Edge
+Function itself are both correct (verified - `invitePartnerToPortal()` in
+`src/lib/adminPartners.ts` calls `supabase.functions.invoke('invite-partner', ...)`
+and surfaces whatever error comes back in a toast); there's nothing to fix
+in code here. Whoever holds CLI access to the live Supabase project needs
+to run:
+```bash
+supabase functions deploy invite-partner
+supabase secrets set SITE_URL=https://yourdomain.com
+```
+and add that same `SITE_URL/reseller/set-password` URL to **Authentication
+→ URL Configuration → Redirect URLs** in the Supabase dashboard (a missing
+redirect URL makes Supabase silently reject the redirect even once the
+function is deployed and the secret is set). Approval itself still works
+either way - only the invite/resend email step is blocked until this is
+done.
 
 ## Order → Payment → Provider (v2)
 

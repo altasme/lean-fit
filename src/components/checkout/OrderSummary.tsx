@@ -10,7 +10,7 @@ export function OrderSummary() {
   const subtotal = useCartStore((s) => s.subtotal());
   const total = useCartStore((s) => s.total());
   const deliveryFee = useCartStore((s) => s.deliveryFee);
-  const { product, price, loading } = useActiveProduct();
+  const { product, price, loading, partnerPricing } = useActiveProduct();
 
   const displayName = product?.name ?? `${PRODUCT.name} - ${PRODUCT.variant}`;
 
@@ -22,6 +22,9 @@ export function OrderSummary() {
         <div>
           <p className="font-medium text-lf-white">{displayName}</p>
           <p className="text-sm text-lf-cream/60">{loading ? '…' : formatPHP(price)} / box</p>
+          {partnerPricing && (
+            <p className="mt-1 text-xs uppercase tracking-wide2 text-lf-gold">Partner Price Applied</p>
+          )}
         </div>
         <QtyStepper value={quantity} onChange={setQuantity} />
       </div>

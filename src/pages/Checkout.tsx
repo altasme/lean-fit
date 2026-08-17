@@ -32,9 +32,6 @@ export default function Checkout() {
   const requiresProof = selectedMethod?.requiresProof ?? false;
 
   const [deliveryErrors, setDeliveryErrors] = useState<ReturnType<typeof validateDeliveryDetails>>({});
-  const [referenceNumber, setReferenceNumber] = useState('');
-  const [amountPaid, setAmountPaid] = useState('');
-  const [paymentDate, setPaymentDate] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [proofErrors, setProofErrors] = useState<ReturnType<typeof validateProof>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -59,15 +56,7 @@ export default function Checkout() {
     if (total !== null) trackAddPaymentInfo(total);
   };
 
-  const handleProofChange = (patch: {
-    referenceNumber?: string;
-    amountPaid?: string;
-    paymentDate?: string;
-    file?: File | null;
-  }) => {
-    if (patch.referenceNumber !== undefined) setReferenceNumber(patch.referenceNumber);
-    if (patch.amountPaid !== undefined) setAmountPaid(patch.amountPaid);
-    if (patch.paymentDate !== undefined) setPaymentDate(patch.paymentDate);
+  const handleProofChange = (patch: { file?: File | null }) => {
     if (patch.file !== undefined) setFile(patch.file);
   };
 
@@ -75,14 +64,7 @@ export default function Checkout() {
     setSubmitError(null);
 
     const dErrors = validateDeliveryDetails(delivery);
-    const pErrors = requiresProof
-      ? validateProof({
-          referenceNumber,
-          amountPaid: amountPaid === '' ? null : Number(amountPaid),
-          paymentDate,
-          file,
-        })
-      : {};
+    const pErrors = requiresProof ? validateProof({ file }) : {};
     setDeliveryErrors(dErrors);
     setProofErrors(pErrors);
 
@@ -111,14 +93,7 @@ export default function Checkout() {
         total,
         paymentMethod,
         referralCode: getStoredReferralCode(),
-        ...(requiresProof
-          ? {
-              referenceNumber,
-              amountPaid: Number(amountPaid),
-              paymentDate,
-              proofFile: file ?? undefined,
-            }
-          : {}),
+        ...(requiresProof ? { proofFile: file ?? undefined } : {}),
       });
 
       trackPurchase({
@@ -163,14 +138,7 @@ export default function Checkout() {
           <DeliveryForm values={delivery} errors={deliveryErrors} onChange={handleDeliveryChange} />
           <PaymentMethodSelect selected={paymentMethod} onSelect={handlePaymentSelect} />
           {requiresProof && (
-            <ProofUpload
-              referenceNumber={referenceNumber}
-              amountPaid={amountPaid}
-              paymentDate={paymentDate}
-              file={file}
-              errors={proofErrors}
-              onChange={handleProofChange}
-            />
+            <ProofUpload file={file} errors={proofErrors} onChange={handleProofChange} />
           )}
 
           {submitError && (

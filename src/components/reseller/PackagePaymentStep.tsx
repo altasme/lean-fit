@@ -39,9 +39,6 @@ export function PackagePaymentStep({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId | null>(null);
-  const [referenceNumber, setReferenceNumber] = useState('');
-  const [amountPaid, setAmountPaid] = useState('');
-  const [paymentDate, setPaymentDate] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<ProofFormErrors>({});
   const [methodError, setMethodError] = useState<string | null>(null);
@@ -73,15 +70,9 @@ export function PackagePaymentStep({
     }
     setMethodError(null);
 
-    const parsedAmount = amountPaid ? Number(amountPaid) : null;
-    const formErrors = validateProof({
-      referenceNumber,
-      amountPaid: parsedAmount,
-      paymentDate,
-      file,
-    });
+    const formErrors = validateProof({ file });
     setErrors(formErrors);
-    if (Object.keys(formErrors).length > 0 || !file || parsedAmount === null) return;
+    if (Object.keys(formErrors).length > 0 || !file) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -90,9 +81,6 @@ export function PackagePaymentStep({
         partnerId,
         pkg,
         paymentMethod,
-        referenceNumber,
-        amountPaid: parsedAmount,
-        paymentDate,
         proofFile: file,
       });
       onDone();
@@ -166,15 +154,9 @@ export function PackagePaymentStep({
             {methodError && <p className="text-xs text-lf-error">{methodError}</p>}
 
             <ProofUpload
-              referenceNumber={referenceNumber}
-              amountPaid={amountPaid}
-              paymentDate={paymentDate}
               file={file}
               errors={errors}
               onChange={(patch) => {
-                if (patch.referenceNumber !== undefined) setReferenceNumber(patch.referenceNumber);
-                if (patch.amountPaid !== undefined) setAmountPaid(patch.amountPaid);
-                if (patch.paymentDate !== undefined) setPaymentDate(patch.paymentDate);
                 if (patch.file !== undefined) setFile(patch.file);
               }}
             />

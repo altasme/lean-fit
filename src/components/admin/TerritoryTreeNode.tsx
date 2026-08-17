@@ -17,7 +17,9 @@ function statusBadge(node: TerritoryNode) {
 export function TerritoryTreeNode({ node, depth = 0 }: { node: TerritoryNode; depth?: number }) {
   const [expanded, setExpanded] = useState(depth < 1);
   const hasChildren = node.children.length > 0;
-  const expectedType = TERRITORY_LEVEL_PARTNER_TYPE[node.level];
+  // 'province' is purely structural (migration 0012) - never assignable to
+  // a partner type, so it has no entry in TERRITORY_LEVEL_PARTNER_TYPE.
+  const expectedType = node.level === 'province' ? null : TERRITORY_LEVEL_PARTNER_TYPE[node.level];
 
   return (
     <div>
@@ -36,7 +38,7 @@ export function TerritoryTreeNode({ node, depth = 0 }: { node: TerritoryNode; de
         <span className="min-w-[160px] text-sm text-lf-white">{node.name}</span>
 
         <span className="min-w-[90px] text-xs uppercase tracking-wide2 text-lf-cream/40">
-          {expectedType}
+          {expectedType ?? '—'}
         </span>
 
         <span className="tabular text-xs text-lf-cream/60">

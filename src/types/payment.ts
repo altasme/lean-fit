@@ -46,12 +46,9 @@ export type PaymentStatusHistory = {
   created_at: string;
 };
 
-/** Checkout-side proof-of-payment form input (manual methods only). */
+/** Checkout-side proof-of-payment form input (manual methods only, screenshot only). */
 export type PaymentProofInput = {
   method: PaymentMethodId;
-  referenceNumber: string;
-  amountPaid: number;
-  paymentDate: string;
   file: File | null;
 };
 

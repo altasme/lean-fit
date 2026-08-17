@@ -1,15 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PartnerLayout } from '../../components/reseller/PartnerLayout';
 import { usePartnerAuth } from '../../components/reseller/PartnerAuthProvider';
 import { PackagePaymentStep } from '../../components/reseller/PackagePaymentStep';
-import { fetchTerritoriesWithOccupancy, onboardPartner } from '../../lib/partners';
-import type { TerritoryOption } from '../../lib/partners';
+import { TerritoryPicker } from '../../components/reseller/TerritoryPicker';
+import type { TerritoryPickerValue } from '../../components/reseller/TerritoryPicker';
+import { onboardPartner } from '../../lib/partners';
 import { validateOnboardPartner } from '../../lib/validation';
 import type { OnboardPartnerErrors, OnboardPartnerInput } from '../../lib/validation';
 import { ONBOARDABLE_PARTNER_TYPES, PARTNER_TYPE_LABELS } from '../../types/partner';
 import type { PartnerType } from '../../types/partner';
-import { PARTNER_TYPE_TERRITORY_LEVEL, TERRITORY_LEVEL_LABELS } from '../../types/territory';
 
 const inputClass =
   'w-full rounded-sm border border-white/15 bg-lf-black px-4 py-3 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none';
@@ -24,6 +24,7 @@ const EMPTY: OnboardPartnerInput = {
   address: '',
   partnerType: 'reseller',
   territoryId: '',
+  barangayName: null,
 };
 
 export default function AddPartner() {
@@ -38,54 +39,28 @@ export default function AddPartner() {
     partnerType: onboardableTypes[0] ?? 'reseller',
   });
   const [errors, setErrors] = useState<OnboardPartnerErrors>({});
-  const [territories, setTerritories] = useState<TerritoryOption[] | null>(null);
-  const [territoryError, setTerritoryError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!partner || onboardableTypes.length === 0) return;
-
-    const level = PARTNER_TYPE_TERRITORY_LEVEL[form.partnerType];
-    let cancelled = false;
-    setTerritories(null);
-    setTerritoryError(null);
-
-    async function load() {
-      try {
-        const options = await fetchTerritoriesWithOccupancy(level);
-        // Spec Part 2 §28's "appropriate territorial parent" - only offer
-        // territories actually within the sponsor's own coverage area.
-        // The server (onboard_partner()) is the real enforcement; this is
-        // just so the dropdown doesn't offer choices it would reject.
-        let scoped = options;
-        if (partner!.partner_type === 'distributor') {
-          scoped = options.filter((t) => t.parentId === partner!.territory_id);
-        } else if (partner!.partner_type === 'franchise') {
-          if (level === 'city') {
-            scoped = options.filter((t) => t.parentId === partner!.territory_id);
-          } else if (level === 'barangay') {
-            const cities = await fetchTerritoriesWithOccupancy('city');
-            const ownCityIds = new Set(cities.filter((c) => c.parentId === partner!.territory_id).map((c) => c.id));
-            scoped = options.filter((t) => t.parentId != null && ownCityIds.has(t.parentId));
-          }
-        }
-        if (!cancelled) setTerritories(scoped);
-      } catch (err) {
-        if (!cancelled) setTerritoryError(err instanceof Error ? err.message : 'Failed to load territories.');
-      }
-    }
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [partner, form.partnerType]);
 
   function update<K extends keyof OnboardPartnerInput>(field: K, value: OnboardPartnerInput[K]) {
     setForm((f) => ({ ...f, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+  }
+
+  function handleTerritoryChange(value: TerritoryPickerValue | null) {
+    setForm((f) => ({
+      ...f,
+      territoryId: value?.territoryId ?? '',
+      barangayName: value?.barangayName ?? null,
+    }));
+    if (errors.territoryId || errors.barangayName) {
+      setErrors((prev) => ({ ...prev, territoryId: undefined, barangayName: undefined }));
+    }
+  }
+
+  function selectPartnerType(type: PartnerType) {
+    setForm((f) => ({ ...f, partnerType: type, territoryId: '', barangayName: null }));
+    setErrors((prev) => ({ ...prev, partnerType: undefined, territoryId: undefined, barangayName: undefined }));
   }
 
   if (!partner) return null;
@@ -153,7 +128,12 @@ export default function AddPartner() {
     );
   }
 
-  const territoryLevel = PARTNER_TYPE_TERRITORY_LEVEL[form.partnerType];
+  // Part 2 §28 containment: a sponsor's own coverage area is fixed, not
+  // chosen - a Distributor's new Reseller is always within their own city,
+  // a Franchise's new Distributor/Reseller is always within their own
+  // region. TerritoryPicker hides the corresponding step's UI accordingly.
+  const lockedCityId = partner.partner_type === 'distributor' ? partner.territory_id ?? undefined : undefined;
+  const lockedRegionId = partner.partner_type === 'franchise' ? partner.territory_id ?? undefined : undefined;
 
   return (
     <PartnerLayout>
@@ -176,7 +156,7 @@ export default function AddPartner() {
                 <button
                   key={type}
                   type="button"
-                  onClick={() => update('partnerType', type)}
+                  onClick={() => selectPartnerType(type)}
                   className={`rounded-sm border px-3 py-2.5 text-sm font-kicker uppercase tracking-wide2 transition-colors ${
                     form.partnerType === type
                       ? 'border-lf-gold bg-lf-gold text-lf-black'
@@ -238,40 +218,15 @@ export default function AddPartner() {
           {errors.address && <p className="mt-1.5 text-xs text-lf-error">{errors.address}</p>}
         </div>
 
-        <div>
-          <label className={labelClass}>{TERRITORY_LEVEL_LABELS[territoryLevel]}</label>
-          {territoryError && <p className="text-xs text-lf-error">{territoryError}</p>}
-          {!territories && !territoryError && (
-            <p className="text-xs text-lf-cream/50">Loading available territories…</p>
-          )}
-          {territories && territories.length === 0 && !territoryError && (
-            <p className="text-xs text-lf-cream/50">
-              No {TERRITORY_LEVEL_LABELS[territoryLevel].toLowerCase()}s available in your coverage
-              area yet. Contact Lean & Fit to have one added.
-            </p>
-          )}
-          {territories && territories.length > 0 && (
-            <select
-              value={form.territoryId}
-              onChange={(e) => update('territoryId', e.target.value)}
-              className={inputClass}
-              aria-invalid={Boolean(errors.territoryId)}
-            >
-              <option value="">Select…</option>
-              {territories.map((t) => {
-                const full = t.capacity != null && t.occupied >= t.capacity;
-                return (
-                  <option key={t.id} value={t.id} disabled={full}>
-                    {t.name} ({t.occupied}
-                    {t.capacity != null ? `/${t.capacity}` : ''}
-                    {full ? ' - Full' : ''})
-                  </option>
-                );
-              })}
-            </select>
-          )}
-          {errors.territoryId && <p className="mt-1.5 text-xs text-lf-error">{errors.territoryId}</p>}
-        </div>
+        <TerritoryPicker
+          key={form.partnerType}
+          partnerType={form.partnerType}
+          onChange={handleTerritoryChange}
+          lockedRegionId={lockedRegionId}
+          lockedCityId={lockedCityId}
+        />
+        {errors.territoryId && <p className="text-xs text-lf-error">{errors.territoryId}</p>}
+        {errors.barangayName && <p className="text-xs text-lf-error">{errors.barangayName}</p>}
 
         {submitError && (
           <p className="rounded-sm border border-lf-error/40 bg-lf-error/10 px-4 py-3 text-sm text-lf-error">
