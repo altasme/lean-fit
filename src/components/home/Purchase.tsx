@@ -5,23 +5,24 @@ import { QtyStepper } from '../ui/QtyStepper';
 import { PRODUCT } from '../../content/product';
 import { formatPHP } from '../../lib/format';
 import { useCartStore } from '../../store/cart';
+import { useActiveProduct } from '../../hooks/useActiveProduct';
 
 export function Purchase() {
   const navigate = useNavigate();
   const quantity = useCartStore((s) => s.quantity);
   const setQuantity = useCartStore((s) => s.setQuantity);
   const subtotal = useCartStore((s) => s.subtotal());
+  const { product, price, loading } = useActiveProduct();
 
-  const priceUnavailable = PRODUCT.price === null;
+  const priceUnavailable = !loading && price === null;
+  const displayName = product?.name ?? `${PRODUCT.name} - ${PRODUCT.variant}`;
 
   return (
     <section id="purchase" className="bg-lf-black py-20 sm:py-28">
       <Container>
         <div className="mx-auto max-w-xl rounded-sm border border-lf-gold/40 bg-lf-charcoal p-8 shadow-gold-glow sm:p-12">
           <SectionKicker>Get Yours</SectionKicker>
-          <h2 className="text-3xl text-lf-white sm:text-4xl">
-            {PRODUCT.name} - {PRODUCT.variant}
-          </h2>
+          <h2 className="text-3xl text-lf-white sm:text-4xl">{displayName}</h2>
           <p className="mt-2 text-sm text-lf-cream/70">
             {PRODUCT.sachetsPerBox} sachets · {PRODUCT.boxGrams}g box
           </p>
@@ -30,7 +31,9 @@ export function Purchase() {
             <span className="font-kicker text-sm uppercase tracking-wide2 text-lf-cream/70">
               Unit Price
             </span>
-            <span className="font-display text-2xl text-lf-white">{formatPHP(PRODUCT.price)}</span>
+            <span className="font-display text-2xl text-lf-white">
+              {loading ? '…' : formatPHP(price)}
+            </span>
           </div>
 
           <div className="mt-6 flex items-center justify-between">

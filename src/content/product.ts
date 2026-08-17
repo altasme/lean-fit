@@ -1,10 +1,18 @@
 /**
- * Single source of truth for product facts, claims, and pricing.
- * Do not hardcode any of this in components - see CLAUDE.md §4.
+ * Product facts, claims, and packaging details that aren't yet part of the
+ * admin-managed data model (see CLAUDE.md §4 for the original intent).
  *
  * ⛔ BLOCKING ITEMS - see §4c / §15. This file ships with locked facts plus
  * placeholders for everything the client has not yet confirmed. The site
  * must not go live until those are resolved.
+ *
+ * PRICE IS NOT HERE ANYMORE. SRP now lives in the Supabase `products`
+ * table, admin-editable at `/admin/products`, and is fetched live via
+ * `src/lib/product.ts` (`fetchActiveProduct`) / `useActiveProduct()` -
+ * Admin Panel spec §12/§26 non-negotiable rule #1 ("do not hard-code
+ * product prices"). Every component that shows or calculates a price
+ * (Purchase, ProductIntro, OrderSummary, Checkout, the cart store) reads
+ * it from there, never from this file.
  */
 
 export const PRODUCT = {
@@ -13,8 +21,6 @@ export const PRODUCT = {
   sachetGrams: 25,
   sachetsPerBox: 10,
   boxGrams: 250,
-
-  price: 250 as number | null,
 
   /**
    * Delivery fee(s). ⛔ Still a placeholder flat rate - client must confirm

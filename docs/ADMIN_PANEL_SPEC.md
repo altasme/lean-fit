@@ -4,20 +4,23 @@
 > centralized pricing, promotions, partner pricing, media management, audit
 > log) on top of the existing order/payment admin (`CLAUDE.md`). Being
 > built in the priority order §25 specifies; see the repo's task list for
-> current phase status. §25 phases 1-6 are done: product data model,
+> current phase status. §25 phases 1-7 are done: product data model,
 > pricing engine, and promotion engine (`supabase/migrations/0002_admin_panel_products_pricing.sql`,
 > `src/lib/pricing.ts`), the admin UI to manage all of it
 > (`/admin/products`, `/admin/promotions`, `/admin/partner-pricing`), media
 > management (`supabase/migrations/0003_admin_panel_media.sql`,
-> `/admin/media`, Cloudinary-backed per the client's 2026-08-17 storage
-> decision), and the audit system (`src/lib/auditLog.ts`, `/admin/audit-log`
-> - every product/pricing/promo/partner/media/order/payment write is now
-> logged). Save-confirmation toasts were also added across the admin panel
-> per client feedback. Preserved verbatim below as the source of truth for
-> the remaining phases (website integration, partner integration) - and
-> per the client's explicit requirement that the admin panel, the public
-> website, and the upcoming reseller panel must stay in sync, which is
-> exactly what those two phases deliver.
+> `/admin/media` - built and working, currently hidden from the admin nav
+> per client request, nothing deleted), the audit system
+> (`src/lib/auditLog.ts`, `/admin/audit-log` - every product/pricing/promo/
+> partner/media/order/payment write is logged), save-confirmation toasts
+> across the admin panel, and website integration (`src/lib/product.ts`,
+> `src/hooks/useActiveProduct.ts` - the homepage and checkout now read live
+> SRP/promo pricing from the `products`/`promotions` tables through the
+> same pricing engine admin uses, closing the loop on "admin, website, and
+> reseller panel must stay in sync" for pricing specifically). Preserved
+> verbatim below as the source of truth for the one remaining phase
+> (partner/reseller integration - phase 8, the other half of that sync
+> requirement).
 
 ## Purpose
 

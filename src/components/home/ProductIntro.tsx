@@ -3,6 +3,7 @@ import { SectionKicker } from '../ui/SectionKicker';
 import { OrderNowButton } from '../ui/OrderNowButton';
 import { PRODUCT } from '../../content/product';
 import { useInView } from '../../hooks/useInView';
+import { useActiveProduct } from '../../hooks/useActiveProduct';
 import { useEffect } from 'react';
 import { trackViewContent } from '../../lib/pixel';
 import productShot from '../../assets/product-shot.jpg';
@@ -16,10 +17,14 @@ const metrics = [
 
 export function ProductIntro() {
   const { ref, inView } = useInView<HTMLDivElement>({ threshold: 0.4 });
+  // Name/variant here are presentational layout (separate kicker + heading
+  // slots) rather than a single combined string, so they stay static -
+  // only price (the spec's actual "never hardcode" concern) goes live.
+  const { price } = useActiveProduct();
 
   useEffect(() => {
-    if (inView) trackViewContent(PRODUCT.price);
-  }, [inView]);
+    if (inView) trackViewContent(price);
+  }, [inView, price]);
 
   return (
     <section id="product" className="scroll-mt-16 bg-lf-black py-20 sm:scroll-mt-20 sm:py-28">

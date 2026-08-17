@@ -6,7 +6,7 @@ import { DeliveryForm } from '../components/checkout/DeliveryForm';
 import { PaymentMethodSelect } from '../components/checkout/PaymentMethodSelect';
 import { ProofUpload } from '../components/checkout/ProofUpload';
 import { useCartStore } from '../store/cart';
-import { PRODUCT } from '../content/product';
+import { useActiveProduct } from '../hooks/useActiveProduct';
 import { PAYMENT_METHODS } from '../content/payment';
 import { createOrder } from '../lib/orders';
 import { notifyOrderEvent } from '../lib/notify';
@@ -19,7 +19,11 @@ const LAST_ORDER_KEY = 'lf_last_order';
 
 export default function Checkout() {
   const navigate = useNavigate();
+  useActiveProduct(); // ensures store pricing is loaded even if reached directly
   const { delivery, setDelivery, paymentMethod, setPaymentMethod, quantity } = useCartStore();
+  const productName = useCartStore((s) => s.productName);
+  const unitPrice = useCartStore((s) => s.unitPrice);
+  const deliveryFee = useCartStore((s) => s.deliveryFee);
   const subtotal = useCartStore((s) => s.subtotal());
   const total = useCartStore((s) => s.total());
 
@@ -89,7 +93,7 @@ export default function Checkout() {
       setSubmitError('Please select a payment method.');
       return;
     }
-    if (PRODUCT.price === null || subtotal === null || total === null) {
+    if (unitPrice === null || productName === null || subtotal === null || total === null) {
       setSubmitError('Pricing is not yet available for checkout.');
       return;
     }
@@ -98,10 +102,11 @@ export default function Checkout() {
     try {
       const order = await createOrder({
         delivery,
+        productName,
         quantity,
-        unitPrice: PRODUCT.price,
+        unitPrice,
         subtotal,
-        deliveryFee: PRODUCT.deliveryFee,
+        deliveryFee,
         total,
         paymentMethod,
         ...(requiresProof

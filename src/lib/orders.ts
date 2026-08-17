@@ -1,10 +1,11 @@
 import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
-import { PRODUCT } from '../content/product';
 import type { DeliveryDetails, OrderStatus } from '../types/order';
 import type { PaymentMethodId, PaymentStatus } from '../types/payment';
 
 export type CreateOrderInput = {
   delivery: DeliveryDetails;
+  /** Live product name at time of purchase - see useActiveProduct(). */
+  productName: string;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -53,7 +54,7 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     p_province: input.delivery.province,
     p_postal_code: input.delivery.postalCode,
     p_delivery_notes: input.delivery.deliveryNotes || null,
-    p_product: `${PRODUCT.name} - ${PRODUCT.variant}`,
+    p_product: input.productName,
     p_quantity: input.quantity,
     p_unit_price: input.unitPrice,
     p_subtotal: input.subtotal,

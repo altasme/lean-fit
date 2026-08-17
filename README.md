@@ -70,9 +70,11 @@ placeholders pending client sign-off (`src/content/product.ts` and
 `src/content/payment.ts` are flagged inline with `⛔`) - see CLAUDE.md §15
 for the canonical list:
 
-1. **Delivery fee/coverage.** Base price is locked at ₱250. `PRODUCT.deliveryFee`
-   is still `0` as a placeholder - client must confirm actual delivery
-   pricing and coverage areas.
+1. **Delivery fee/coverage.** `PRODUCT.deliveryFee` is still `0` as a
+   placeholder - client must confirm actual delivery pricing and coverage
+   areas. (Base price itself is no longer hardcoded here - it's the live
+   `products.srp` row, admin-editable at `/admin/products`; see "Live
+   product data" below.)
 2. Confirm the 20g/soya "image 11" design is dead - all copy currently
    assumes 15g whey / `@leanfitcoffee`.
 3. Final ingredient list + whether Senna Leaf Extract stays in the formula

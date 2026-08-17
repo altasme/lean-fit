@@ -260,3 +260,64 @@ the live project): editing a product's SRP and status produced exactly
 two audit rows (`SRP: 250 → 399`, `Status: active → inactive`); the
 entity-type filter and search both narrowed the list correctly; the save
 toast appeared alongside the new audit rows.
+
+## Admin Panel Phase 7 (website integration)
+
+No new migration - this phase connects the public site and checkout to
+tables that already existed (`products`, `promotions`). Price is now live
+everywhere, closing out the spec's core non-negotiable rule (§26 #1: "do
+not hard-code product prices").
+
+**Where the live fetch happens.** `src/lib/product.ts`
+(`fetchActiveProduct`) is the single query both the homepage and checkout
+call into - fetches the (oldest) active product, fetches active
+promotions, and runs both through the *same* `calculateRetailPrice()` from
+`src/lib/pricing.ts` that admin already used. No separate pricing logic
+for the product page vs checkout (spec §12/§26 #3).
+
+**How it reaches components.** `src/hooks/useActiveProduct.ts` wraps that
+fetch and pushes the result into the Zustand cart store
+(`src/store/cart.ts`), which now holds `productName`/`unitPrice`/
+`deliveryFee` as real state instead of reading a hardcoded import -
+`subtotal()`/`total()` compute off that state. `Purchase` (homepage),
+`ProductIntro` (pixel tracking value), `OrderSummary`, and `Checkout`
+each call the hook independently; multiple calls just re-fetch and
+re-set the same store fields, which is harmless and keeps every
+component self-sufficient (matches how the rest of this codebase avoids
+prop-drilling product data).
+
+**`src/content/product.ts` no longer has a `price` field at all** - it was
+removed rather than left as unused/misleading dead data. What's left
+there (nutrition panel, ingredients, badges, prep steps, claims, delivery
+fee) is intentionally still static: the Admin Panel spec's Phase 4 field
+list for products was name/description/SRP/images/status/promo-eligibility,
+not the full marketing content model, so building that out was treated as
+a scope decision rather than an oversight - flag it if the client expects
+those fields to be admin-editable too, that would extend the `products`
+schema and `/admin/products` form.
+
+**Graceful degradation, not a stale fallback.** If no active product
+exists (all draft/inactive) the site shows "TBD"/"Price Coming Soon" and
+disables the buy button - the same UX the site already had for an unset
+price, just now driven by "no active product found" instead of "price is
+null in a static file." It never falls back to showing an old hardcoded
+number.
+
+**Order creation** now takes the live product name as an explicit
+`productName` parameter (`src/lib/orders.ts`) rather than importing the
+static constant - still no risk to historical order integrity (spec §20),
+since `orders.unit_price`/`subtotal`/`total`/`product` are snapshotted at
+submission time regardless of where the values originated.
+
+Verified interactively (mocked `fetchActiveProduct`, since this sandbox
+can't reach the live Supabase project) across three scenarios: normal
+(SRP ₱250, quantity change recalculates subtotal correctly, and the same
+values carry through from the homepage into checkout's Order Summary),
+promo-active (`Purchase` shows the discounted ₱200, never the ₱250 SRP),
+and no-active-product (price and buy button both show the existing
+"coming soon" state, not a broken or stale render).
+
+**Still open (phase 8, tracked separately):** no reseller/partner portal
+exists yet to consume `partner_pricing_tiers` - that's the remaining piece
+of the client's "admin, website, and reseller panel must stay in sync"
+requirement.
