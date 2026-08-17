@@ -3,12 +3,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Logo } from '../layout/Logo';
 
+// Media is built (migration 0003, /admin/media, Cloudinary upload flow)
+// but hidden from the nav for now per client request - the route itself
+// is also redirected away in App.tsx so it's not reachable by direct URL
+// either. Nothing was deleted; re-add the nav entry to bring it back.
 const NAV_LINKS = [
   { to: '/admin', label: 'Orders' },
   { to: '/admin/products', label: 'Products' },
   { to: '/admin/promotions', label: 'Promotions' },
   { to: '/admin/partner-pricing', label: 'Partner Pricing' },
-  { to: '/admin/media', label: 'Media' },
   { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 

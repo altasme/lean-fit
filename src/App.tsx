@@ -12,7 +12,7 @@ import AdminProductForm from './pages/admin/AdminProductForm';
 import AdminPromotions from './pages/admin/AdminPromotions';
 import AdminPromotionForm from './pages/admin/AdminPromotionForm';
 import AdminPartnerPricing from './pages/admin/AdminPartnerPricing';
-import AdminMedia from './pages/admin/AdminMedia';
+// AdminMedia is hidden for now - see the /admin/media route below.
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
@@ -163,14 +163,10 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route
-            path="/admin/media"
-            element={
-              <RequireAuth>
-                <AdminMedia />
-              </RequireAuth>
-            }
-          />
+          {/* Media is built but hidden for now (nav entry removed in
+              AdminLayout) - redirect rather than leaving a dead direct-URL
+              route. Swap this back to <AdminMedia /> to re-enable. */}
+          <Route path="/admin/media" element={<Navigate to="/admin" replace />} />
           <Route
             path="/admin/audit-log"
             element={
