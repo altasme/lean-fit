@@ -3,6 +3,11 @@ import type { PropsWithChildren } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 
+// Generic Supabase session provider - shared by both the admin app and the
+// partner portal (Reseller Phase D). Which role a session belongs to is
+// resolved separately: RequireAuth checks admin_users/is_admin(),
+// RequirePartnerAuth checks for a linked `partners` row.
+
 type AuthContextValue = {
   session: Session | null;
   loading: boolean;

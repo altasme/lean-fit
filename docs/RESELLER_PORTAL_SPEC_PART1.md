@@ -15,6 +15,12 @@
 > - tightens pre-Phase-A "admin full access" policies from `using (true)`
 > to `using (is_admin())` so a future partner account can't read/write
 > every order/payment/product/audit row) is also done, ahead of Phase D.
+> Phase D (partner auth + referral identity - `supabase/functions/invite-partner`,
+> `/reseller/login`, `/reseller/set-password`, `/reseller/dashboard`,
+> `src/components/reseller/`) is done too: partners get a portal login
+> (invited on approval), their referral code/URL/QR, and an account
+> summary. Order routing/pricing/earnings and the rest of the dashboard
+> (spec §40) are still Phase E/F.
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System

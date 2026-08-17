@@ -1,27 +1,28 @@
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../components/auth/AuthProvider';
 import { Logo } from '../../components/layout/Logo';
+import { RESELLER } from '../../content/site';
 
-export default function AdminLogin() {
+export default function PartnerLogin() {
   const { session } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   if (session) {
-    const redirectTo = (location.state as { from?: Location })?.from?.pathname ?? '/admin';
-    return <Navigate to={redirectTo} replace />;
+    return <Navigate to="/reseller/dashboard" replace />;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setResetSent(false);
     setSubmitting(true);
 
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
@@ -31,8 +32,26 @@ export default function AdminLogin() {
       setError(signInError.message);
       return;
     }
-    navigate('/admin', { replace: true });
-  };
+    navigate('/reseller/dashboard', { replace: true });
+  }
+
+  async function handleForgotPassword() {
+    if (!email) {
+      setError('Enter your email above first, then click "Forgot password."');
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reseller/set-password`,
+    });
+    setSubmitting(false);
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+    setResetSent(true);
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-lf-black px-5">
@@ -41,7 +60,7 @@ export default function AdminLogin() {
           <Logo />
         </div>
         <h1 className="text-center font-kicker text-lg uppercase tracking-wide2 text-lf-white">
-          Admin Sign In
+          Partner Sign In
         </h1>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -71,11 +90,35 @@ export default function AdminLogin() {
           </div>
 
           {error && <p className="text-xs text-lf-error">{error}</p>}
+          {resetSent && (
+            <p className="text-xs text-lf-success">
+              Password reset email sent - check your inbox.
+            </p>
+          )}
 
           <button type="submit" disabled={submitting} className="btn-gold w-full disabled:opacity-50">
             {submitting ? 'Signing In…' : 'Sign In'}
           </button>
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={submitting}
+            className="w-full text-center text-xs text-lf-cream/60 hover:text-lf-gold disabled:opacity-50"
+          >
+            Forgot password?
+          </button>
         </form>
+
+        <p className="mt-6 text-center text-xs text-lf-cream/50">
+          Not a partner yet?{' '}
+          <a href="/reseller" className="text-lf-gold hover:underline">
+            Apply here
+          </a>{' '}
+          or email{' '}
+          <a href={`mailto:${RESELLER.contactEmail}`} className="text-lf-gold hover:underline">
+            {RESELLER.contactEmail}
+          </a>
+        </p>
       </div>
     </div>
   );

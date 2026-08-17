@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
-import { approvePartner, getPartner, getPartnerProofSignedUrl, rejectPartner } from '../../lib/adminPartners';
+import {
+  approvePartner,
+  getPartner,
+  getPartnerProofSignedUrl,
+  invitePartnerToPortal,
+  rejectPartner,
+} from '../../lib/adminPartners';
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
 import type { Partner } from '../../types/partner';
@@ -41,11 +47,38 @@ export default function AdminPartnerDetail() {
     if (!partner) return;
     setBusy(true);
     try {
-      const { referralCode } = await approvePartner(partner.id);
-      showToast(`Partner approved - referral code ${referralCode}`);
+      const { referralCode, inviteError } = await approvePartner(partner.id);
+      if (inviteError) {
+        showToast(
+          `Partner approved - referral code ${referralCode}. Portal invite failed: ${inviteError}`,
+          'error',
+        );
+      } else {
+        showToast(`Partner approved - referral code ${referralCode}. Portal invite sent.`);
+      }
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Approval failed.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResendInvite() {
+    if (!partner) return;
+    setBusy(true);
+    try {
+      const { error } = await invitePartnerToPortal(partner.id);
+      if (error) {
+        showToast(`Could not send portal invite: ${error}`, 'error');
+      } else {
+        showToast(
+          partner.user_id
+            ? 'Password reset email sent to the partner.'
+            : 'Portal invite sent to the partner.',
+        );
+      }
+      await load();
     } finally {
       setBusy(false);
     }
@@ -169,6 +202,25 @@ export default function AdminPartnerDetail() {
               <p className="mt-3 text-sm text-lf-cream/60">
                 This application has already been {partner.status === 'active' ? 'approved' : partner.status}.
               </p>
+            )}
+
+            {partner.status === 'active' && (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">Portal Access</p>
+                <p className="mt-1.5 text-sm text-lf-cream/70">
+                  {partner.user_id
+                    ? 'This partner has a portal login.'
+                    : "This partner hasn't set up their portal login yet."}
+                </p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleResendInvite}
+                  className="btn-outline mt-3 !px-5 !py-2.5 !text-sm disabled:opacity-50"
+                >
+                  {partner.user_id ? 'Resend Password Reset' : 'Resend Portal Invite'}
+                </button>
+              </div>
             )}
 
             {canDecide && (

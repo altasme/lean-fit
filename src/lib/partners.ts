@@ -1,10 +1,46 @@
 import { supabase, uploadPaymentProof } from './supabase';
 import { calculatePartnerPrice } from './pricing';
 import type { PartnerApplication } from './validation';
-import type { PartnerPricingTier, PartnerStatus, PartnerType } from '../types/partner';
+import type { Partner, PartnerPricingTier, PartnerStatus, PartnerType } from '../types/partner';
 import { PARTNER_PACKAGE_BOXES } from '../types/partner';
 import type { Product } from '../types/product';
 import type { PaymentMethodId, PaymentStatus } from '../types/payment';
+
+/**
+ * The signed-in partner's own record, via the "partner can read own
+ * record" RLS policy (migration 0004: `user_id = auth.uid()`). Explicitly
+ * filters by user_id rather than relying on RLS alone - an admin session
+ * also passes that policy's OR'd "admin full access" branch, and without
+ * the filter `.maybeSingle()` would throw once more than one partner row
+ * exists. Returns null for a session with no linked partner row (not a
+ * partner, or their invite hasn't finished linking user_id yet) rather
+ * than throwing, since that's a normal state RequirePartnerAuth branches on.
+ */
+export async function fetchMyPartner(): Promise<Partner | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('partners')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as Partner | null) ?? null;
+}
+
+/**
+ * A partner's referral URL. Query-param based (`?ref=CODE`) rather than
+ * the spec's cosmetic path-style example (`leanandfit.ph/maria`) - a
+ * per-partner route would collide with the app's fixed routes and need
+ * its own slug-routing layer; `?ref=` is the standard affiliate-link
+ * pattern and is what Phase E's checkout attribution capture will read.
+ */
+export function buildReferralUrl(referralCode: string): string {
+  return `${window.location.origin}/?ref=${referralCode}`;
+}
 
 export type SubmittedApplication = {
   partnerId: string;

@@ -43,12 +43,35 @@
    `CLOUDINARY_API_SECRET` must only ever be set here (an Edge Function
    secret) - never in `.env`, never as a `VITE_*` var. See "Admin Panel
    Phase 5" below for why.
+10. Run `migrations/0004` through `0007` in the SQL editor, in order (see
+    "Reseller Portal Part 1" sections below for what each adds). After
+    0004, mark your admin account: find its id in **Authentication →
+    Users** and run `insert into admin_users (user_id) values ('<uuid>');`
+    - `RequireAuth` (the `/admin` route guard) now requires this row, not
+    just a session, so skipping it locks the admin app's UI (data access
+    was already RLS-gated on it since 0004/0007 - see "RLS retrofit"
+    below).
+11. Deploy the partner-portal invite function and set its secret:
+    ```bash
+    supabase functions deploy invite-partner
+    supabase secrets set SITE_URL=https://yourdomain.com
+    ```
+    `SITE_URL` is the **public marketing site's** origin (not the admin
+    subdomain) - it's where invite/password-reset links redirect partners
+    to finish setup (`SITE_URL/reseller/set-password`). That exact URL
+    must also be added to **Authentication → URL Configuration → Redirect
+    URLs** in the Supabase dashboard, or Supabase will reject the redirect
+    and the link will silently fall back to its default.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
 (`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
 Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
-not required for MVP launch).
+not required for MVP launch). Migrations 0002-0007 have been applied.
+`invite-partner` and its `SITE_URL` secret are not yet deployed/set - do
+that before relying on the "Approve Partner" button to also send the
+partner's portal invite (approval itself still works either way; only the
+invite email step needs it).
 
 ## Order → Payment → Provider (v2)
 
@@ -543,3 +566,92 @@ rows; `select count(*) from storage.objects where bucket_id =
 'payment-proofs'` returns 0. As the seeded admin, all of the above return
 the real data. Public-read tables (`products`) still return rows for the
 partner, confirming those policies were correctly left untouched.
+
+## Reseller Portal Part 1, Phase D (partner auth + referral identity)
+
+No new migration - the data model was already in place. `partners.user_id`
+and the `"partner can read own record"` RLS policy (`user_id = auth.uid()`)
+both shipped in migration 0004, ahead of need; this phase is what finally
+uses them.
+
+**`supabase/functions/invite-partner/index.ts`** (new Edge Function,
+service-role, admin-only - checks `admin_users` membership directly since
+Edge Functions run outside RLS): given `{ partnerId }` for an `active`
+partner,
+- if the partner has no `user_id` yet: calls
+  `auth.admin.inviteUserByEmail(partner.email, { redirectTo:
+  SITE_URL/reseller/set-password })`, which creates the Supabase Auth user
+  and sends Supabase's own invite email, then links the new user's id back
+  onto `partners.user_id`.
+- if `user_id` is already set (partner already invited once): calls
+  `auth.resetPasswordForEmail` instead - re-inviting an existing user
+  errors ("already registered"), so "resend access" for an existing login
+  goes through ordinary password recovery, landing on the same
+  set-password page.
+
+**Client wiring:** `approvePartner()` (`src/lib/adminPartners.ts`) now
+calls the invite function immediately after `approve_partner()` succeeds -
+best-effort, same pattern as its audit-log write: approval isn't rolled
+back if the invite email fails, the failure is just surfaced in the
+admin's toast so they can retry. `/admin/partners/:id` also exposes a
+standalone "Resend Portal Invite" / "Resend Password Reset" button (label
+depends on whether `user_id` is already linked) for after the fact.
+
+**Partner-side pages** (all new):
+- `/reseller/login` - email/password sign-in + "Forgot password" (calls
+  `resetPasswordForEmail`, same redirect target as the invite).
+- `/reseller/set-password` - the landing page for both the invite link and
+  the password-reset link. Both are Supabase magic links that redirect
+  here with a session already encoded in the URL hash; supabase-js
+  auto-detects and establishes that session on load (`detectSessionInUrl`,
+  on by default), so this page just waits for `useAuth()`'s session to
+  appear, then calls `auth.updateUser({ password })`.
+- `/reseller/dashboard` - gated by the new `RequirePartnerAuth` +
+  `PartnerAuthProvider` (`src/components/reseller/`), which resolve the
+  session to its `partners` row (`fetchMyPartner()` in `src/lib/partners.ts`,
+  explicitly filtered by `user_id` rather than trusting RLS alone - an
+  admin session also passes the "own record" policy's OR'd admin branch,
+  so an unfiltered query could return more than one row). Shows the
+  partner's name/type/status, their referral code, referral URL, and a
+  client-generated QR code (`qrcode` npm package, `QRCode.toDataURL`,
+  brand-colored) for that URL. **Deliberately scoped to referral identity
+  and account summary only** - orders, earnings, and downline (spec §40's
+  full dashboard) are Phase F; the page says so inline.
+- Referral URL format is `{origin}/?ref={code}` (`buildReferralUrl` in
+  `src/lib/partners.ts`) - a query param, not the spec's cosmetic
+  path-style example (`leanandfit.ph/maria`). A per-partner path would
+  collide with the app's fixed routes and need its own slug-routing layer;
+  `?ref=` is the standard affiliate-link pattern and is what Phase E's
+  checkout attribution capture will read off `window.location`.
+
+**Security fix bundled into this phase:** `RequireAuth` (the `/admin`
+route guard) previously only checked "is there a session" - correct while
+the admin was the only authenticated user, wrong the instant partner
+logins exist, since a signed-in partner would pass it too (and land on a
+now RLS-empty but still-rendered admin UI, per the 0007 retrofit above).
+It now also calls `is_admin()` and, if the session isn't an admin, shows a
+"Not An Admin Account" screen with the exact `insert into admin_users`
+statement to fix it - rather than a silent redirect loop - since this
+could just as easily be the real admin's `admin_users` row missing after
+a fresh migration run. The generic session provider also moved from
+`components/admin/AuthProvider.tsx` to `components/auth/AuthProvider.tsx`,
+since it's no longer admin-only - `RequirePartnerAuth`/`PartnerAuthProvider`
+use the same one.
+
+Verified interactively (mocked Supabase client covering
+`auth.signInWithPassword`/`getSession`/`onAuthStateChange`/`rpc('is_admin')`
+and a `partners` table keyed by `user_id`; bypassed the real Edge Function
+since it's Deno-only; reverted before this commit): a plain authenticated
+non-admin user is blocked at `/admin` with the fix-it message and no admin
+UI leaks through; a real admin (`is_admin` true) passes through
+unaffected; signing in as an active partner lands on the dashboard showing
+their name, referral code, the correct `?ref=` URL (read from the actual
+readonly input's value), and a rendered QR image; navigating to
+`/reseller/dashboard` with no session redirects to `/reseller/login`; a
+partner whose application is still `pending` sees "Portal Access
+Unavailable" instead of the dashboard.
+
+Not yet built: referral attribution during checkout, tier-aware partner
+pricing on orders, and the earnings/order/downline sections of the
+dashboard (Phase E/F) - see the repo's task list, "Reseller P1-E" and
+"P1-F".

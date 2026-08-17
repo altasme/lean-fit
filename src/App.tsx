@@ -4,6 +4,9 @@ import Home from './pages/Home';
 import Checkout from './pages/Checkout';
 import OrderConfirmed from './pages/OrderConfirmed';
 import Reseller from './pages/Reseller';
+import PartnerLogin from './pages/reseller/PartnerLogin';
+import PartnerSetPassword from './pages/reseller/PartnerSetPassword';
+import PartnerDashboard from './pages/reseller/PartnerDashboard';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
@@ -18,8 +21,10 @@ import AdminPartnerDetail from './pages/admin/AdminPartnerDetail';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
-import { AuthProvider } from './components/admin/AuthProvider';
+import { AuthProvider } from './components/auth/AuthProvider';
 import { RequireAuth } from './components/admin/RequireAuth';
+import { PartnerAuthProvider } from './components/reseller/PartnerAuthProvider';
+import { RequirePartnerAuth } from './components/reseller/RequirePartnerAuth';
 import { ToastProvider } from './components/ui/Toast';
 import { initPixel } from './lib/pixel';
 import { isAdminHost } from './lib/hostRouting';
@@ -89,6 +94,18 @@ export default function App() {
               <PublicLayout>
                 <Reseller />
               </PublicLayout>
+            }
+          />
+          <Route path="/reseller/login" element={<PartnerLogin />} />
+          <Route path="/reseller/set-password" element={<PartnerSetPassword />} />
+          <Route
+            path="/reseller/dashboard"
+            element={
+              <PartnerAuthProvider>
+                <RequirePartnerAuth>
+                  <PartnerDashboard />
+                </RequirePartnerAuth>
+              </PartnerAuthProvider>
             }
           />
 
