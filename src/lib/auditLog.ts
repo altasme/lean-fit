@@ -7,7 +7,8 @@ export type AuditEntityType =
   | 'media'
   | 'order'
   | 'payment'
-  | 'partner';
+  | 'partner'
+  | 'territory';
 
 async function currentAdminId(): Promise<string | null> {
   const {

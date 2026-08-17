@@ -17,6 +17,7 @@ import AdminPromotionForm from './pages/admin/AdminPromotionForm';
 import AdminPartnerPricing from './pages/admin/AdminPartnerPricing';
 import AdminPartners from './pages/admin/AdminPartners';
 import AdminPartnerDetail from './pages/admin/AdminPartnerDetail';
+import AdminTerritories from './pages/admin/AdminTerritories';
 // AdminMedia is hidden for now - see the /admin/media route below.
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import { PublicLayout } from './components/layout/PublicLayout';
@@ -202,6 +203,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminPartnerDetail />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/territories"
+            element={
+              <RequireAuth>
+                <AdminTerritories />
               </RequireAuth>
             }
           />

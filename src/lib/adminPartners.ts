@@ -1,6 +1,6 @@
 import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
 import { writeAuditLog } from './auditLog';
-import type { Partner } from '../types/partner';
+import type { Partner, PartnerType } from '../types/partner';
 
 export async function listPartners(): Promise<Partner[]> {
   const { data, error } = await supabase
@@ -81,4 +81,82 @@ export async function rejectPartner(partnerId: string): Promise<void> {
     entity_id: partnerId,
     action: 'rejected',
   });
+}
+
+/**
+ * Enforces spec §7/§9's strict level<->partner_type mapping and §58's
+ * capacity check server-side (migration 0010's assign_partner_territory) -
+ * not a plain client update, since admin's blanket table access would
+ * otherwise let a client bug silently over-allocate a territory.
+ */
+export async function assignPartnerTerritory(partnerId: string, territoryId: string): Promise<void> {
+  const { error } = await supabase.rpc('assign_partner_territory', {
+    p_partner_id: partnerId,
+    p_territory_id: territoryId,
+  });
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog({
+    entity_type: 'partner',
+    entity_id: partnerId,
+    action: 'territory_assigned',
+  });
+}
+
+/**
+ * Suspending needs no RPC/invariant check - it always frees the partner's
+ * territory slot (only 'active' partners count toward capacity), never
+ * violates anything. Reactivating is the direction that can fail (someone
+ * else may have taken the slot in the meantime), so that one goes through
+ * migration 0010's reactivate_partner RPC instead.
+ */
+export async function suspendPartner(partnerId: string): Promise<void> {
+  const { error } = await supabase.from('partners').update({ status: 'suspended' }).eq('id', partnerId);
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog({ entity_type: 'partner', entity_id: partnerId, action: 'suspended' });
+}
+
+export async function reactivatePartner(partnerId: string): Promise<void> {
+  const { error } = await supabase.rpc('reactivate_partner', { p_partner_id: partnerId });
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog({ entity_type: 'partner', entity_id: partnerId, action: 'reactivated' });
+}
+
+export async function assignParentPartner(partnerId: string, parentPartnerId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('partners')
+    .update({ parent_partner_id: parentPartnerId })
+    .eq('id', partnerId);
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog({ entity_type: 'partner', entity_id: partnerId, action: 'parent_assigned' });
+}
+
+/**
+ * Which partner types are valid upstream parents for a given type. A
+ * reseller's eligible list includes both distributor AND franchise -
+ * admin manually picks whichever is actually appropriate (e.g. skips to
+ * franchise when no distributor covers the area), which is spec §23's
+ * "missing partner" rule applied by hand rather than auto-routed.
+ * Franchise has no eligible parent - it's the top of the chain (§22).
+ */
+const ELIGIBLE_PARENT_TYPES: Record<PartnerType, PartnerType[]> = {
+  reseller: ['distributor', 'franchise'],
+  distributor: ['franchise'],
+  franchise: [],
+};
+
+export async function fetchEligibleParentPartners(partnerType: PartnerType): Promise<Partner[]> {
+  const types = ELIGIBLE_PARENT_TYPES[partnerType];
+  if (types.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('partners')
+    .select('*')
+    .in('partner_type', types)
+    .eq('status', 'active');
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Partner[];
 }

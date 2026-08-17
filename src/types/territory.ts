@@ -22,3 +22,10 @@ export const TERRITORY_LEVEL_PARTNER_TYPE = {
   city: 'distributor',
   barangay: 'reseller',
 } as const;
+
+/** Reverse of the above - which territory level a given partner type is assigned at. */
+export const PARTNER_TYPE_TERRITORY_LEVEL = {
+  franchise: 'region',
+  distributor: 'city',
+  reseller: 'barangay',
+} as const;

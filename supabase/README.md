@@ -43,7 +43,7 @@
    `CLOUDINARY_API_SECRET` must only ever be set here (an Edge Function
    secret) - never in `.env`, never as a `VITE_*` var. See "Admin Panel
    Phase 5" below for why.
-10. Run `migrations/0004` through `0009` in the SQL editor, in order (see
+10. Run `migrations/0004` through `0010` in the SQL editor, in order (see
     "Reseller Portal Part 1" sections below for what each adds). After
     0004, mark your admin account: find its id in **Authentication →
     Users** and run `insert into admin_users (user_id) values ('<uuid>');`
@@ -72,10 +72,11 @@
 (`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
 Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
 not required for MVP launch). Migrations 0002-0007 have been applied;
-**0008 and 0009 still need to be run** (0008 fixes a real pricing bug,
-see the note above/below - it's additive/safe to run any time, no
-backfill required; 0009 is pure RLS for the partner dashboard, also safe
-any time).
+**0008 through 0010 still need to be run** (0008 fixes a real pricing
+bug, see the note above/below - it's additive/safe to run any time, no
+backfill required; 0009 is pure RLS for the partner dashboard; 0010 adds
+the territory/partner-assignment RPCs for the admin panel - both safe to
+run any time).
 `invite-partner` and its `SITE_URL` secret are not yet deployed/set - do
 that before relying on the "Approve Partner" button to also send the
 partner's portal invite (approval itself still works either way; only the
@@ -844,3 +845,93 @@ excludes the self-checkout order, My Orders shows only it, Customers
 lists the two referred customers, and Commission shows the right
 Total/Payable/Pending split (a paid order's earnings counted as Payable,
 a pending-verification order's as Pending).
+
+## Reseller Portal Part 1, Phase G (admin partner + territory management)
+
+`migrations/0010_admin_territory_partner_management.sql` adds two RPCs,
+not a new table - territory CRUD itself (create/edit/delete regions,
+cities, barangays; set capacity) needs no RPC at all, since admin already
+has full table access to `territories` via `is_admin()` (migration 0004),
+same direct-table-access pattern `AdminProducts.tsx`/`adminProducts.ts`
+already use. Only the two operations with a real invariant to enforce get
+RPCs, same reasoning as `approve_partner()`:
+
+- `assign_partner_territory(partner_id, territory_id)` - validates spec
+  §7/§9's strict level<->partner_type mapping (franchise/region,
+  distributor/city, reseller/barangay - already encoded client-side as
+  `TERRITORY_LEVEL_PARTNER_TYPE` since Phase A) and spec §58's "system
+  prevents unauthorized over-allocation" capacity check (counts only
+  `active` partners at that territory, so a suspended partner doesn't
+  hold a slot hostage).
+- `reactivate_partner(partner_id)` - re-checks that same capacity before
+  undoing a suspension, since another partner may have taken the slot
+  while this one was suspended.
+
+Suspending needs no RPC - setting `status = 'suspended'` never violates
+anything (it's the direction that *frees* a territory slot, only
+`active` partners count toward capacity), so it's a plain client update,
+same as `rejectPartner()`. Parent-partner assignment is also a plain
+client update (`assignParentPartner()` in `src/lib/adminPartners.ts`) -
+admin manually picks from a filtered list of eligible upstream partners
+(`fetchEligibleParentPartners()`: a reseller's list includes both active
+distributors AND franchises, so admin can apply spec §23's "missing
+partner" rule by hand - skip to franchise when no distributor covers the
+area - rather than an automated cascade nothing in Part 1 needs yet).
+
+**Bug caught and fixed while validating this migration locally:**
+`returns table (partner_id uuid, territory_id uuid)` on
+`assign_partner_territory()` creates PL/pgSQL output variables named
+`partner_id`/`territory_id` - and `partners.territory_id` referenced
+unqualified anywhere inside that function's body then throws "column
+reference is ambiguous" (it doesn't know whether you mean the table
+column or the output variable). Same issue hit `reactivate_partner()`'s
+`status` output column. Fixed by qualifying every such reference as
+`partners.territory_id`/`partners.status` etc. throughout both functions,
+confirmed by rerunning every test case afterward.
+
+**`src/lib/adminTerritories.ts`** (new): `listTerritories()` computes
+occupancy live (count of `active` partners per territory) rather than a
+stored counter, so it can never drift out of sync with suspensions/
+reassignments; `createTerritory()`/`updateTerritoryCapacity()`/
+`deleteTerritory()` are plain CRUD, with `deleteTerritory()` translating
+the FK-violation Postgres throws (territories are protected from deletion
+by both child territories and assigned partners, no `ON DELETE CASCADE`)
+into a readable message instead of a raw constraint string.
+
+**`/admin/territories`** (new page): add/list territories by level
+(Region/City/Barangay), inline capacity editing, live Available/Occupied/
+Full status, delete. Deliberately a flat table, not a map - see the
+Phase H scoping note below; this phase is data management, not
+visualization.
+
+**`/admin/partners/:id`** gains a "Territory & Hierarchy" section
+(shown once a partner is `active` or `suspended`, i.e. past application):
+a dropdown of that partner type's matching-level territories (capacity-
+full options disabled), a parent-partner dropdown, and Suspend/Reactivate
+buttons swapping based on current status.
+
+**Not built** (deliberately, out of Part 1 Phase G's scope - real gaps,
+documented rather than silent): live territory-availability checking
+during the *public* application form (spec §19) - applicants still submit
+free-text region/city/barangay (Phase B) rather than picking a real
+`territories` row with live capacity; automatic "missing partner"
+upstream routing (spec §23-24) - admin applies it by hand via the
+eligible-parents dropdown above, not an automated cascade.
+
+Verified locally against a throwaway Postgres instance with the full
+migration chain applied (schema.sql + 0002-0010): seeded a region -> city
+(capacity 1) -> barangay hierarchy with one distributor already occupying
+the city. Confirmed - assigning a second distributor to the same city
+fails with the exact capacity message; assigning a reseller to a city-
+level territory fails with the level-mismatch message; a non-admin caller
+is rejected; suspending the first distributor frees the slot so the
+second assignment then succeeds; reactivating the first (now-displaced)
+distributor correctly fails ("territory now at capacity") until the
+second is suspended, then succeeds. Client UI verified interactively
+(mocked Supabase client, reverted before this commit): the territories
+page renders the seeded hierarchy with correct Full/Available status,
+creates a new region live; the partner detail page's territory dropdown
+disables full options, assigning a territory/parent partner and
+suspending/reactivating all update the UI correctly - also caught and
+fixed a real pluralization bug ("City / Municipalitys" as a section
+heading) during this pass.

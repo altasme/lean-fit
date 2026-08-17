@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { to: '/admin/promotions', label: 'Promotions' },
   { to: '/admin/partner-pricing', label: 'Partner Pricing' },
   { to: '/admin/partners', label: 'Partners' },
+  { to: '/admin/territories', label: 'Territories' },
   { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 

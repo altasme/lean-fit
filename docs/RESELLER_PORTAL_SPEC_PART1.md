@@ -39,6 +39,21 @@
 > the underlying order+payment status rather than a separate payout
 > table. Downstream/parent partner display (§46) is wired but will show
 > empty until Phase G's admin UI can assign `parent_partner_id` at all.
+> Phase G (admin partner + territory management -
+> `migrations/0010_admin_territory_partner_management.sql`,
+> `/admin/territories`, the new Territory & Hierarchy section on
+> `/admin/partners/:id`) is done: admin can create/edit/delete territories
+> with capacity (spec §7-11), assign a partner to a matching-level
+> territory with server-side capacity enforcement (§58), assign a parent
+> partner from a manually-filtered eligible list (§21-23), and suspend/
+> reactivate a partner (reactivation re-checks capacity). NOT built: live
+> territory-availability checking during the *public* application form
+> (§19 - applicants still submit free-text location, Phase B) and
+> automated "missing partner" upstream routing (§23-24 - admin applies it
+> by hand via the eligible-parents dropdown). Territory visualization
+> (§12-14, a real map) is Phase H - not started; see that task's scoping
+> note (list/tree view planned instead of a literal map, no barangay-level
+> boundary data available).
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System
