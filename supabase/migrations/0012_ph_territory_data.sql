@@ -40,7 +40,7 @@
 -- line will fail with exactly that error.
 -- ═══════════════════════════════════════════════════════════════════
 
-alter type territory_level add value 'province';
+alter type territory_level add value if not exists 'province';
 
 -- ═══════════════════════════════════════════════════════════════════
 -- STEP 2 OF 2 - once the ALTER TYPE above has committed (a green

@@ -71,7 +71,10 @@
     clearly divided into "STEP 1 OF 2" / "STEP 2 OF 2" - follow those
     markers):
     - **Step 1**: select and run *only* the `alter type territory_level add
-      value 'province';` line by itself, and let it finish.
+      value if not exists 'province';` line by itself, and let it finish.
+      (`if not exists` makes this safe to re-run - if you've already added
+      the value in an earlier attempt, this is a harmless no-op instead of
+      an `enum label "province" already exists` error.)
     - **Step 2**: once that's done, select and run everything below it.
 
     This split is required, not optional - Postgres refuses to use a
