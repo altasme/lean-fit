@@ -122,14 +122,28 @@ needed here. `partner_pricing_tiers` and `audit_log` stay admin-only; there
 is no partner-facing auth surface yet (phase 8, not built).
 
 **Pricing engine** lives in `src/lib/pricing.ts`, not the database - it's
-the single place retail price (SRP, optionally reduced by a promo code)
-and partner price (SRP reduced by a fixed tier %) get calculated, per the
-spec's "never calculate price independently in product cards / checkout /
-admin" rule (§12). Retail promotions never apply to partner pricing (§16).
-Verified locally against the spec's own worked examples (SRP ₱380 →
-reseller ₱304 / distributor ₱266 / franchise ₱228) plus promo edge cases
-(exempt products, expired/future/usage-capped promotions, product-targeted
-promos, case-insensitive code matching) - all pass.
+the single place retail price and partner price (SRP reduced by a fixed
+tier %) get calculated, per the spec's "never calculate price
+independently in product cards / checkout / admin" rule (§12). Retail
+promotions never apply to partner pricing (§16).
+
+Retail pricing has two promotion mechanisms, and **they never stack**:
+- `auto_apply = true` promotions apply automatically as the product's
+  "current price," no code needed.
+- `auto_apply = false` promotions only apply when the customer enters that
+  exact code.
+
+A code entered at checkout always *replaces* an active auto-apply
+promotion rather than combining with it - e.g. a 10%-off sitewide
+promotion plus a ₱50-off code never becomes both discounts at once, only
+whichever one the pricing engine selects (the code, if valid; otherwise
+the auto-apply promotion; otherwise SRP). If multiple auto-apply
+promotions are active simultaneously, only the one yielding the lowest
+price applies - never combined with each other either. Verified locally
+against the spec's own worked examples (SRP ₱380 → reseller ₱304 /
+distributor ₱266 / franchise ₱228) plus promo edge cases (exempt products,
+expired/future/usage-capped promotions, product-targeted promos,
+case-insensitive code matching, and the no-stacking rule) - all pass.
 
 Not yet wired to anything - no admin UI to manage this data (phase 4), the
 public site still reads `src/content/product.ts` (phase 7), and there's no

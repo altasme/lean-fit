@@ -89,6 +89,12 @@ create table promotions (
   -- Empty array = applies to every non-exempt product. Non-empty = only
   -- those product ids (still subject to that product's promo_exempt flag).
   applicable_product_ids uuid[] not null default '{}',
+  -- true: shown/applied automatically as the product's "current price" with
+  -- no code entry needed (still has a code for admin tracking/reporting).
+  -- false: only applies when the customer enters this exact code.
+  -- A code entered at checkout never stacks with an auto-apply promotion -
+  -- the code's discount replaces it, they are never combined.
+  auto_apply boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

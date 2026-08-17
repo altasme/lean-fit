@@ -7,7 +7,9 @@
  * situations where website says X, checkout says Y, admin says Z").
  *
  * Two separate pricing contexts, never stacked (spec §16):
- *  - Retail: SRP, optionally reduced by a promo code the customer entered.
+ *  - Retail: SRP, reduced by at most one promotion - either the auto-apply
+ *    "current promotion" (no code needed) or a customer-entered discount
+ *    code. A code always replaces the current promotion, never adds to it.
  *  - Partner: SRP, reduced by the partner's fixed tier discount. Retail
  *    promotions never apply to partner pricing.
  */
@@ -60,6 +62,23 @@ export function findPromotionByCode(promotions: Promotion[], code: string): Prom
   return promotions.find((p) => p.code.toLowerCase() === normalized) ?? null;
 }
 
+/**
+ * The promotion currently applied automatically to `product`, with no code
+ * needed - i.e. what the site shows as the product's "current price". If
+ * more than one auto-apply promotion is applicable at once, the one that
+ * yields the lowest price wins (they never stack with each other either).
+ */
+export function findCurrentPromotion(product: Product, activePromotions: Promotion[]): Promotion | null {
+  const candidates = activePromotions.filter(
+    (p) => p.auto_apply && isPromotionApplicable(p, product),
+  );
+  if (candidates.length === 0) return null;
+
+  return candidates.reduce((best, p) =>
+    applyDiscount(product.srp, p) < applyDiscount(product.srp, best) ? p : best,
+  );
+}
+
 function applyDiscount(srp: number, promotion: Promotion): number {
   const discounted =
     promotion.discount_type === 'percentage'
@@ -69,10 +88,15 @@ function applyDiscount(srp: number, promotion: Promotion): number {
 }
 
 /**
- * Retail price for a product: SRP, or SRP minus an applicable promo code.
- * No `promoCode` (or an inapplicable/invalid one) falls back to SRP - the
- * discount is never auto-applied without the customer providing the code,
- * matching spec §9's "discount code" framing.
+ * Retail price for a product.
+ *
+ * - No code entered: uses the auto-apply "current promotion" if one is
+ *   applicable, else SRP.
+ * - A valid code entered: uses that promotion instead. A code NEVER stacks
+ *   with the auto-apply current promotion - one replaces the other, they
+ *   are never combined into a bigger discount.
+ * - An invalid/inapplicable code falls back to the current promotion (if
+ *   any) rather than punishing the customer with a bad code back to SRP.
  */
 export function calculateRetailPrice(
   product: Product,
@@ -80,22 +104,30 @@ export function calculateRetailPrice(
   promoCode?: string,
 ): PriceResult {
   const srp = product.srp;
+  const currentPromotion = findCurrentPromotion(product, activePromotions);
 
-  if (!promoCode) {
-    return { price: srp, srp, context: 'retail', appliedPromotion: null };
+  if (promoCode) {
+    const codePromotion = findPromotionByCode(activePromotions, promoCode);
+    if (codePromotion && isPromotionApplicable(codePromotion, product)) {
+      return {
+        price: applyDiscount(srp, codePromotion),
+        srp,
+        context: 'retail_promo',
+        appliedPromotion: codePromotion,
+      };
+    }
   }
 
-  const promotion = findPromotionByCode(activePromotions, promoCode);
-  if (!promotion || !isPromotionApplicable(promotion, product)) {
-    return { price: srp, srp, context: 'retail', appliedPromotion: null };
+  if (currentPromotion) {
+    return {
+      price: applyDiscount(srp, currentPromotion),
+      srp,
+      context: 'retail_promo',
+      appliedPromotion: currentPromotion,
+    };
   }
 
-  return {
-    price: applyDiscount(srp, promotion),
-    srp,
-    context: 'retail_promo',
-    appliedPromotion: promotion,
-  };
+  return { price: srp, srp, context: 'retail', appliedPromotion: null };
 }
 
 /**

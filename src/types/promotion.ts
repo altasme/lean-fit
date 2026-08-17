@@ -13,6 +13,7 @@ export type Promotion = {
   times_used: number;
   status: PromotionStatus;
   applicable_product_ids: string[];
+  auto_apply: boolean;
   created_at: string;
   updated_at: string;
 };
