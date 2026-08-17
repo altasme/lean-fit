@@ -4,10 +4,13 @@
 > centralized pricing, promotions, partner pricing, media management, audit
 > log) on top of the existing order/payment admin (`CLAUDE.md`). Being
 > built in the priority order §25 specifies; see the repo's task list for
-> current phase status. §25 phases 1-3 (product data model, pricing engine,
-> promotion engine) are done - see `supabase/migrations/0002_admin_panel_products_pricing.sql`
-> and `src/lib/pricing.ts`. Preserved verbatim below as the source of truth
-> for the remaining phases.
+> current phase status. §25 phases 1-4 are done: product data model,
+> pricing engine, and promotion engine (`supabase/migrations/0002_admin_panel_products_pricing.sql`,
+> `src/lib/pricing.ts`), plus the admin UI to manage all of it
+> (`/admin/products`, `/admin/promotions`, `/admin/partner-pricing`).
+> Preserved verbatim below as the source of truth for the remaining
+> phases (media management, audit log, website integration, partner
+> integration).
 
 ## Purpose
 
