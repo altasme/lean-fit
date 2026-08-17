@@ -504,3 +504,42 @@ management, and territory visualization (see the repo's task list,
 received, payment approved) are also not wired yet - the existing
 `notify.ts`/Resend Edge Function path is order-specific; a partner
 equivalent is future work.
+
+## RLS retrofit: `authenticated` no longer means admin
+
+`migrations/0007_retrofit_admin_only_rls.sql` closes a gap flagged (but
+deliberately not fixed) in migration 0004's header comment. Every "admin
+full access" policy written before 0004 - `orders`, `payments`,
+`order_status_history`, `payment_status_history`, `products`,
+`promotions`, `partner_pricing_tiers`, `audit_log`, `media_assets`,
+`media_asset_history`, plus the storage policy `admin can read payment
+proofs` - was granted `to authenticated using (true)`. That was safe only
+because the single admin account was the sole `authenticated` user in the
+system. Once Reseller Phase D ships partner logins, partners become
+`authenticated` Supabase users too, and every one of those policies would
+have let any partner read/write every order, payment, product, promotion,
+and audit log row, and read every customer's payment proof.
+
+0007 uses `alter policy ... using (is_admin()) with check (is_admin())` to
+tighten all of the above to the same `admin_users` membership check
+migration 0004 introduced for the newer tables (`territories`, `partners`).
+It intentionally leaves the *public*-read policies alone (`anyone can read
+active products`, `anyone can read active promotions`, `anyone can read
+media assets`) - those are meant to stay open to `anon`/`authenticated`
+alike; only the admin-write/full-access policies were ever the gap.
+
+This must ship before Phase D (partner auth) - a partner account existing
+before this migration runs would have had admin-equivalent access to every
+table above.
+
+Verified locally against a throwaway Postgres instance with the full
+migration chain applied (schema.sql + 0002-0007), a stubbed `auth.users`/
+`auth.uid()` (via `request.jwt.claim.sub`), and `storage.objects`/
+`storage.buckets`: seeded one `admin_users` row and one plain authenticated
+("partner-like") user. As the partner: `select count(*) from orders`
+returns 0 (previously would have returned every order), same for
+`payments` and `audit_log`; an `update orders set status = ...` affects 0
+rows; `select count(*) from storage.objects where bucket_id =
+'payment-proofs'` returns 0. As the seeded admin, all of the above return
+the real data. Public-read tables (`products`) still return rows for the
+partner, confirming those policies were correctly left untouched.

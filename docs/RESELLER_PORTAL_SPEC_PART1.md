@@ -10,7 +10,11 @@
 > `/reseller` application form, `migrations/0005_partner_application_fields.sql`,
 > `src/lib/partners.ts`), and Phase C (packages, package payment, and admin
 > approval - `migrations/0006_partner_packages_payment_approval.sql`,
-> `/admin/partners`, `/admin/partners/:id`) are done.
+> `/admin/partners`, `/admin/partners/:id`) are done. The RLS retrofit
+> flagged by Phase A's migration (`migrations/0007_retrofit_admin_only_rls.sql`
+> - tightens pre-Phase-A "admin full access" policies from `using (true)`
+> to `using (is_admin())` so a future partner account can't read/write
+> every order/payment/product/audit row) is also done, ahead of Phase D.
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System
