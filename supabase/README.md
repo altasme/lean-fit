@@ -43,7 +43,7 @@
    `CLOUDINARY_API_SECRET` must only ever be set here (an Edge Function
    secret) - never in `.env`, never as a `VITE_*` var. See "Admin Panel
    Phase 5" below for why.
-10. Run `migrations/0004` through `0008` in the SQL editor, in order (see
+10. Run `migrations/0004` through `0009` in the SQL editor, in order (see
     "Reseller Portal Part 1" sections below for what each adds). After
     0004, mark your admin account: find its id in **Authentication →
     Users** and run `insert into admin_users (user_id) values ('<uuid>');`
@@ -72,8 +72,10 @@
 (`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
 Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
 not required for MVP launch). Migrations 0002-0007 have been applied;
-**0008 still needs to be run** (see the pricing bug fix note above/below -
-it's additive/safe to run any time, no backfill required).
+**0008 and 0009 still need to be run** (0008 fixes a real pricing bug,
+see the note above/below - it's additive/safe to run any time, no
+backfill required; 0009 is pure RLS for the partner dashboard, also safe
+any time).
 `invite-partner` and its `SITE_URL` secret are not yet deployed/set - do
 that before relying on the "Approve Partner" button to also send the
 partner's portal invite (approval itself still works either way; only the
@@ -751,3 +753,94 @@ interactively (mocked Supabase client, reverted before this commit):
 sends `p_referral_code: 'MARIA'` through to the RPC call; `/admin/orders/:id`
 for an order with a referral partner renders the attribution section with
 the correct name, type, price, and earnings.
+
+## Reseller Portal Part 1, Phase F (partner dashboard)
+
+`migrations/0009_partner_dashboard_visibility.sql` is pure RLS - no new
+tables/columns. Partners could log in since Phase D, but had no read
+access to `orders`, `payments`, or each other's `partners` rows at all;
+this grants exactly the dashboard's read scope:
+- `orders`/`payments`: a partner can read orders they referred
+  (`referral_partner_id`) or placed themselves (`email` match, so a
+  self-checkout that didn't go through their own referral link still
+  shows up), and the payment on any order they can see.
+- `partners`: a partner can additionally read their direct parent and
+  direct downstream partners (spec §46's "Parent Distributor/Franchise" /
+  downstream sections) - on top of the "own record" policy from migration
+  0004.
+
+**Bug caught and fixed while writing this migration:** a naive
+`using (... in (select id from partners where user_id = auth.uid()) ...)`
+subquery inside a policy *on `partners` itself* throws "infinite
+recursion detected in policy for relation" - confirmed locally, not a
+hypothetical. Same issue would have hit `orders`/`payments` policies
+indirectly (their subqueries also touch `partners`, whose own policies
+then re-evaluate). Fixed with three `SECURITY DEFINER` helper functions
+(`my_partner_id()`, `my_partner_email()`, `my_parent_partner_id()`) - same
+pattern as `is_admin()` in migration 0004: running as the function owner
+bypasses RLS for that one internal lookup instead of re-triggering policy
+evaluation.
+
+**`src/lib/partnerOrders.ts`** (new): `fetchPartnerVisibleOrders()` - one
+fetch (orders + payments, RLS already scopes it to the signed-in
+partner), then pure functions derive every dashboard view from that same
+list, same "single fetch, derive views in TS" pattern as
+`fetchActiveProduct()`:
+- `splitPartnerOrders()` - spec §41 vs §42: "Client Orders" (referred to
+  this partner, customer isn't the partner) vs "My Orders" (email matches
+  the partner's own account) - an order the partner placed through their
+  OWN referral link resolves as "my own purchase," not a referred
+  customer.
+- `summarizePartnerCustomers()` - spec §43, aggregated from Client Orders
+  only (order count, total spend, most recent order date). "Referral
+  relationship" is always "Direct" - there's no multi-hop chain tracked,
+  a customer is attributed to exactly the one partner whose link they
+  used (migration 0008).
+- `summarizePartnerEarnings()` / `earningsStatusForOrder()` - spec §44.
+  No separate earnings/payout table exists (CLAUDE.md §13 rules out
+  automated payouts), so status is derived from the order + payment
+  instead: payment `paid` -> **Payable** (ready for Lean & Fit's external,
+  manual payout process - not "already paid out," there's nothing here
+  tracking that distinction); order `cancelled` or payment
+  `refunded`/`cancelled`/`rejected`/`failed` -> **Void** (no earning
+  actually due); anything else -> **Pending**. This collapses spec §44's
+  "Pending/Approved/Paid" into two real buckets (Payable/Pending) plus
+  Void, rather than inventing an "Approved" state nothing in the system
+  sets.
+
+**`src/lib/partners.ts`** gains `fetchDownstreamPartners()` and
+`fetchParentPartner()`. Both will return nothing for every partner today
+- nothing currently sets `parent_partner_id` (no admin UI exists yet,
+that's Phase G) - which is correct, not broken; the RLS + UI are built
+ahead of the data existing, same as `territory_id` has been since Phase A.
+
+**`/reseller/dashboard`** is now tabbed (spec §40's dashboard menu, client-
+side tab switching, one fetch): Overview (Phase D's referral identity +
+account summary, now also showing Parent Partner / downstream partners),
+Client Orders, My Orders, Customers, Commission, and Marketing Materials
+(spec §45 - a Drive link, `RESELLER.marketingMaterialsUrl` in
+`content/site.ts`, same admin-editable-by-code pattern as everything else
+not yet DB-backed). Client Orders deliberately has no ACCEPT/MARK AS
+FULFILLED actions from spec §41's example - there's no partner-run
+fulfillment path built (Phase E: every order is still fulfilled by Lean &
+Fit admin), so it's read-only status visibility, not an action queue. My
+Orders is labeled honestly: partner tier pricing isn't applied to
+self-checkout (no "buy at my price" flow exists, only the one-time
+package purchase from application), so it shows whatever retail/promo
+price was actually charged, not a discounted "partner price."
+
+Verified the RLS against a throwaway Postgres instance with the full
+migration chain applied (schema.sql + 0002-0009) using a 3-level seeded
+hierarchy (Ana Franchise -> Juan Distributor -> Maria Reseller): Maria
+sees herself + Juan (not grandparent Ana); Juan sees himself + Ana (parent)
++ Maria (downstream); Ana sees herself + Juan (not grandchild Maria).
+For orders: seeded a Maria-referred order, a Maria self-checkout order,
+and an unrelated third-party order - Maria's visible order/payment set
+was exactly the first two, confirming both the referral and email-match
+branches and that the unrelated order stays invisible. Client UI verified
+interactively (mocked Supabase client, reverted before this commit): all
+six tabs render with correctly split/aggregated data - Client Orders
+excludes the self-checkout order, My Orders shows only it, Customers
+lists the two referred customers, and Commission shows the right
+Total/Payable/Pending split (a paid order's earnings counted as Payable,
+a pending-verification order's as Pending).

@@ -27,8 +27,18 @@
 > shows the attribution. Fulfillment routing to an upstream partner
 > (§32-39) is NOT built - every order is still fulfilled by Lean & Fit
 > admin; the spec's own header defers dropship-vs-partner-fulfilled
-> visibility to the Part 2 addendum anyway. The rest of the partner
-> dashboard (orders/earnings/downline, spec §40-44) is still Phase F.
+> visibility to the Part 2 addendum anyway. Phase F (partner dashboard -
+> `migrations/0009_partner_dashboard_visibility.sql`,
+> `src/lib/partnerOrders.ts`, `src/components/reseller/tabs/`) is done:
+> `/reseller/dashboard` is now tabbed with Overview, Client Orders, My
+> Orders, Customers, Commission, and Marketing Materials (spec §40-45).
+> Client Orders is read-only (no ACCEPT/fulfillment actions - matches the
+> "every order fulfilled by admin" reality above); My Orders shows
+> self-checkout at retail/promo price since tier-priced partner
+> self-checkout isn't built; Commission derives Payable/Pending/Void from
+> the underlying order+payment status rather than a separate payout
+> table. Downstream/parent partner display (§46) is wired but will show
+> empty until Phase G's admin UI can assign `parent_partner_id` at all.
 
 # Lean & Fit Phase 2
 ## Partner Distribution, Reseller Portal & Territorial Sales System

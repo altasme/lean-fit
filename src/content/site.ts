@@ -28,6 +28,11 @@ export const RESELLER = {
     'Dedicated reseller support',
   ],
   contactEmail: 'partners@leanfitcoffee.com',
+  // Spec Part 1 §45: "Google Drive link... configurable by Admin." No
+  // admin UI exists to edit this yet (would live in Phase G's admin
+  // partner management) - a content constant is the same swap point
+  // CLAUDE.md §0.2 already uses for everything else not yet DB-backed.
+  marketingMaterialsUrl: 'https://drive.google.com/drive/folders/PLACEHOLDER',
 } as const;
 
 export const BENEFITS = [

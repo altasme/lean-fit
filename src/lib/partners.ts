@@ -32,6 +32,32 @@ export async function fetchMyPartner(): Promise<Partner | null> {
 }
 
 /**
+ * Direct downstream partners (spec §46 - a Distributor's Resellers, a
+ * Franchise's Distributors), via migration 0009's RLS. Nothing currently
+ * assigns `parent_partner_id` (that's Phase G's admin territory/partner
+ * management), so this returns an empty list until then - correct
+ * behavior, not a bug.
+ */
+export async function fetchDownstreamPartners(myPartnerId: string): Promise<Partner[]> {
+  const { data, error } = await supabase
+    .from('partners')
+    .select('*')
+    .eq('parent_partner_id', myPartnerId);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Partner[];
+}
+
+export async function fetchParentPartner(parentPartnerId: string): Promise<Partner | null> {
+  const { data, error } = await supabase
+    .from('partners')
+    .select('*')
+    .eq('id', parentPartnerId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as Partner | null) ?? null;
+}
+
+/**
  * A partner's referral URL. Query-param based (`?ref=CODE`) rather than
  * the spec's cosmetic path-style example (`leanandfit.ph/maria`) - a
  * per-partner route would collide with the app's fixed routes and need

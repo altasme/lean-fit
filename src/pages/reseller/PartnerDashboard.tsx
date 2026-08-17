@@ -1,50 +1,80 @@
 import { useEffect, useState } from 'react';
-import QRCode from 'qrcode';
 import { PartnerLayout } from '../../components/reseller/PartnerLayout';
 import { usePartnerAuth } from '../../components/reseller/PartnerAuthProvider';
-import { useToast } from '../../components/ui/Toast';
-import { buildReferralUrl } from '../../lib/partners';
-import { formatPHP } from '../../lib/format';
+import { OverviewTab } from '../../components/reseller/tabs/OverviewTab';
+import { ClientOrdersTab } from '../../components/reseller/tabs/ClientOrdersTab';
+import { MyOrdersTab } from '../../components/reseller/tabs/MyOrdersTab';
+import { CustomersTab } from '../../components/reseller/tabs/CustomersTab';
+import { CommissionTab } from '../../components/reseller/tabs/CommissionTab';
+import { MarketingMaterialsTab } from '../../components/reseller/tabs/MarketingMaterialsTab';
+import { fetchDownstreamPartners, fetchParentPartner } from '../../lib/partners';
+import {
+  fetchPartnerVisibleOrders,
+  splitPartnerOrders,
+  summarizePartnerCustomers,
+  summarizePartnerEarnings,
+} from '../../lib/partnerOrders';
+import type { PartnerOrder } from '../../lib/partnerOrders';
 import { PARTNER_TYPE_LABELS } from '../../types/partner';
+import type { Partner } from '../../types/partner';
 
-// Phase D scope: referral identity (code/URL/QR) + account summary only.
-// Orders, earnings, and downline (spec §40's full dashboard) are Phase F.
+// Spec §40's dashboard menu: Client Orders / My Orders / Customers /
+// Commission / Marketing Materials, plus an Overview tab carrying Phase
+// D's referral identity content. One page, tab-switched client-side
+// (matches the rest of this codebase's single-page-with-sections style -
+// e.g. checkout - rather than five separate routes for what's currently a
+// read-only dashboard with no per-section deep-linking need yet).
+const TABS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'client-orders', label: 'Client Orders' },
+  { key: 'my-orders', label: 'My Orders' },
+  { key: 'customers', label: 'Customers' },
+  { key: 'commission', label: 'Commission' },
+  { key: 'marketing', label: 'Marketing Materials' },
+] as const;
+
+type TabKey = (typeof TABS)[number]['key'];
+
 export default function PartnerDashboard() {
   const { partner } = usePartnerAuth();
-  const { showToast } = useToast();
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>('overview');
 
-  const referralUrl = partner?.referral_code ? buildReferralUrl(partner.referral_code) : null;
+  const [orders, setOrders] = useState<PartnerOrder[] | null>(null);
+  const [parentPartner, setParentPartner] = useState<Partner | null>(null);
+  const [downstreamPartners, setDownstreamPartners] = useState<Partner[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!referralUrl) {
-      setQrDataUrl(null);
-      return;
-    }
+    if (!partner) return;
     let cancelled = false;
-    QRCode.toDataURL(referralUrl, { margin: 1, width: 240, color: { dark: '#0D0D0D', light: '#F2E9DB' } })
-      .then((url) => {
-        if (!cancelled) setQrDataUrl(url);
+
+    Promise.all([
+      fetchPartnerVisibleOrders(),
+      partner.parent_partner_id ? fetchParentPartner(partner.parent_partner_id) : Promise.resolve(null),
+      fetchDownstreamPartners(partner.id),
+    ])
+      .then(([o, parent, downstream]) => {
+        if (cancelled) return;
+        setOrders(o);
+        setParentPartner(parent);
+        setDownstreamPartners(downstream);
       })
-      .catch(() => {
-        if (!cancelled) setQrDataUrl(null);
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
       });
+
     return () => {
       cancelled = true;
     };
-  }, [referralUrl]);
+  }, [partner]);
 
   if (!partner) return null; // RequirePartnerAuth guarantees this never renders without a partner
 
-  async function handleCopy() {
-    if (!referralUrl) return;
-    try {
-      await navigator.clipboard.writeText(referralUrl);
-      showToast('Referral link copied.');
-    } catch {
-      showToast('Could not copy - copy it manually instead.', 'error');
-    }
-  }
+  const { clientOrders, myOrders } = orders
+    ? splitPartnerOrders(orders, partner.id, partner.email)
+    : { clientOrders: [], myOrders: [] };
+  const customers = summarizePartnerCustomers(clientOrders);
+  const earnings = summarizePartnerEarnings(clientOrders);
 
   return (
     <PartnerLayout>
@@ -56,94 +86,49 @@ export default function PartnerDashboard() {
         {partner.city ? ` · ${[partner.barangay, partner.city, partner.region].filter(Boolean).join(', ')}` : ''}
       </p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-            Your Referral Identity
-          </h2>
+      <nav className="mt-6 flex flex-wrap gap-2 border-b border-white/10 pb-3">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`rounded-sm px-3 py-2 font-kicker text-xs uppercase tracking-wide2 transition-colors ${
+              tab === t.key
+                ? 'bg-lf-gold text-lf-black'
+                : 'text-lf-cream/70 hover:bg-lf-charcoal hover:text-lf-gold'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-          {partner.referral_code ? (
-            <>
-              <dl className="tabular mt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-lf-cream/60">Referral Code</dt>
-                  <dd className="text-lf-white">{partner.referral_code}</dd>
-                </div>
-              </dl>
+      <div className="mt-6">
+        {error && (
+          <p className="mb-4 rounded-sm border border-lf-error/40 bg-lf-error/10 px-4 py-3 text-sm text-lf-error">
+            {error}
+          </p>
+        )}
 
-              <div className="mt-4">
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
-                  Referral URL
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    readOnly
-                    value={referralUrl ?? ''}
-                    onFocus={(e) => e.target.select()}
-                    className="w-full rounded-sm border border-white/15 bg-lf-black px-4 py-3 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-                  />
-                  <button type="button" onClick={handleCopy} className="btn-outline shrink-0 !px-4 !text-sm">
-                    Copy
-                  </button>
-                </div>
-              </div>
+        {!orders && !error && <p className="text-sm text-lf-cream/60">Loading…</p>}
 
-              {qrDataUrl && (
-                <div className="mt-5 flex flex-col items-center gap-2 rounded-sm border border-white/10 bg-lf-black p-5">
-                  <img src={qrDataUrl} alt="Referral QR code" className="h-40 w-40" />
-                  <p className="text-xs text-lf-cream/50">Scan to open your referral link</p>
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="mt-4 text-sm text-lf-cream/60">
-              Your referral code hasn't been generated yet.
-            </p>
-          )}
-        </section>
-
-        <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-            Account Summary
-          </h2>
-          <dl className="tabular mt-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-lf-cream/60">Partner Type</dt>
-              <dd className="text-lf-white">{PARTNER_TYPE_LABELS[partner.partner_type]}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-lf-cream/60">Status</dt>
-              <dd className="text-lf-white capitalize">{partner.status}</dd>
-            </div>
-            {partner.package && (
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Package</dt>
-                <dd className="text-lf-white">
-                  {partner.package} ({partner.package_boxes} boxes)
-                </dd>
-              </div>
+        {orders && (
+          <>
+            {tab === 'overview' && (
+              <OverviewTab
+                partner={partner}
+                parentPartner={parentPartner}
+                downstreamPartners={downstreamPartners}
+              />
             )}
-            {partner.package_amount != null && (
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Package Amount</dt>
-                <dd className="text-lf-white">{formatPHP(partner.package_amount)}</dd>
-              </div>
-            )}
-            {partner.activated_at && (
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Activated</dt>
-                <dd className="text-lf-white">
-                  {new Date(partner.activated_at).toLocaleDateString()}
-                </dd>
-              </div>
-            )}
-          </dl>
-        </section>
+            {tab === 'client-orders' && <ClientOrdersTab orders={clientOrders} />}
+            {tab === 'my-orders' && <MyOrdersTab orders={myOrders} />}
+            {tab === 'customers' && <CustomersTab customers={customers} />}
+            {tab === 'commission' && <CommissionTab summary={earnings} />}
+            {tab === 'marketing' && <MarketingMaterialsTab />}
+          </>
+        )}
       </div>
-
-      <p className="mt-8 text-xs text-lf-cream/40">
-        Order tracking, earnings, and your downline are coming soon to this dashboard.
-      </p>
     </PartnerLayout>
   );
 }
