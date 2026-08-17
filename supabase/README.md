@@ -31,6 +31,18 @@
    nothing touches `orders`/`payments`/history) so it's safe to run against
    a project that already has real order data - see "Admin Panel Phase 2"
    below.
+8. Run `supabase/migrations/0003_admin_panel_media.sql` in the SQL editor,
+   after 0002. Also additive only.
+9. Deploy the media Edge Function and set its secrets:
+   ```bash
+   supabase functions deploy cloudinary-sign
+   supabase secrets set CLOUDINARY_API_KEY=...
+   supabase secrets set CLOUDINARY_API_SECRET=...
+   supabase secrets set CLOUDINARY_CLOUD_NAME=...
+   ```
+   `CLOUDINARY_API_SECRET` must only ever be set here (an Edge Function
+   secret) - never in `.env`, never as a `VITE_*` var. See "Admin Panel
+   Phase 5" below for why.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -145,7 +157,52 @@ distributor ₱266 / franchise ₱228) plus promo edge cases (exempt products,
 expired/future/usage-capped promotions, product-targeted promos,
 case-insensitive code matching, and the no-stacking rule) - all pass.
 
-Not yet wired to anything - no admin UI to manage this data (phase 4), the
-public site still reads `src/content/product.ts` (phase 7), and there's no
-partner portal to consume partner pricing (phase 8). Those are tracked as
-separate follow-up work.
+**Phase 4 (admin UI) is also done** - `/admin/products`, `/admin/promotions`,
+and `/admin/partner-pricing` manage all of the above through the app, not
+just the database. Still open: the public site itself still reads
+`src/content/product.ts` rather than the `products` table (phase 7), and
+there's no partner portal to consume partner pricing (phase 8).
+
+## Admin Panel Phase 5 (media management)
+
+`migrations/0003_admin_panel_media.sql` adds `media_assets` (one row per
+website image slot - the current active asset) and `media_asset_history`
+(every previous upload to that slot, spec §21). The slot registry itself
+- each slot's label, recommended dimensions, aspect ratio, format, and max
+file size (spec §7, "each slot defines its own spec, not one universal
+size") - lives in `src/content/mediaSlots.ts`, not the database, so adding
+a new slot is a code change, not a migration.
+
+**Media files live in Cloudinary, not Supabase Storage** - a client
+decision (2026-08-17): "new medias moving forward are stored in
+Cloudinary." Postgres only stores the reference (`cloudinary_public_id`,
+`secure_url`, dimensions, format, bytes) - no binary data.
+
+**Why there's an Edge Function for this.** Cloudinary uploads need either
+an unsigned upload preset (configured in Cloudinary's own dashboard, not
+here) or a signed request. This project uses signed uploads:
+`supabase/functions/cloudinary-sign` mints a timestamp + folder + SHA-1
+signature using `CLOUDINARY_API_SECRET` server-side, and the browser
+uploads the file directly to Cloudinary using that signature -
+`CLOUDINARY_API_SECRET` never reaches client code. The function also
+rejects any caller that isn't a signed-in Supabase user, so only the admin
+can mint upload signatures. The signing algorithm was verified against
+Cloudinary's own official Node SDK (`cloudinary.utils.api_sign_request`)
+locally before shipping - byte-for-byte match.
+
+Replacing a slot's image **does not delete** the previous Cloudinary asset
+- `media_assets` is upserted to point at the new one, and the old
+reference is preserved in `media_asset_history` (visible in the admin
+Media page under "View history" for each slot). Nothing is ever deleted
+automatically.
+
+`/admin/media` is the admin UI for all of this: per-slot spec guidance,
+a live local preview before upload (spec §8), the upload itself, and
+history browsing. Verified interactively end-to-end (mock Supabase/
+Cloudinary calls, since this sandbox can't reach either live service) -
+file select shows an instant local preview, upload updates the active
+asset and appends to history, oversized/non-image files are rejected
+client-side before ever reaching Cloudinary.
+
+Not yet wired: the public website still renders its own static imported
+images rather than reading from `media_assets` (phase 7, same as products).

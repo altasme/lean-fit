@@ -12,6 +12,7 @@ import AdminProductForm from './pages/admin/AdminProductForm';
 import AdminPromotions from './pages/admin/AdminPromotions';
 import AdminPromotionForm from './pages/admin/AdminPromotionForm';
 import AdminPartnerPricing from './pages/admin/AdminPartnerPricing';
+import AdminMedia from './pages/admin/AdminMedia';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/admin/AuthProvider';
@@ -156,6 +157,14 @@ export default function App() {
           element={
             <RequireAuth>
               <AdminPartnerPricing />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/media"
+          element={
+            <RequireAuth>
+              <AdminMedia />
             </RequireAuth>
           }
         />
