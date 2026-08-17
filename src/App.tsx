@@ -7,6 +7,11 @@ import Reseller from './pages/Reseller';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
+import AdminProducts from './pages/admin/AdminProducts';
+import AdminProductForm from './pages/admin/AdminProductForm';
+import AdminPromotions from './pages/admin/AdminPromotions';
+import AdminPromotionForm from './pages/admin/AdminPromotionForm';
+import AdminPartnerPricing from './pages/admin/AdminPartnerPricing';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/admin/AuthProvider';
@@ -95,6 +100,62 @@ export default function App() {
           element={
             <RequireAuth>
               <AdminOrderDetail />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/products"
+          element={
+            <RequireAuth>
+              <AdminProducts />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/products/new"
+          element={
+            <RequireAuth>
+              <AdminProductForm />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/products/:id"
+          element={
+            <RequireAuth>
+              <AdminProductForm />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/promotions"
+          element={
+            <RequireAuth>
+              <AdminPromotions />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/promotions/new"
+          element={
+            <RequireAuth>
+              <AdminPromotionForm />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/promotions/:id"
+          element={
+            <RequireAuth>
+              <AdminPromotionForm />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/partner-pricing"
+          element={
+            <RequireAuth>
+              <AdminPartnerPricing />
             </RequireAuth>
           }
         />

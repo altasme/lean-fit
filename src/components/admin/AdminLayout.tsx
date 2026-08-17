@@ -1,21 +1,41 @@
 import type { PropsWithChildren } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Logo } from '../layout/Logo';
 
+const NAV_LINKS = [
+  { to: '/admin', label: 'Orders' },
+  { to: '/admin/products', label: 'Products' },
+  { to: '/admin/promotions', label: 'Promotions' },
+  { to: '/admin/partner-pricing', label: 'Partner Pricing' },
+];
+
 export function AdminLayout({ children }: PropsWithChildren) {
+  const { pathname } = useLocation();
+
   return (
     <div className="min-h-screen bg-lf-black">
       <header className="border-b border-white/10 bg-lf-charcoal">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-16 max-w-6xl flex-wrap items-center justify-between gap-4 px-5 sm:px-8">
           <div className="flex items-center gap-6">
             <Logo />
-            <Link
-              to="/admin"
-              className="font-kicker text-sm uppercase tracking-wide2 text-lf-cream/80 hover:text-lf-gold"
-            >
-              Orders
-            </Link>
+            <nav className="flex items-center gap-5">
+              {NAV_LINKS.map((link) => {
+                const active =
+                  link.to === '/admin' ? pathname === '/admin' : pathname.startsWith(link.to);
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`font-kicker text-sm uppercase tracking-wide2 hover:text-lf-gold ${
+                      active ? 'text-lf-gold' : 'text-lf-cream/80'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
           <button
             type="button"
