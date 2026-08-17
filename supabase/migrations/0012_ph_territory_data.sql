@@ -29,7 +29,24 @@
 --     barangays will never need a row; the ones that do get created
 --     on-demand with capacity = null (unlimited) until an admin caps one.
 
+-- ═══════════════════════════════════════════════════════════════════
+-- STEP 1 OF 2 - run this ALTER TYPE statement ALONE first, as its own
+-- separate query execution, and let it finish/commit before running
+-- anything else in this file. Postgres will not let a transaction use a
+-- brand-new enum value it just added in that SAME transaction ("unsafe
+-- use of new value... New enum values must be committed before they can
+-- be used") - and the Supabase SQL editor runs a whole pasted script as
+-- one transaction. Running everything below in the same paste as this
+-- line will fail with exactly that error.
+-- ═══════════════════════════════════════════════════════════════════
+
 alter type territory_level add value 'province';
+
+-- ═══════════════════════════════════════════════════════════════════
+-- STEP 2 OF 2 - once the ALTER TYPE above has committed (a green
+-- success on its own), select+paste+run everything from here down as a
+-- second, separate query execution.
+-- ═══════════════════════════════════════════════════════════════════
 
 -- The public application form (Route A, anon) now shows live capacity too
 -- (spec §19, finally closed for both onboarding routes) - migration 0011

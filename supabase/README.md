@@ -67,13 +67,29 @@
     URLs** in the Supabase dashboard, or Supabase will reject the redirect
     and the link will silently fall back to its default.
 12. Run `supabase/migrations/0012_ph_territory_data.sql` in the SQL editor,
-    after 0011. Seeds the real PSGC region/province/city hierarchy (~1,750
-    rows) that the public application form and partner-assisted onboarding
-    now use for live, capacity-checked location pickers, adds `province` as
-    a real (never partner-assignable) `territories` level, and adds the
-    barangay lazy-creation/containment RPCs the new pickers call. No
-    Edge Function or secret involved - just SQL. The two bundled JSON files
-    it pairs with client-side (`public/data/ph-locations.json`,
+    after 0011, **in two separate paste-and-run steps** (the file itself is
+    clearly divided into "STEP 1 OF 2" / "STEP 2 OF 2" - follow those
+    markers):
+    - **Step 1**: select and run *only* the `alter type territory_level add
+      value 'province';` line by itself, and let it finish.
+    - **Step 2**: once that's done, select and run everything below it.
+
+    This split is required, not optional - Postgres refuses to use a
+    brand-new enum value in the same transaction that added it
+    (`unsafe use of new value... New enum values must be committed before
+    they can be used`), and the SQL editor runs a whole pasted script as
+    one transaction. Pasting the entire file in one go will fail with that
+    exact error every time. If you hit it, nothing was left half-applied -
+    the whole transaction (including the `alter type`) rolls back cleanly,
+    so just retry with the two-step split.
+
+    This migration seeds the real PSGC region/province/city hierarchy
+    (~1,750 rows) that the public application form and partner-assisted
+    onboarding now use for live, capacity-checked location pickers, adds
+    `province` as a real (never partner-assignable) `territories` level,
+    and adds the barangay lazy-creation/containment RPCs the new pickers
+    call. No Edge Function or secret involved - just SQL. The two bundled
+    JSON files it pairs with client-side (`public/data/ph-locations.json`,
     `public/data/ph-barangays.json`) are already committed to the repo and
     ship with the normal frontend deploy, nothing extra to upload.
 13. Deploy the partner package-payment confirmation email function:
