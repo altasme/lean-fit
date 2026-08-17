@@ -10,6 +10,7 @@ import type { PromotionInput } from '../../lib/adminPromotions';
 import { listProducts } from '../../lib/adminProducts';
 import type { Product } from '../../types/product';
 import type { DiscountType, PromotionStatus } from '../../types/promotion';
+import { useToast } from '../../components/ui/Toast';
 
 const EMPTY: PromotionInput = {
   name: '',
@@ -40,6 +41,7 @@ export default function AdminPromotionForm() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id;
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [form, setForm] = useState<PromotionInput>(EMPTY);
   const [products, setProducts] = useState<Product[]>([]);
@@ -90,9 +92,12 @@ export default function AdminPromotionForm() {
     setError(null);
     try {
       const saved = isNew ? await createPromotion(form) : await updatePromotion(id, form);
+      showToast(isNew ? 'Promotion created' : 'Promotion saved');
       navigate(`/admin/promotions/${saved.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save promotion.');
+      const message = err instanceof Error ? err.message : 'Failed to save promotion.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setSaving(false);
     }

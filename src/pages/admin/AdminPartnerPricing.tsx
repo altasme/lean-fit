@@ -7,10 +7,12 @@ import { formatPHP } from '../../lib/format';
 import { PARTNER_TYPE_LABELS } from '../../types/partner';
 import type { PartnerPricingTier, PartnerType } from '../../types/partner';
 import type { Product } from '../../types/product';
+import { useToast } from '../../components/ui/Toast';
 
 const PARTNER_TYPES: PartnerType[] = ['reseller', 'distributor', 'franchise'];
 
 export default function AdminPartnerPricing() {
+  const { showToast } = useToast();
   const [tiers, setTiers] = useState<PartnerPricingTier[] | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [drafts, setDrafts] = useState<Record<PartnerType, number>>({
@@ -43,9 +45,12 @@ export default function AdminPartnerPricing() {
     setError(null);
     try {
       await updatePartnerDiscount(partnerType, drafts[partnerType]);
+      showToast(`${PARTNER_TYPE_LABELS[partnerType]} pricing updated`);
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save.');
+      const message = err instanceof Error ? err.message : 'Failed to save.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setSavingType(null);
     }

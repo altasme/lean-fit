@@ -8,6 +8,7 @@ import {
   rejectPayment,
 } from '../../lib/adminOrders';
 import { notifyOrderEvent } from '../../lib/notify';
+import { useToast } from '../ui/Toast';
 import type { Order } from '../../types/order';
 import type { Payment } from '../../types/payment';
 
@@ -20,19 +21,23 @@ export function StatusControls({
   payment: Payment | null;
   onUpdated: () => void;
 }) {
+  const { showToast } = useToast();
   const [busy, setBusy] = useState(false);
   const [courier, setCourier] = useState(order.courier ?? '');
   const [tracking, setTracking] = useState(order.tracking_number ?? '');
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: () => Promise<void>, successMessage: string) => {
     setBusy(true);
     setError(null);
     try {
       await action();
+      showToast(successMessage);
       onUpdated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Update failed.');
+      const message = err instanceof Error ? err.message : 'Update failed.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setBusy(false);
     }
@@ -56,7 +61,7 @@ export function StatusControls({
                 run(async () => {
                   await approvePayment(payment.id, order);
                   await notifyOrderEvent(order.id, 'payment_approved');
-                })
+                }, 'Payment approved')
               }
               className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
             >
@@ -69,7 +74,7 @@ export function StatusControls({
                 run(async () => {
                   await rejectPayment(payment.id);
                   await notifyOrderEvent(order.id, 'payment_rejected');
-                })
+                }, 'Payment rejected')
               }
               className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
             >
@@ -91,7 +96,7 @@ export function StatusControls({
           <button
             type="button"
             disabled={busy}
-            onClick={() => run(() => markCodPaid(payment.id))}
+            onClick={() => run(() => markCodPaid(payment.id), 'Marked as paid')}
             className="btn-gold mt-4 !px-5 !py-2.5 !text-sm disabled:opacity-50"
           >
             Mark Paid
@@ -108,7 +113,7 @@ export function StatusControls({
             <button
               type="button"
               disabled={busy}
-              onClick={() => run(() => advanceOrderStatus(order.id, 'packing'))}
+              onClick={() => run(() => advanceOrderStatus(order.id, 'packing'), 'Moved to packing')}
               className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
             >
               Move To Packing
@@ -141,7 +146,7 @@ export function StatusControls({
                       tracking_number: tracking,
                     });
                     await notifyOrderEvent(order.id, 'shipped');
-                  })
+                  }, 'Marked as shipped')
                 }
                 className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
               >
@@ -154,7 +159,7 @@ export function StatusControls({
             <button
               type="button"
               disabled={busy}
-              onClick={() => run(() => advanceOrderStatus(order.id, 'completed'))}
+              onClick={() => run(() => advanceOrderStatus(order.id, 'completed'), 'Marked as completed')}
               className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
             >
               Mark As Completed
@@ -185,7 +190,7 @@ export function StatusControls({
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => run(() => refundPayment(payment.id))}
+                onClick={() => run(() => refundPayment(payment.id), 'Payment refunded')}
                 className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
               >
                 Refund Payment
@@ -195,7 +200,7 @@ export function StatusControls({
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => run(() => cancelOrder(order.id))}
+                onClick={() => run(() => cancelOrder(order.id), 'Order cancelled')}
                 className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
               >
                 Cancel Order

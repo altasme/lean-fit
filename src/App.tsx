@@ -17,6 +17,7 @@ import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/admin/AuthProvider';
 import { RequireAuth } from './components/admin/RequireAuth';
+import { ToastProvider } from './components/ui/Toast';
 import { initPixel } from './lib/pixel';
 import { isAdminHost } from './lib/hostRouting';
 
@@ -46,129 +47,131 @@ export default function App() {
   const onAdminHost = isAdminHost();
 
   return (
-    <AuthProvider>
-      <ScrollToTop />
-      <PixelInit />
-      <Routes>
-        {onAdminHost ? (
-          <Route path="/" element={<Navigate to="/admin" replace />} />
-        ) : (
+    <ToastProvider>
+      <AuthProvider>
+        <ScrollToTop />
+        <PixelInit />
+        <Routes>
+          {onAdminHost ? (
+            <Route path="/" element={<Navigate to="/admin" replace />} />
+          ) : (
+            <Route
+              path="/"
+              element={
+                <PublicLayout>
+                  <Home />
+                </PublicLayout>
+              }
+            />
+          )}
           <Route
-            path="/"
+            path="/checkout"
             element={
               <PublicLayout>
-                <Home />
+                <Checkout />
               </PublicLayout>
             }
           />
-        )}
-        <Route
-          path="/checkout"
-          element={
-            <PublicLayout>
-              <Checkout />
-            </PublicLayout>
-          }
-        />
-        <Route
-          path="/order-confirmed"
-          element={
-            <PublicLayout>
-              <OrderConfirmed />
-            </PublicLayout>
-          }
-        />
-        <Route
-          path="/reseller"
-          element={
-            <PublicLayout>
-              <Reseller />
-            </PublicLayout>
-          }
-        />
+          <Route
+            path="/order-confirmed"
+            element={
+              <PublicLayout>
+                <OrderConfirmed />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/reseller"
+            element={
+              <PublicLayout>
+                <Reseller />
+              </PublicLayout>
+            }
+          />
 
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route
-          path="/admin"
-          element={
-            <RequireAuth>
-              <AdminOrders />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/orders/:id"
-          element={
-            <RequireAuth>
-              <AdminOrderDetail />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/products"
-          element={
-            <RequireAuth>
-              <AdminProducts />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/products/new"
-          element={
-            <RequireAuth>
-              <AdminProductForm />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/products/:id"
-          element={
-            <RequireAuth>
-              <AdminProductForm />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/promotions"
-          element={
-            <RequireAuth>
-              <AdminPromotions />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/promotions/new"
-          element={
-            <RequireAuth>
-              <AdminPromotionForm />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/promotions/:id"
-          element={
-            <RequireAuth>
-              <AdminPromotionForm />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/partner-pricing"
-          element={
-            <RequireAuth>
-              <AdminPartnerPricing />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/admin/media"
-          element={
-            <RequireAuth>
-              <AdminMedia />
-            </RequireAuth>
-          }
-        />
-      </Routes>
-    </AuthProvider>
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <AdminOrders />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/orders/:id"
+            element={
+              <RequireAuth>
+                <AdminOrderDetail />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <RequireAuth>
+                <AdminProducts />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/products/new"
+            element={
+              <RequireAuth>
+                <AdminProductForm />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/products/:id"
+            element={
+              <RequireAuth>
+                <AdminProductForm />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/promotions"
+            element={
+              <RequireAuth>
+                <AdminPromotions />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/promotions/new"
+            element={
+              <RequireAuth>
+                <AdminPromotionForm />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/promotions/:id"
+            element={
+              <RequireAuth>
+                <AdminPromotionForm />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/partner-pricing"
+            element={
+              <RequireAuth>
+                <AdminPartnerPricing />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/media"
+            element={
+              <RequireAuth>
+                <AdminMedia />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </AuthProvider>
+    </ToastProvider>
   );
 }

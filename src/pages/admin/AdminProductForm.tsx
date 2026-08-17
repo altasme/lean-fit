@@ -6,6 +6,7 @@ import type { ProductInput } from '../../lib/adminProducts';
 import { slugify } from '../../lib/slug';
 import type { ProductStatus } from '../../types/product';
 import { PRODUCT_STATUS_LABELS } from '../../types/product';
+import { useToast } from '../../components/ui/Toast';
 
 const EMPTY: ProductInput = {
   slug: '',
@@ -25,6 +26,7 @@ export default function AdminProductForm() {
   const { id } = useParams<{ id: string }>();
   const isNew = !id;
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const [form, setForm] = useState<ProductInput>(EMPTY);
   const [slugTouched, setSlugTouched] = useState(false);
@@ -72,9 +74,12 @@ export default function AdminProductForm() {
     setError(null);
     try {
       const saved = isNew ? await createProduct(form) : await updateProduct(id, form);
+      showToast(isNew ? 'Product created' : 'Product saved');
       navigate(`/admin/products/${saved.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save product.');
+      const message = err instanceof Error ? err.message : 'Failed to save product.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setSaving(false);
     }

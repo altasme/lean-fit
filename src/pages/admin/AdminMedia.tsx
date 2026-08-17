@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/admin/AdminLayout';
+import { useToast } from '../../components/ui/Toast';
 import { getMediaAssetHistory, listMediaAssets, saveMediaAsset } from '../../lib/adminMedia';
 import { uploadImageToCloudinary } from '../../lib/cloudinary';
 import { MEDIA_SLOTS } from '../../content/mediaSlots';
@@ -66,6 +67,7 @@ function MediaSlotCard({
   asset: MediaAsset | null;
   onUploaded: () => void;
 }) {
+  const { showToast } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -105,9 +107,12 @@ function MediaSlotCard({
       setFile(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+      showToast(`${slot.label} updated`);
       onUploaded();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed.');
+      const message = err instanceof Error ? err.message : 'Upload failed.';
+      setError(message);
+      showToast(message, 'error');
     } finally {
       setUploading(false);
     }
