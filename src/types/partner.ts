@@ -36,6 +36,12 @@ export type Partner = {
   barangay: string | null;
   territory_id: string | null;
   parent_partner_id: string | null;
+  // Part 2 §8 "Onboarded By" - who sponsored/paid for this partner via
+  // partner-assisted onboarding (null for a direct public application).
+  // Immutable historical record, distinct from parent_partner_id, which
+  // admin can reassign later (Phase G) - the two usually start equal but
+  // aren't kept in sync afterward.
+  onboarded_by_partner_id: string | null;
   referral_code: string | null;
   package: string | null;
   // Package + payment (Phase C, spec §17-20) - attached to the same
@@ -66,4 +72,16 @@ export const PARTNER_PACKAGE_BOXES: Record<PartnerType, number> = {
   reseller: 10,
   distributor: 30,
   franchise: 40,
+};
+
+/**
+ * Part 2 §2-5/§30 onboarding permission matrix - client-side mirror of
+ * onboard_partner()'s server-side enforcement (migration 0011), used to
+ * restrict the "Add Partner" form's type selector. The RPC is the source
+ * of truth; this only avoids offering an option the server would reject.
+ */
+export const ONBOARDABLE_PARTNER_TYPES: Record<PartnerType, PartnerType[]> = {
+  reseller: [],
+  distributor: ['reseller'],
+  franchise: ['reseller', 'distributor'],
 };

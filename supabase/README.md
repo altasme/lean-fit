@@ -43,7 +43,7 @@
    `CLOUDINARY_API_SECRET` must only ever be set here (an Edge Function
    secret) - never in `.env`, never as a `VITE_*` var. See "Admin Panel
    Phase 5" below for why.
-10. Run `migrations/0004` through `0010` in the SQL editor, in order (see
+10. Run `migrations/0004` through `0011` in the SQL editor, in order (see
     "Reseller Portal Part 1" sections below for what each adds). After
     0004, mark your admin account: find its id in **Authentication →
     Users** and run `insert into admin_users (user_id) values ('<uuid>');`
@@ -72,11 +72,11 @@
 (`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
 Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
 not required for MVP launch). Migrations 0002-0007 have been applied;
-**0008 through 0010 still need to be run** (0008 fixes a real pricing
+**0008 through 0011 still need to be run** (0008 fixes a real pricing
 bug, see the note above/below - it's additive/safe to run any time, no
 backfill required; 0009 is pure RLS for the partner dashboard; 0010 adds
-the territory/partner-assignment RPCs for the admin panel - both safe to
-run any time).
+the territory/partner-assignment RPCs for the admin panel; 0011 adds
+partner-assisted onboarding - all safe to run any time).
 `invite-partner` and its `SITE_URL` secret are not yet deployed/set - do
 that before relying on the "Approve Partner" button to also send the
 partner's portal invite (approval itself still works either way; only the
@@ -993,8 +993,155 @@ correctly; the vacant/full status badges match each territory's actual
 capacity state; the Potential Expansion list contains exactly the three
 vacant territories with correct parent names.
 
-**This closes out Reseller Portal Part 1** (Phases A through H). Part 2
-(the addendum - partner onboarding permissions hierarchy, dropship vs
-partner-fulfilled order visibility, staff admin roles) remains
-deliberately not started, per the original "start with Part 1" scoping
-instruction - see `docs/RESELLER_PORTAL_SPEC_PART2_ADDENDUM.md`.
+**This closes out Reseller Portal Part 1** (Phases A through H).
+
+## Reseller Portal Part 2 (partner-assisted onboarding, fulfillment method, Staff Admin groundwork)
+
+See `docs/RESELLER_PORTAL_SPEC_PART2_ADDENDUM.md` - "Partner Onboarding,
+Dropshipping & Order Visibility Addendum." Scoped down to what's
+realistically buildable given this app's actual capabilities (confirmed
+with the user before starting): partner-assisted onboarding with real
+permission/territory enforcement, a `fulfillment_method` column for data-
+model honesty, and groundwork-only Staff Admin support. Explicitly **not**
+built: partner-run manual fulfillment/inventory tracking - there is no
+inventory concept anywhere in this app, and building one wasn't part of
+the agreed scope.
+
+**Scope decision - the addendum's central "manual partner-fulfilled
+order" concept (§12-18, §33) describes a sale that never touches the
+Lean & Fit website at all:** the partner transacts with the customer
+directly, off-platform (cash, chat, in person). Per §33, "partner-
+fulfilled orders may be completely absent from the centralized order
+system if that is the intended business process" - and since no partner
+inventory/manual-fulfillment UI exists anywhere in this app, that is
+exactly the path taken: every order that reaches
+`create_order_with_payment()` is, by construction, a Lean & Fit dropship
+order (the only fulfillment path that exists). `fulfillment_method` is
+added for the data model's honesty/future-proofing (spec's own
+"recommended field") with a fixed default - no UI toggle, since there's
+no alternative to toggle to.
+
+`migrations/0011_partner_assisted_onboarding.sql`:
+
+- `orders.fulfillment_method` (`lean_and_fit_dropship` | `partner_fulfillment`),
+  `not null default 'lean_and_fit_dropship'` - every existing/future order
+  gets it automatically, `create_order_with_payment()` itself is untouched.
+- `partners.onboarded_by_partner_id` (spec §8 "Onboarded By") - an
+  immutable historical record of who sponsored a partner-assisted
+  onboarding, kept deliberately separate from `parent_partner_id` (which
+  Phase G's admin UI can reassign later without erasing who actually
+  onboarded them).
+- `admin_users.role` (`admin` | `staff_admin`) - groundwork only, per the
+  spec's own framing ("the exact Staff Admin permission matrix will be
+  defined in a future phase... do not hard-code every administrative
+  account as having identical privileges"). No enforcement logic, no
+  admin-user-management UI - every row still defaults to `'admin'`
+  (unchanged behavior), `is_admin()` is untouched. Building the actual
+  matrix now would mean inventing requirements the spec explicitly defers.
+- `list_territories_with_occupancy(level)` - lets a partner's "Add
+  Partner" form show real capacity-aware territory options. Territories
+  are already public-readable, but a partner's own `partners` RLS
+  visibility (migration 0009) doesn't extend to computing occupancy
+  across arbitrary other partners - `SECURITY DEFINER` bypasses that for
+  this one non-sensitive, read-only count.
+- `onboard_partner(...)` - spec §1 Route B / §7-10: an authorized partner
+  (Distributor or Franchise, never Reseller - §2-5) submits a new
+  `pending` partner application on someone else's behalf, same shape as
+  the public `apply_for_partner()` (Route A) but with real enforcement a
+  free-text public form never needed:
+  - **Permission matrix** (§2-5/§30/§34.2-4): Distributor → Reseller
+    only; Franchise → Reseller or Distributor, never Franchise; Reseller →
+    nobody.
+  - **Territorial containment** (§28 "is the Distributor the appropriate
+    territorial parent?"): a Distributor can only onboard into a barangay
+    within their own city; a Franchise can only onboard into a city or
+    barangay within their own region (checked by walking the selected
+    territory's ancestor chain, not just its immediate parent, so a
+    Franchise onboarding a Reseller two levels down is still confined to
+    their region).
+  - **Capacity** (§29): same `greatest(occupied, capacity)` check as
+    Phase G's `assign_partner_territory()`, counting only `active`
+    partners.
+  - Auto-derives the free-text `region`/`city`/`barangay` display fields
+    from the real selected territory, so existing UI ("Location" rows
+    etc.) stays consistent regardless of which onboarding route created
+    the row.
+  - Sets `parent_partner_id = onboarded_by_partner_id` = the sponsoring
+    partner - the natural reading of §8's own example and §30's tree
+    structure.
+  - Still gated on admin's normal `approve_partner()` review - onboarding
+    doesn't bypass Lean & Fit's payment verification/approval step (§9),
+    it only changes who initiates it.
+- `approve_partner()` (unchanged signature, logic extended): now
+  re-checks territory capacity if the partner already has a `territory_id`
+  set (true for anything created via `onboard_partner()`, never true for
+  Route A) - the slot was available when `onboard_partner()` checked it,
+  but time passes before admin reviews, and someone else could fill it in
+  the meantime. Same re-check pattern as Phase G's `reactivate_partner()`.
+
+**Bug caught and fixed while writing this migration, before it ever
+shipped:** the exact `returns table` output-variable-name collision found
+in Phase G (`partner_id`/`territory_id`/`status` as OUT parameters
+shadowing the identically-named table columns, causing "column reference
+is ambiguous") would have hit `onboard_partner()` and the extended
+`approve_partner()` too. Every column reference inside both functions is
+qualified (`partners.territory_id`, `territories.capacity`, etc.) from
+the start this time, confirmed by testing every branch afterward with no
+recurrence.
+
+**Client-side:**
+- `src/components/reseller/PackagePaymentStep.tsx` (extracted from
+  `Reseller.tsx`, now shared) - identical package/payment UI serves both
+  the public application (Route A) and partner-assisted onboarding
+  (Route B), parameterized heading/intro text so the copy reads correctly
+  for "your application" vs. "you're sponsoring {name}."
+- `/reseller/add-partner` (new page, `AddPartner.tsx`) - reachable via a
+  "+ Add Partner" button on the dashboard Overview tab, shown only for
+  Distributor/Franchise (`ONBOARDABLE_PARTNER_TYPES`). The territory
+  dropdown is pre-filtered client-side to the sponsor's own coverage area
+  (UX nicety - `onboard_partner()`'s server-side containment check is the
+  actual enforcement) and disables full options, same pattern as Phase
+  G's admin territory picker.
+- `/admin/partners/:id` shows "Onboarded By" in the Applicant section
+  ("Direct application" when null).
+- `/admin/orders/:id` shows the order's `fulfillment_method` in the
+  Product section (currently always "Lean & Fit Dropship," read from the
+  real column rather than assumed).
+
+Verified the RPC logic against a throwaway Postgres instance with the
+full migration chain applied (schema.sql + 0002-0011), a 3-level seeded
+hierarchy (Franchise Ana/NCR → Distributor Juan/Marikina City → Reseller
+Maria/Concepcion Uno): a Reseller attempting to onboard anyone is
+rejected; a Distributor attempting to onboard a Distributor is rejected;
+a Franchise attempting to onboard a Franchise is rejected; a Distributor
+onboarding into a barangay outside their own city is rejected; a
+Franchise onboarding into a city outside their own region is rejected;
+onboarding into an already-full barangay is rejected with the exact
+capacity message; a valid onboarding succeeds with the correct derived
+region/city/barangay names and `parent_partner_id`/`onboarded_by_partner_id`
+both set to the sponsor; simulating a second partner filling the slot
+before admin approval correctly blocks `approve_partner()` ("territory
+now at capacity") until the slot is freed, then succeeds.
+`list_territories_with_occupancy` returns correct per-territory counts as
+a plain partner (not admin). Client UI verified interactively (mocked
+Supabase client, reverted before this commit): a Distributor's Add
+Partner form shows no type selector (only Reseller is onboardable) and
+correctly excludes barangays outside their own city; a Franchise's form
+offers both Reseller and Distributor, and switching the selected type
+correctly re-fetches the matching territory level scoped to their own
+region; a Reseller is shown the "can't onboard" message and the
+dashboard's Add Partner link is hidden for them; submitting the form
+calls `onboard_partner` with the correct type/territory and transitions
+to the package step with sponsor-specific copy.
+
+**Not built** (confirmed scope, see above): partner-run manual
+fulfillment/inventory tracking (no `fulfillment_method` UI toggle - there
+is no alternative to Lean & Fit dropship to toggle to); Staff Admin
+permission enforcement (groundwork column only, per the spec's own
+"future phase" framing); live territory-availability checking on the
+*original public* `/reseller` application form (Route A - still
+free-text, a Part 1 gap, parked per explicit instruction, unaffected by
+this work); automated cross-level "missing partner" order routing for
+retail checkout (§25-27 - Phase E's note that fulfillment routing isn't
+built still applies; this phase's containment logic governs onboarding
+placement only, not order routing).

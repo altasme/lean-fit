@@ -56,6 +56,35 @@ export function validatePartnerApplication(app: PartnerApplication): PartnerAppl
   return errors;
 }
 
+// Part 2 §1 Route B - partner-assisted onboarding. Same identity fields
+// as the public application, but a real territoryId (picked from a live,
+// capacity-aware list - src/lib/partners.ts's fetchTerritoriesWithOccupancy)
+// instead of free-text region/city/barangay.
+export type OnboardPartnerInput = {
+  fullName: string;
+  email: string;
+  mobile: string;
+  address: string;
+  partnerType: PartnerType;
+  territoryId: string;
+};
+
+export type OnboardPartnerErrors = Partial<Record<keyof OnboardPartnerInput, string>>;
+
+export function validateOnboardPartner(input: OnboardPartnerInput): OnboardPartnerErrors {
+  const errors: OnboardPartnerErrors = {};
+
+  if (!input.fullName.trim()) errors.fullName = 'Full name is required.';
+  if (!EMAIL_RE.test(input.email.trim())) errors.email = 'Enter a valid email address.';
+  if (!PH_MOBILE_RE.test(input.mobile.trim())) {
+    errors.mobile = 'Enter a valid PH mobile number (e.g. 09171234567).';
+  }
+  if (!input.address.trim()) errors.address = 'Address is required.';
+  if (!input.territoryId) errors.territoryId = 'Select a territory.';
+
+  return errors;
+}
+
 export type ProofFormErrors = {
   referenceNumber?: string;
   amountPaid?: string;

@@ -11,7 +11,7 @@ import {
 } from '../../lib/adminOrders';
 import { getPartner } from '../../lib/adminPartners';
 import { formatPHP } from '../../lib/format';
-import { ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../types/order';
+import { FULFILLMENT_METHOD_LABELS, ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../types/order';
 import type { Order, OrderStatusHistory } from '../../types/order';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
 import type { Payment, PaymentStatusHistory } from '../../types/payment';
@@ -116,6 +116,7 @@ export default function AdminOrderDetail() {
               <Row label="Subtotal" value={formatPHP(order.subtotal)} />
               <Row label="Delivery Fee" value={formatPHP(order.delivery_fee)} />
               <Row label="Total" value={formatPHP(order.total)} />
+              <Row label="Fulfillment" value={FULFILLMENT_METHOD_LABELS[order.fulfillment_method]} />
               {order.courier && <Row label="Courier" value={order.courier} />}
               {order.tracking_number && <Row label="Tracking" value={order.tracking_number} />}
             </dl>

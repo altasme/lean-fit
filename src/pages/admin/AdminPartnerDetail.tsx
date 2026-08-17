@@ -35,6 +35,7 @@ export default function AdminPartnerDetail() {
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [eligibleTerritories, setEligibleTerritories] = useState<TerritoryWithOccupancy[]>([]);
   const [eligibleParents, setEligibleParents] = useState<Partner[]>([]);
+  const [onboardedBy, setOnboardedBy] = useState<Partner | null>(null);
   const [territorySelection, setTerritorySelection] = useState('');
   const [parentSelection, setParentSelection] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +47,7 @@ export default function AdminPartnerDetail() {
       const p = await getPartner(id);
       setPartner(p);
       setProofUrl(p.payment_proof_path ? await getPartnerProofSignedUrl(p.payment_proof_path) : null);
+      setOnboardedBy(p.onboarded_by_partner_id ? await getPartner(p.onboarded_by_partner_id) : null);
 
       const level = PARTNER_TYPE_TERRITORY_LEVEL[p.partner_type];
       const [territories, parents] = await Promise.all([
@@ -223,6 +225,10 @@ export default function AdminPartnerDetail() {
                 value={[partner.barangay, partner.city, partner.region].filter(Boolean).join(', ') || '—'}
               />
               {partner.referral_code && <Row label="Referral Code" value={partner.referral_code} />}
+              <Row
+                label="Onboarded By"
+                value={onboardedBy ? `${onboardedBy.full_name} (${PARTNER_TYPE_LABELS[onboardedBy.partner_type]})` : 'Direct application'}
+              />
             </dl>
           </section>
 

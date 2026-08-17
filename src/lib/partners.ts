@@ -1,10 +1,11 @@
 import { supabase, uploadPaymentProof } from './supabase';
 import { calculatePartnerPrice } from './pricing';
-import type { PartnerApplication } from './validation';
+import type { OnboardPartnerInput, PartnerApplication } from './validation';
 import type { Partner, PartnerPricingTier, PartnerStatus, PartnerType } from '../types/partner';
 import { PARTNER_PACKAGE_BOXES } from '../types/partner';
 import type { Product } from '../types/product';
 import type { PaymentMethodId, PaymentStatus } from '../types/payment';
+import type { TerritoryLevel } from '../types/territory';
 
 /**
  * The signed-in partner's own record, via the "partner can read own
@@ -33,10 +34,9 @@ export async function fetchMyPartner(): Promise<Partner | null> {
 
 /**
  * Direct downstream partners (spec §46 - a Distributor's Resellers, a
- * Franchise's Distributors), via migration 0009's RLS. Nothing currently
- * assigns `parent_partner_id` (that's Phase G's admin territory/partner
- * management), so this returns an empty list until then - correct
- * behavior, not a bug.
+ * Franchise's Distributors), via migration 0009's RLS. Populated either
+ * by Phase G's admin reassignment or automatically by partner-assisted
+ * onboarding (Part 2's onboard_partner() sets the sponsor as parent).
  */
 export async function fetchDownstreamPartners(myPartnerId: string): Promise<Partner[]> {
   const { data, error } = await supabase
@@ -171,4 +171,53 @@ export async function submitPartnerPackagePayment(
   if (!row) throw new Error('Payment was not submitted.');
 
   return { partnerId: row.partner_id, paymentStatus: row.payment_status };
+}
+
+export type TerritoryOption = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  capacity: number | null;
+  occupied: number;
+};
+
+/**
+ * Capacity-aware territory options for the "Add Partner" form's picker -
+ * migration 0011's list_territories_with_occupancy() RPC, since a
+ * partner's own `partners` RLS visibility (migration 0009) doesn't extend
+ * to computing occupancy across arbitrary other partners themselves.
+ */
+export async function fetchTerritoriesWithOccupancy(level: TerritoryLevel): Promise<TerritoryOption[]> {
+  const { data, error } = await supabase.rpc('list_territories_with_occupancy', { p_level: level });
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as { id: string; name: string; parent_id: string | null; capacity: number | null; occupied: number }[]).map(
+    (t) => ({ id: t.id, name: t.name, parentId: t.parent_id, capacity: t.capacity, occupied: t.occupied }),
+  );
+}
+
+export type OnboardedPartner = { partnerId: string; status: PartnerStatus };
+
+/**
+ * Part 2 §1 Route B - an authorized partner (Distributor/Franchise) adds
+ * a new partner on someone else's behalf. All permission/territory/
+ * capacity/containment enforcement happens server-side in
+ * onboard_partner() (migration 0011) - this is a thin wrapper, same
+ * pattern as submitPartnerApplication().
+ */
+export async function onboardPartner(input: OnboardPartnerInput): Promise<OnboardedPartner> {
+  const { data, error } = await supabase.rpc('onboard_partner', {
+    p_full_name: input.fullName,
+    p_email: input.email,
+    p_mobile: input.mobile,
+    p_address: input.address,
+    p_partner_type: input.partnerType,
+    p_territory_id: input.territoryId,
+  });
+
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Partner was not onboarded.');
+
+  return { partnerId: row.partner_id, status: row.status };
 }

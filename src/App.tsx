@@ -7,6 +7,7 @@ import Reseller from './pages/Reseller';
 import PartnerLogin from './pages/reseller/PartnerLogin';
 import PartnerSetPassword from './pages/reseller/PartnerSetPassword';
 import PartnerDashboard from './pages/reseller/PartnerDashboard';
+import AddPartner from './pages/reseller/AddPartner';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
@@ -113,6 +114,16 @@ export default function App() {
               <PartnerAuthProvider>
                 <RequirePartnerAuth>
                   <PartnerDashboard />
+                </RequirePartnerAuth>
+              </PartnerAuthProvider>
+            }
+          />
+          <Route
+            path="/reseller/add-partner"
+            element={
+              <PartnerAuthProvider>
+                <RequirePartnerAuth>
+                  <AddPartner />
                 </RequirePartnerAuth>
               </PartnerAuthProvider>
             }

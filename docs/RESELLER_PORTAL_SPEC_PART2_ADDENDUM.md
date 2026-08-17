@@ -1,8 +1,28 @@
-> Uploaded 2026-08-17 alongside `RESELLER_PORTAL_SPEC_PART1.md`. This
-> addendum is NOT yet implemented - build is starting with Part 1 only per
-> explicit instruction. Notably introduces `fulfillment_method`
-> (PARTNER_FULFILLMENT / LEAN_AND_FIT_DROPSHIP) on orders, which Part 1's
-> schema does not yet have.
+> Uploaded 2026-08-17 alongside `RESELLER_PORTAL_SPEC_PART1.md`. Build
+> started with Part 1 only per explicit instruction; Part 1 (Phases A-H)
+> shipped first, Part 2 followed once explicitly requested. See
+> `supabase/README.md`'s "Reseller Portal Part 2" section for the full
+> scope decision and what's built vs. deliberately not.
+>
+> **Scoped down, confirmed with the user before starting:** built -
+> partner-assisted onboarding (§1 Route B, §2-10, §28-30, migration
+> `0011_partner_assisted_onboarding.sql`, `/reseller/add-partner`) with
+> real permission-matrix + territorial-containment + capacity enforcement;
+> `orders.fulfillment_method` (this doc's recommended field, §33) added
+> with a fixed `lean_and_fit_dropship` default; `admin_users.role`
+> groundwork for Staff Admin (§6/§31) with no enforcement logic, matching
+> this doc's own "exact matrix defined in a future phase" framing.
+> **Not built** - partner-run manual fulfillment/inventory tracking
+> (§12-18, §33's "private inventory sale" concept - no inventory system
+> exists anywhere in this app, and per §33's own allowance, "partner-
+> fulfilled orders may be completely absent from the centralized order
+> system if that is the intended business process," which is the path
+> taken: every website order is a Lean & Fit dropship order by
+> construction, so there is no alternative fulfillment method to build a
+> UI toggle for); automated hierarchical order-routing for retail
+> checkout (§25-27, unrelated to onboarding - Part 1 Phase E's fulfillment
+> scope note still applies); Staff Admin's actual permission matrix
+> (§31, explicitly deferred by this doc itself).
 
 # Lean & Fit Phase 2
 ## Partner Onboarding, Dropshipping & Order Visibility Addendum

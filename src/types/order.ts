@@ -4,6 +4,13 @@ import type { PartnerType } from './partner';
 // types/payment.ts. Do not merge these two axes; see CLAUDE.md §10.
 export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'shipped' | 'completed' | 'cancelled';
 
+// Part 2 addendum §33 - always 'lean_and_fit_dropship' today (migration
+// 0011's default): every order that exists in this table came through
+// the website checkout, the only fulfillment path built. No partner-run
+// inventory/manual-fulfillment system exists to ever set the other
+// value - see supabase/README.md's Part 2 scope note.
+export type FulfillmentMethod = 'lean_and_fit_dropship' | 'partner_fulfillment';
+
 export type Order = {
   id: string;
   order_no: string;
@@ -35,6 +42,7 @@ export type Order = {
   referral_territory_id: string | null;
   partner_price: number | null;
   partner_earnings: number | null;
+  fulfillment_method: FulfillmentMethod;
   created_at: string;
   updated_at: string;
 };
@@ -75,4 +83,9 @@ export const ORDER_STATUS_EMOJI: Record<OrderStatus, string> = {
   shipped: '🔵',
   completed: '✅',
   cancelled: '⚫',
+};
+
+export const FULFILLMENT_METHOD_LABELS: Record<FulfillmentMethod, string> = {
+  lean_and_fit_dropship: 'Lean & Fit Dropship',
+  partner_fulfillment: 'Partner Fulfillment',
 };

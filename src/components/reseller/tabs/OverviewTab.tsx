@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useToast } from '../../ui/Toast';
 import { buildReferralUrl } from '../../../lib/partners';
 import { formatPHP } from '../../../lib/format';
-import { PARTNER_TYPE_LABELS } from '../../../types/partner';
+import { ONBOARDABLE_PARTNER_TYPES, PARTNER_TYPE_LABELS } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
 
 // Phase D's original dashboard content (referral identity + account
 // summary), now the "Overview" tab alongside Phase F's other sections.
-// Parent/downstream partner display is new groundwork for spec §46 - both
-// will normally be empty until Phase G's admin UI can assign
-// parent_partner_id at all.
+// Parent/downstream partner display (spec §46) is populated by Phase G's
+// admin reassignment or Part 2's onboard_partner() (sponsor becomes
+// parent automatically). The "Add Partner" entry point (Part 2 §1 Route
+// B) only renders for Distributor/Franchise - Resellers can't onboard
+// anyone (spec §3), so there's nothing to link to for them.
 export function OverviewTab({
   partner,
   parentPartner,
@@ -140,9 +143,16 @@ export function OverviewTab({
         </section>
 
         <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-            Partner Network
-          </h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+              Partner Network
+            </h2>
+            {ONBOARDABLE_PARTNER_TYPES[partner.partner_type].length > 0 && (
+              <Link to="/reseller/add-partner" className="btn-outline !px-3 !py-1.5 !text-xs">
+                + Add Partner
+              </Link>
+            )}
+          </div>
           <dl className="mt-4 space-y-1.5 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-lf-cream/60">Parent Partner</dt>
