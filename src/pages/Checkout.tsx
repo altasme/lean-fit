@@ -20,7 +20,8 @@ const LAST_ORDER_KEY = 'lf_last_order';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  useActiveProduct(); // ensures store pricing is loaded even if reached directly
+  // Also ensures store pricing is loaded even if this page is reached directly.
+  const { partnerReferralCode } = useActiveProduct();
   const { delivery, setDelivery, paymentMethod, setPaymentMethod, quantity } = useCartStore();
   const productName = useCartStore((s) => s.productName);
   const unitPrice = useCartStore((s) => s.unitPrice);
@@ -92,7 +93,13 @@ export default function Checkout() {
         deliveryFee,
         total,
         paymentMethod,
-        referralCode: getStoredReferralCode(),
+        // A signed-in partner buying for themselves is already getting
+        // their own tier price (see useActiveProduct/fetchActiveProduct) -
+        // attribute the order to themselves too, so it's traceable in
+        // Admin's Referral Attribution panel instead of showing a
+        // below-SRP price with no explanation. Only overrides a stored
+        // `?ref=` code when partner pricing actually applied.
+        referralCode: partnerReferralCode ?? getStoredReferralCode(),
         ...(requiresProof ? { proofFile: file ?? undefined } : {}),
       });
 

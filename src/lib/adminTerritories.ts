@@ -29,6 +29,25 @@ export async function listTerritories(): Promise<TerritoryWithOccupancy[]> {
   }));
 }
 
+/**
+ * Resolves (or lazily creates) the barangay territory row for a given name
+ * within a city - same RPC the public application / partner-assisted
+ * onboarding pickers use (migration 0012's find_or_create_barangay_
+ * territory, already granted to `authenticated`). Admin's own territory
+ * reassignment Uses this too rather than a raw `territories` dropdown,
+ * since after migration 0012 almost none of the real ~42,000 barangays
+ * have a row yet - a raw dropdown would only ever offer the handful
+ * someone has already picked.
+ */
+export async function resolveBarangayTerritory(name: string, cityTerritoryId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('find_or_create_barangay_territory', {
+    p_name: name,
+    p_city_territory_id: cityTerritoryId,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
 export type TerritoryInput = {
   level: TerritoryLevel;
   name: string;

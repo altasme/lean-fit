@@ -13,8 +13,10 @@ import {
   rejectPartner,
   suspendPartner,
 } from '../../lib/adminPartners';
-import { listTerritories } from '../../lib/adminTerritories';
+import { listTerritories, resolveBarangayTerritory } from '../../lib/adminTerritories';
 import type { TerritoryWithOccupancy } from '../../lib/adminTerritories';
+import { TerritoryPicker } from '../../components/reseller/TerritoryPicker';
+import type { TerritoryPickerValue } from '../../components/reseller/TerritoryPicker';
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
 import type { Partner } from '../../types/partner';
@@ -37,6 +39,7 @@ export default function AdminPartnerDetail() {
   const [eligibleParents, setEligibleParents] = useState<Partner[]>([]);
   const [onboardedBy, setOnboardedBy] = useState<Partner | null>(null);
   const [territorySelection, setTerritorySelection] = useState('');
+  const [pickedBarangay, setPickedBarangay] = useState<TerritoryPickerValue | null>(null);
   const [parentSelection, setParentSelection] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -123,11 +126,27 @@ export default function AdminPartnerDetail() {
   }
 
   async function handleAssignTerritory() {
-    if (!partner || !territorySelection) return;
+    if (!partner) return;
     setBusy(true);
     try {
-      await assignPartnerTerritory(partner.id, territorySelection);
+      // Resellers pick a real barangay via TerritoryPicker (migration
+      // 0012's data - most of the ~42,000 real barangays don't have a
+      // `territories` row yet), so it needs a resolve/lazy-create step
+      // find_or_create_barangay_territory() does for the applicant flows,
+      // before assign_partner_territory() can point the partner at it.
+      // Franchise/Distributor territories are fully pre-seeded (region/
+      // city), so their raw dropdown already selects a real row directly.
+      const territoryId =
+        partner.partner_type === 'reseller'
+          ? pickedBarangay?.barangayName
+            ? await resolveBarangayTerritory(pickedBarangay.barangayName, pickedBarangay.territoryId)
+            : null
+          : territorySelection || null;
+      if (!territoryId) return;
+
+      await assignPartnerTerritory(partner.id, territoryId);
       showToast('Territory assigned.');
+      setPickedBarangay(null);
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to assign territory.', 'error');
@@ -346,33 +365,55 @@ export default function AdminPartnerDetail() {
                 <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">
                   {TERRITORY_LEVEL_LABELS[PARTNER_TYPE_TERRITORY_LEVEL[partner.partner_type]]}
                 </p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <select
-                    value={territorySelection}
-                    onChange={(e) => setTerritorySelection(e.target.value)}
-                    className="rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-                  >
-                    <option value="">Unassigned</option>
-                    {eligibleTerritories.map((t) => {
-                      const full = t.capacity != null && t.occupiedCount >= t.capacity && t.id !== partner.territory_id;
-                      return (
-                        <option key={t.id} value={t.id} disabled={full}>
-                          {t.name} ({t.occupiedCount}
-                          {t.capacity != null ? `/${t.capacity}` : ''}
-                          {full ? ' - Full' : ''})
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={busy || !territorySelection || territorySelection === partner.territory_id}
-                    onClick={handleAssignTerritory}
-                    className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
-                  >
-                    {partner.territory_id ? 'Change' : 'Assign'}
-                  </button>
-                </div>
+
+                {partner.partner_type === 'reseller' ? (
+                  <div className="mt-1.5 space-y-3">
+                    <p className="text-xs text-lf-cream/50">
+                      Current: {[partner.barangay, partner.city, partner.region].filter(Boolean).join(', ') || 'Unassigned'}
+                    </p>
+                    <TerritoryPicker
+                      key={partner.territory_id ?? 'unassigned'}
+                      partnerType="reseller"
+                      onChange={setPickedBarangay}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy || !pickedBarangay?.barangayName}
+                      onClick={handleAssignTerritory}
+                      className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
+                    >
+                      {partner.territory_id ? 'Change' : 'Assign'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <select
+                      value={territorySelection}
+                      onChange={(e) => setTerritorySelection(e.target.value)}
+                      className="rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+                    >
+                      <option value="">Unassigned</option>
+                      {eligibleTerritories.map((t) => {
+                        const full = t.capacity != null && t.occupiedCount >= t.capacity && t.id !== partner.territory_id;
+                        return (
+                          <option key={t.id} value={t.id} disabled={full}>
+                            {t.name} ({t.occupiedCount}
+                            {t.capacity != null ? `/${t.capacity}` : ''}
+                            {full ? ' - Full' : ''})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={busy || !territorySelection || territorySelection === partner.territory_id}
+                      onClick={handleAssignTerritory}
+                      className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
+                    >
+                      {partner.territory_id ? 'Change' : 'Assign'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">

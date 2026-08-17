@@ -104,6 +104,24 @@
     their package payment (Route A or Route B), tells them their payment is
     being reviewed and that portal login details follow separately once
     approved (the actual login email is `invite-partner`, step 11).
+14. Run `supabase/migrations/0013_fix_assign_partner_territory.sql` in the
+    SQL editor, after 0012 (single paste, no enum split needed - this one
+    doesn't touch the enum). Fixes two bugs in admin's territory
+    reassignment (Partner Detail → Territory & Hierarchy) found and
+    confirmed by reproduction while auditing this session's changes
+    against the admin panel, both caused by migration 0012 adding
+    `province` as a real `territories` level:
+    - A partner could previously be silently assigned to a **province**-
+      level territory (never valid - only region/city/barangay are
+      partner-assignable) because the function's level→partner-type
+      `case` had no `else`, so an unrecognized level compared as NULL
+      instead of failing. Now rejected explicitly.
+    - Reassigning a partner's territory only ever updated `territory_id`,
+      never the human-readable `region`/`city`/`barangay` columns the
+      admin panel actually displays (Partners list, Partner Detail) - so
+      they went stale the moment admin reassigned someone. Now synced via
+      `describe_territory_chain()` on every reassignment, same as
+      application-time.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -114,21 +132,24 @@ not required for MVP launch). Migrations 0002-0011 have all been applied
 had no anon-read policy, so every partner package was quoted at full SRP
 with 0% tier discount until this ran; 0009 is pure RLS for the partner
 dashboard; 0010 adds the territory/partner-assignment RPCs for the admin
-panel; 0011 adds partner-assisted onboarding). **Migration 0012 (PH
-territory data + province level + lazy barangay creation) still needs to
-be run** - paste it in after 0011. **`send-partner-email` (the partner
-package-payment confirmation email) is also new and not yet deployed** -
-run step 13 above; it reuses secrets already set, nothing extra needed
-there.
+panel; 0011 adds partner-assisted onboarding). Migration 0012's Step 1
+(the `province` enum value) is confirmed run; **confirm Step 2 (the actual
+seed data + RPCs) has been run too** before relying on the redesigned
+`/reseller` form or the "Add Partner" territory picker - neither works
+without it. **Migration 0013 (fixes two `assign_partner_territory` bugs
+found while auditing this session's changes, see step 14 above) still
+needs to be run** - paste it in after 0012. `invite-partner` and
+`send-partner-email` are both confirmed deployed, with `SITE_URL` set and
+its redirect URL added in the dashboard.
 
-**`invite-partner` is still not deployed and its `SITE_URL` secret is
-still not set - this is the confirmed cause of "Approve Partner"/"Resend
-Portal Invite" failing to send any email.** The client code and the Edge
-Function itself are both correct (verified - `invitePartnerToPortal()` in
-`src/lib/adminPartners.ts` calls `supabase.functions.invoke('invite-partner', ...)`
-and surfaces whatever error comes back in a toast); there's nothing to fix
-in code here. Whoever holds CLI access to the live Supabase project needs
-to run:
+Historical note (now resolved, kept for context): `invite-partner` was
+initially deployed with no `SITE_URL` secret set, which was the confirmed
+cause of "Approve Partner"/"Resend Portal Invite" failing to send any
+email. The client code and the Edge Function itself were always correct
+(verified - `invitePartnerToPortal()` in `src/lib/adminPartners.ts` calls
+`supabase.functions.invoke('invite-partner', ...)` and surfaces whatever
+error comes back in a toast) - it was purely a deployment/config gap, not
+a code bug. For reference, the commands that fixed it:
 ```bash
 supabase functions deploy invite-partner
 supabase secrets set SITE_URL=https://yourdomain.com

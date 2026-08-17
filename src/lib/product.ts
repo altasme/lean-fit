@@ -11,6 +11,17 @@ export type ActiveProductPricing = {
   appliedPromotion: Promotion | null;
   /** True when `price` is the signed-in partner's own tier price, not retail. */
   partnerPricing: boolean;
+  /**
+   * The signed-in partner's own referral code when `partnerPricing` is
+   * true, else null. Checkout passes this through to create_order_with_
+   * payment as the order's referral code (same as an ordinary `?ref=`
+   * link) so the order is traceable in Admin's existing "Referral
+   * Attribution" panel instead of silently showing a below-SRP price with
+   * no explanation - the resulting partner_earnings computes to exactly 0
+   * (buyer's tier price - own tier price = 0), so this never pays out a
+   * phantom commission on a partner's own purchase.
+   */
+  partnerReferralCode: string | null;
 };
 
 /**
@@ -47,7 +58,7 @@ export async function fetchActiveProduct(): Promise<ActiveProductPricing | null>
   if (user) {
     const { data: partner } = await supabase
       .from('partners')
-      .select('partner_type, status')
+      .select('partner_type, status, referral_code')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .maybeSingle();
@@ -57,7 +68,14 @@ export async function fetchActiveProduct(): Promise<ActiveProductPricing | null>
       if (tierError) throw new Error(tierError.message);
 
       const result = calculatePartnerPrice(product, partner.partner_type, (tiers ?? []) as PartnerPricingTier[]);
-      return { product, price: result.price, srp: result.srp, appliedPromotion: null, partnerPricing: true };
+      return {
+        product,
+        price: result.price,
+        srp: result.srp,
+        appliedPromotion: null,
+        partnerPricing: true,
+        partnerReferralCode: partner.referral_code ?? null,
+      };
     }
   }
 
@@ -74,5 +92,6 @@ export async function fetchActiveProduct(): Promise<ActiveProductPricing | null>
     srp: result.srp,
     appliedPromotion: result.appliedPromotion,
     partnerPricing: false,
+    partnerReferralCode: null,
   };
 }
