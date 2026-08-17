@@ -1,3 +1,5 @@
+import type { PartnerType } from './partner';
+
 // Fulfillment lifecycle only - payment lives in its own record, see
 // types/payment.ts. Do not merge these two axes; see CLAUDE.md §10.
 export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'shipped' | 'completed' | 'cancelled';
@@ -23,8 +25,16 @@ export type Order = {
   status: OrderStatus;
   courier: string | null;
   tracking_number: string | null;
+  // Referral/partner attribution - Reseller Portal Part 1 §48/§54. All
+  // snapshotted at order creation time (§55 historical integrity), not
+  // live-derived from the referenced partner's current state.
   ref_code: string | null;
-  reseller_id: string | null;
+  referral_partner_id: string | null;
+  referral_partner_type: PartnerType | null;
+  referral_parent_partner_id: string | null;
+  referral_territory_id: string | null;
+  partner_price: number | null;
+  partner_earnings: number | null;
   created_at: string;
   updated_at: string;
 };

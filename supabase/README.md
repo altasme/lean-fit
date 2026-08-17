@@ -317,7 +317,88 @@ promo-active (`Purchase` shows the discounted ₱200, never the ₱250 SRP),
 and no-active-product (price and buy button both show the existing
 "coming soon" state, not a broken or stale render).
 
-**Still open (phase 8, tracked separately):** no reseller/partner portal
-exists yet to consume `partner_pricing_tiers` - that's the remaining piece
-of the client's "admin, website, and reseller panel must stay in sync"
-requirement.
+**Still open (phase 8, now underway - see below):** no reseller/partner
+portal exists yet to consume `partner_pricing_tiers` - that's the
+remaining piece of the client's "admin, website, and reseller panel must
+stay in sync" requirement.
+
+## Reseller Portal Part 1, Phase A (territories + partners)
+
+A second, much larger spec landed 2026-08-17: "Lean & Fit Phase 2 -
+Partner Distribution, Reseller Portal & Territorial Sales System" (+ a
+Part 2 addendum covering onboarding permissions and dropship/fulfillment
+visibility). Saved to `docs/RESELLER_PORTAL_SPEC_PART1.md` /
+`_PART2_ADDENDUM.md`. Building starts with Part 1 only, per explicit
+instruction - Part 2's rules (who can onboard whom, `fulfillment_method`,
+staff admin roles) are not implemented yet.
+
+`migrations/0004_reseller_territories_partners.sql` adds:
+
+- **`territories`** - Philippines region/city/barangay hierarchy
+  (self-referencing `parent_id`), each with a `capacity` for the one
+  partner type that level hosts (region↔franchise, city↔distributor,
+  barangay↔reseller - spec §7 is a strict 1:1 mapping, so no separate
+  per-type capacity table was needed).
+- **`partners`** - the core entity: type, status, contact info, territory,
+  `parent_partner_id` (upstream partner), referral code, package. `user_id`
+  is nullable and filled in once portal login exists (Phase D).
+- **`apply_for_partner()`** RPC - the write path for the public
+  application form (Phase B), same reasoning as `create_order_with_payment`
+  in `schema.sql` (anon can't get a usable RETURNING without a broad,
+  PII-exposing SELECT policy, so a `SECURITY DEFINER` function does the
+  insert and returns only `{partner_id, status}`). Territory capacity is
+  deliberately NOT checked here - spec §18 makes a partner "active" (and
+  therefore occupying a capacity slot) only after admin approval, so
+  capacity enforcement belongs at approval time (Phase C), not application
+  time.
+- **`orders`** extended with referral/partner attribution, snapshotted at
+  order-creation time per spec §54-55 (historical integrity - a later
+  territory or hierarchy change must never rewrite what an order recorded):
+  `referral_partner_id` (renamed from the unpopulated `reseller_id` stub -
+  safe, since it was never populated in production, and the rename
+  reflects that any partner type can have a referral, not only resellers),
+  `referral_partner_type`, `referral_parent_partner_id`,
+  `referral_territory_id`, `partner_price`, `partner_earnings`.
+
+### A security fix that had to happen now, not later
+
+Every RLS policy written so far (`orders`, `payments`, history tables,
+`products`, `promotions`, `partner_pricing_tiers`, `media_assets`,
+`media_asset_history`, `audit_log`) uses `to authenticated using (true)` -
+"any authenticated user is the admin." That was safe when the only
+authenticated users were the single admin account. Once partner portal
+logins exist (Phase D), partners become `authenticated` Supabase users
+too, and every one of those existing policies would let any partner
+read/write every order, payment, product, and audit log entry.
+
+This migration adds `admin_users` (a marker table) and `is_admin()` (checks
+membership) and uses them correctly for `territories`/`partners` from day
+one. **It does not retrofit the older tables' policies** - that retrofit
+(swap `using (true)` for `using (is_admin())` everywhere) is a hard
+prerequisite of Phase D, tracked explicitly, not something to discover
+after partner accounts already exist.
+
+After running this migration, seed your admin account:
+```sql
+insert into admin_users (user_id) values ('<your-admin-user-id>');
+```
+(Find the UUID in Authentication → Users.)
+
+### Verification
+
+Applied cleanly on top of schema.sql + migrations 0002/0003 against a
+local Postgres instance, including a stub `auth.uid()` reading a settable
+session variable to exercise RLS as different simulated users. Confirmed:
+anon can submit an application via `apply_for_partner()` but cannot read
+the `partners` table directly (PII protection, same pattern as
+orders/payments); a non-admin authenticated user is also blocked; an
+`is_admin()` user has full read/write; a partner logged in as themselves
+(`user_id = auth.uid()`) sees exactly their own row and nothing else, even
+with a second unrelated partner present in the table; the
+`reseller_id` → `referral_partner_id` rename plus all five new `orders`
+columns landed correctly.
+
+Not yet built: the application form itself, packages/payment/approval,
+partner login, referral attribution + tier-aware checkout pricing, the
+partner dashboard, admin partner/territory management, and territory
+visualization (see the repo's task list, "Reseller P1-B" through "P1-H").
