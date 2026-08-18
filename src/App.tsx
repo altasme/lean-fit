@@ -17,20 +17,23 @@ import AdminPromotions from './pages/admin/AdminPromotions';
 import AdminPromotionForm from './pages/admin/AdminPromotionForm';
 import AdminPartnerPricing from './pages/admin/AdminPartnerPricing';
 import AdminPartners from './pages/admin/AdminPartners';
+import AdminPartnerCreate from './pages/admin/AdminPartnerCreate';
 import AdminPartnerDetail from './pages/admin/AdminPartnerDetail';
-import AdminTerritories from './pages/admin/AdminTerritories';
-import AdminTerritoryMap from './pages/admin/AdminTerritoryMap';
-// AdminMedia is hidden for now - see the /admin/media route below.
+import AdminStaff from './pages/admin/AdminStaff';
+// AdminTerritories/AdminTerritoryMap and AdminMedia are hidden for now -
+// see the /admin/territories, /admin/territory-map, and /admin/media
+// routes below.
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import { PublicLayout } from './components/layout/PublicLayout';
 import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/auth/AuthProvider';
 import { RequireAuth } from './components/admin/RequireAuth';
+import { RequireFullAdmin } from './components/admin/RequireFullAdmin';
 import { PartnerAuthProvider } from './components/reseller/PartnerAuthProvider';
 import { RequirePartnerAuth } from './components/reseller/RequirePartnerAuth';
 import { ToastProvider } from './components/ui/Toast';
 import { initPixel } from './lib/pixel';
-import { isAdminHost } from './lib/hostRouting';
+import { isAdminHost, isResellerHost } from './lib/hostRouting';
 import { captureReferralFromUrl } from './lib/referral';
 
 function PixelInit() {
@@ -56,13 +59,15 @@ function PixelInit() {
 }
 
 export default function App() {
-  // Same build/deployment serves the admin app on its own subdomain
-  // (adminleanfit.altasme.com today, admin.<client-domain> at launch) -
-  // see src/lib/hostRouting.ts. "/" on that host goes straight to the
-  // order list instead of the marketing homepage; every /admin/* path
-  // keeps working normally either way, so nothing breaks if DNS for the
-  // subdomain isn't live yet.
+  // Same build/deployment serves the admin app AND the reseller/partner
+  // portal on their own subdomains (adminleanfit.altasme.com / rsleanfit.
+  // altasme.com today, admin.<client-domain> / reseller.<client-domain>
+  // at launch) - see src/lib/hostRouting.ts. "/" on either host goes
+  // straight to that app instead of the marketing homepage; every
+  // /admin/* and /reseller/* path keeps working normally regardless of
+  // host, so nothing breaks if DNS for a subdomain isn't live yet.
   const onAdminHost = isAdminHost();
+  const onResellerHost = isResellerHost();
 
   return (
     <ToastProvider>
@@ -72,6 +77,8 @@ export default function App() {
         <Routes>
           {onAdminHost ? (
             <Route path="/" element={<Navigate to="/admin" replace />} />
+          ) : onResellerHost ? (
+            <Route path="/" element={<Navigate to="/reseller/dashboard" replace />} />
           ) : (
             <Route
               path="/"
@@ -150,7 +157,9 @@ export default function App() {
             path="/admin/products"
             element={
               <RequireAuth>
-                <AdminProducts />
+                <RequireFullAdmin>
+                  <AdminProducts />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -158,7 +167,9 @@ export default function App() {
             path="/admin/products/new"
             element={
               <RequireAuth>
-                <AdminProductForm />
+                <RequireFullAdmin>
+                  <AdminProductForm />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -166,7 +177,9 @@ export default function App() {
             path="/admin/products/:id"
             element={
               <RequireAuth>
-                <AdminProductForm />
+                <RequireFullAdmin>
+                  <AdminProductForm />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -174,7 +187,9 @@ export default function App() {
             path="/admin/promotions"
             element={
               <RequireAuth>
-                <AdminPromotions />
+                <RequireFullAdmin>
+                  <AdminPromotions />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -182,7 +197,9 @@ export default function App() {
             path="/admin/promotions/new"
             element={
               <RequireAuth>
-                <AdminPromotionForm />
+                <RequireFullAdmin>
+                  <AdminPromotionForm />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -190,7 +207,9 @@ export default function App() {
             path="/admin/promotions/:id"
             element={
               <RequireAuth>
-                <AdminPromotionForm />
+                <RequireFullAdmin>
+                  <AdminPromotionForm />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -198,7 +217,9 @@ export default function App() {
             path="/admin/partner-pricing"
             element={
               <RequireAuth>
-                <AdminPartnerPricing />
+                <RequireFullAdmin>
+                  <AdminPartnerPricing />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />
@@ -211,6 +232,14 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/partners/new"
+            element={
+              <RequireAuth>
+                <AdminPartnerCreate />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/admin/partners/:id"
             element={
               <RequireAuth>
@@ -218,22 +247,12 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route
-            path="/admin/territories"
-            element={
-              <RequireAuth>
-                <AdminTerritories />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/admin/territory-map"
-            element={
-              <RequireAuth>
-                <AdminTerritoryMap />
-              </RequireAuth>
-            }
-          />
+          {/* Territories/Territory Map are built but hidden for now (item #1,
+              nav entries removed in AdminLayout) - redirect rather than
+              leaving a dead direct-URL route. Swap back to <AdminTerritories />
+              / <AdminTerritoryMap /> to re-enable. */}
+          <Route path="/admin/territories" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/territory-map" element={<Navigate to="/admin" replace />} />
           {/* Media is built but hidden for now (nav entry removed in
               AdminLayout) - redirect rather than leaving a dead direct-URL
               route. Swap this back to <AdminMedia /> to re-enable. */}
@@ -243,6 +262,16 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminAuditLog />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/staff"
+            element={
+              <RequireAuth>
+                <RequireFullAdmin>
+                  <AdminStaff />
+                </RequireFullAdmin>
               </RequireAuth>
             }
           />

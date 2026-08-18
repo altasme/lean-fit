@@ -1,6 +1,7 @@
 import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
 import { writeAuditLog } from './auditLog';
-import type { Partner, PartnerType } from '../types/partner';
+import type { Partner, PartnerStatus, PartnerType } from '../types/partner';
+import type { AdminCreatePartnerInput } from './validation';
 
 export async function listPartners(): Promise<Partner[]> {
   const { data, error } = await supabase
@@ -26,16 +27,33 @@ export async function getPartnerProofSignedUrl(path: string): Promise<string> {
 }
 
 /**
- * Sends (or resends) the partner's portal login invite via the
- * `invite-partner` Edge Function - admin-only, service-role, creates the
- * Supabase Auth user and links `partners.user_id` on first invite, or
- * triggers a password-reset email if the partner already has a login.
- * Never throws - invite delivery is best-effort, same reasoning as
- * `writeAuditLog`; callers surface `error` in a toast instead.
+ * A strong, easy-to-read-aloud default password - admin can edit it before
+ * sending, or type their own entirely (item #2/#4's "admin sets the
+ * password"), this is just a safer starting point than asking admin to
+ * invent one. Avoids visually similar characters (0/O, 1/l/I).
  */
-export async function invitePartnerToPortal(partnerId: string): Promise<{ error: string | null }> {
-  const { data, error } = await supabase.functions.invoke('invite-partner', {
-    body: { partnerId },
+export function generatePassword(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let out = '';
+  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+/**
+ * Grants (or resets) a partner's portal login by setting their password
+ * directly via the `grant-portal-access` Edge Function - admin-only,
+ * service-role. Creates the Supabase Auth user and links `partners.user_id`
+ * the first time, or just updates the password if they already have a
+ * login. The partner's credentials are emailed to them either way (item
+ * #6 - "Send Portal Access"). Never throws - delivery is best-effort, same
+ * reasoning as `writeAuditLog`; callers surface `error` in a toast instead.
+ */
+export async function grantPartnerPortalAccess(
+  partnerId: string,
+  password: string,
+): Promise<{ error: string | null }> {
+  const { data, error } = await supabase.functions.invoke('grant-portal-access', {
+    body: { mode: 'partner', partnerId, password },
   });
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error as string };
@@ -47,11 +65,12 @@ export async function invitePartnerToPortal(partnerId: string): Promise<{ error:
  * activates the partner in one step (see migration 0006's approve_partner()
  * for why this is a single combined action rather than the two independent
  * axes retail orders use). Generates the partner's referral code server-side
- * for atomic uniqueness, then sends the partner's portal login invite.
+ * for atomic uniqueness, then grants portal access with an auto-generated
+ * password (emailed to the partner immediately).
  */
 export async function approvePartner(
   partnerId: string,
-): Promise<{ referralCode: string; inviteError: string | null }> {
+): Promise<{ referralCode: string; password: string; inviteError: string | null }> {
   const { data, error } = await supabase.rpc('approve_partner', { p_partner_id: partnerId });
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
@@ -64,9 +83,58 @@ export async function approvePartner(
     note: `Referral code: ${row.referral_code}`,
   });
 
-  const { error: inviteError } = await invitePartnerToPortal(partnerId);
+  const password = generatePassword();
+  const { error: inviteError } = await grantPartnerPortalAccess(partnerId, password);
 
-  return { referralCode: row.referral_code, inviteError };
+  return { referralCode: row.referral_code, password, inviteError };
+}
+
+export type AdminCreatedPartner = { partnerId: string; status: PartnerStatus };
+
+/**
+ * Item #2's admin "Add Partner" form - full manual onboarding (type,
+ * territory, package, payment) after a phone call, via migration 0014's
+ * admin_create_partner(). When `existingLeadId` is set, completes that
+ * pending lead in place instead of creating a duplicate row.
+ */
+export async function adminCreatePartner(input: AdminCreatePartnerInput): Promise<AdminCreatedPartner> {
+  const { data, error } = await supabase.rpc('admin_create_partner', {
+    p_full_name: input.fullName,
+    p_email: input.email,
+    p_mobile: input.mobile,
+    p_address: input.address || null,
+    p_partner_type: input.partnerType,
+    p_territory_id: input.territoryId || null,
+    p_barangay_name: input.barangayName,
+    p_package: input.packageBoxes ? `${input.packageBoxes} Boxes` : null,
+    p_package_boxes: input.packageBoxes,
+    p_package_amount: input.packageAmount,
+    p_payment_method: input.paymentMethod,
+    p_payment_reference: input.paymentReference || null,
+    p_payment_amount: input.paymentAmount,
+    p_payment_date: input.paymentDate || null,
+    p_payment_proof_path: null,
+    p_activate: input.activate,
+    p_existing_partner_id: input.existingLeadId,
+  });
+
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Partner was not created.');
+
+  await writeAuditLog({
+    entity_type: 'partner',
+    entity_id: row.partner_id,
+    action: input.existingLeadId ? 'onboarded from lead' : 'created by admin',
+    note: input.activate ? 'Activated immediately' : 'Saved as pending',
+  });
+
+  if (input.activate) {
+    const password = generatePassword();
+    await grantPartnerPortalAccess(row.partner_id, password);
+  }
+
+  return { partnerId: row.partner_id, status: row.status };
 }
 
 export async function rejectPartner(partnerId: string): Promise<void> {

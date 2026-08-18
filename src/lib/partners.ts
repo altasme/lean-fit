@@ -1,7 +1,7 @@
 import { supabase, uploadPaymentProof } from './supabase';
 import { calculatePartnerPrice } from './pricing';
 import { notifyPartnerEvent } from './notify';
-import type { OnboardPartnerInput, PartnerApplication } from './validation';
+import type { OnboardPartnerInput, PartnerLead } from './validation';
 import type { Partner, PartnerPricingTier, PartnerStatus, PartnerType } from '../types/partner';
 import { PARTNER_PACKAGE_BOXES } from '../types/partner';
 import type { Product } from '../types/product';
@@ -69,34 +69,31 @@ export function buildReferralUrl(referralCode: string): string {
   return `${window.location.origin}/?ref=${referralCode}`;
 }
 
-export type SubmittedApplication = {
+export type SubmittedLead = {
   partnerId: string;
   status: PartnerStatus;
 };
 
 /**
- * Migration 0012 rebuilt apply_for_partner() around a real picked
- * territory (territoryId = the city for Reseller/Distributor, the region
- * for Franchise; barangayName only for Reseller, resolved/lazily created
- * server-side) instead of free-text region/city/barangay - closes the
- * live-availability gap spec §19 always asked for on this form.
+ * Migration 0014 - the public "Become a Partner" form is now a lead
+ * capture only (item #7): name/mobile/email/province/city, nothing about
+ * type/territory/package/payment. Creates a real `partners` row with
+ * status 'pending' so it shows up on the admin Pending Partners tab
+ * immediately; admin completes onboarding later via adminCreatePartner()
+ * (lib/adminPartners.ts) after calling the lead back.
  */
-export async function submitPartnerApplication(
-  app: PartnerApplication,
-): Promise<SubmittedApplication> {
-  const { data, error } = await supabase.rpc('apply_for_partner', {
-    p_full_name: app.fullName,
-    p_email: app.email,
-    p_mobile: app.mobile,
-    p_address: app.address,
-    p_partner_type: app.partnerType,
-    p_territory_id: app.territoryId,
-    p_barangay_name: app.barangayName,
+export async function submitPartnerLead(lead: PartnerLead): Promise<SubmittedLead> {
+  const { data, error } = await supabase.rpc('submit_partner_lead', {
+    p_full_name: lead.fullName,
+    p_email: lead.email,
+    p_mobile: lead.mobile,
+    p_province: lead.province,
+    p_city: lead.city,
   });
 
-  if (error) throw new Error(`Failed to submit application: ${error.message}`);
+  if (error) throw new Error(`Failed to submit: ${error.message}`);
   const row = Array.isArray(data) ? data[0] : data;
-  if (!row) throw new Error('Application was not submitted.');
+  if (!row) throw new Error('Submission failed.');
 
   return { partnerId: row.partner_id, status: row.status };
 }

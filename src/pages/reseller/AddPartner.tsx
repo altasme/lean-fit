@@ -32,7 +32,9 @@ export default function AddPartner() {
   const [step, setStep] = useState<Step>('form');
   const [newPartnerId, setNewPartnerId] = useState<string | null>(null);
 
-  const onboardableTypes = partner ? ONBOARDABLE_PARTNER_TYPES[partner.partner_type] : [];
+  // partner.partner_type is always set once signed in here - RequirePartnerAuth
+  // gates on status === 'active', which only happens after a type is assigned.
+  const onboardableTypes = partner ? ONBOARDABLE_PARTNER_TYPES[partner.partner_type!] : [];
 
   const [form, setForm] = useState<OnboardPartnerInput>({
     ...EMPTY,

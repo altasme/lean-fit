@@ -1,8 +1,17 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { supabase } from '../../lib/supabase';
+import type { AdminRole } from '../../types/partner';
+
+const AdminRoleContext = createContext<AdminRole | null>(null);
+
+/** The signed-in admin's role ('admin' | 'staff_admin') - null outside RequireAuth. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAdminRole(): AdminRole | null {
+  return useContext(AdminRoleContext);
+}
 
 /**
  * Gates /admin/* on both "is there a session" (any authenticated user) AND
@@ -11,29 +20,37 @@ import { supabase } from '../../lib/supabase';
  * D, any authenticated session was necessarily the admin, so a session
  * check alone was enough; now that partners log in too, a signed-in
  * partner must never see the admin shell (even an RLS-empty one).
+ *
+ * Also resolves the caller's role and exposes it via useAdminRole() - item
+ * #5's RBAC (migration 0014's is_full_admin()) needs the client to know
+ * which nav links/routes to hide for a 'staff_admin', not just whether
+ * they're an admin at all.
  */
 export function RequireAuth({ children }: PropsWithChildren) {
-  const { session, loading } = useAuth();
+  const { session, loading: sessionLoading } = useAuth();
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [role, setRole] = useState<AdminRole | null | undefined>(undefined);
 
   useEffect(() => {
     if (!session) {
-      setIsAdmin(null);
+      setRole(undefined);
       return;
     }
     let cancelled = false;
     supabase
-      .rpc('is_admin')
+      .from('admin_users')
+      .select('role')
+      .eq('user_id', session.user.id)
+      .maybeSingle()
       .then(({ data, error }) => {
-        if (!cancelled) setIsAdmin(error ? false : Boolean(data));
+        if (!cancelled) setRole(error || !data ? null : (data.role as AdminRole));
       });
     return () => {
       cancelled = true;
     };
   }, [session]);
 
-  if (loading || (session && isAdmin === null)) {
+  if (sessionLoading || (session && role === undefined)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-lf-black text-lf-cream/60">
         Loading…
@@ -45,7 +62,7 @@ export function RequireAuth({ children }: PropsWithChildren) {
     return <Navigate to="/admin/login" replace state={{ from: location }} />;
   }
 
-  if (!isAdmin) {
+  if (!role) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-lf-black px-5">
         <div className="w-full max-w-md rounded-sm border border-white/10 bg-lf-charcoal p-8 text-center">
@@ -72,5 +89,5 @@ export function RequireAuth({ children }: PropsWithChildren) {
     );
   }
 
-  return <>{children}</>;
+  return <AdminRoleContext.Provider value={role}>{children}</AdminRoleContext.Provider>;
 }

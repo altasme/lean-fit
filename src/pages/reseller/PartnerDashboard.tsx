@@ -15,7 +15,7 @@ import {
   summarizePartnerEarnings,
 } from '../../lib/partnerOrders';
 import type { PartnerOrder } from '../../lib/partnerOrders';
-import { PARTNER_TYPE_LABELS } from '../../types/partner';
+import { partnerTypeLabel } from '../../types/partner';
 import type { Partner } from '../../types/partner';
 
 // Spec §40's dashboard menu: Client Orders / My Orders / Customers /
@@ -82,7 +82,7 @@ export default function PartnerDashboard() {
         Welcome, {partner.full_name}
       </h1>
       <p className="mt-1 text-sm text-lf-cream/60">
-        {PARTNER_TYPE_LABELS[partner.partner_type]} Partner
+        {partnerTypeLabel(partner.partner_type)} Partner
         {partner.city ? ` · ${[partner.barangay, partner.city, partner.region].filter(Boolean).join(', ')}` : ''}
       </p>
 

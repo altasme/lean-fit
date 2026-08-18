@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { useToast } from '../../ui/Toast';
 import { buildReferralUrl } from '../../../lib/partners';
 import { formatPHP } from '../../../lib/format';
-import { ONBOARDABLE_PARTNER_TYPES, PARTNER_TYPE_LABELS } from '../../../types/partner';
+import { ONBOARDABLE_PARTNER_TYPES, partnerTypeLabel } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
 
 // Phase D's original dashboard content (referral identity + account
@@ -111,7 +111,7 @@ export function OverviewTab({
           <dl className="tabular mt-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-lf-cream/60">Partner Type</dt>
-              <dd className="text-lf-white">{PARTNER_TYPE_LABELS[partner.partner_type]}</dd>
+              <dd className="text-lf-white">{partnerTypeLabel(partner.partner_type)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-lf-cream/60">Status</dt>
@@ -147,7 +147,10 @@ export function OverviewTab({
             <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
               Partner Network
             </h2>
-            {ONBOARDABLE_PARTNER_TYPES[partner.partner_type].length > 0 && (
+            {/* partner.partner_type is always set here - RequirePartnerAuth already
+                gates on status === 'active', which only ever happens after a
+                partner_type is assigned (a pending lead never reaches this page). */}
+            {ONBOARDABLE_PARTNER_TYPES[partner.partner_type!].length > 0 && (
               <Link to="/reseller/add-partner" className="btn-outline !px-3 !py-1.5 !text-xs">
                 + Add Partner
               </Link>
@@ -158,7 +161,7 @@ export function OverviewTab({
               <dt className="text-lf-cream/60">Parent Partner</dt>
               <dd className="text-right text-lf-white">
                 {parentPartner
-                  ? `${parentPartner.full_name} (${PARTNER_TYPE_LABELS[parentPartner.partner_type]})`
+                  ? `${parentPartner.full_name} (${partnerTypeLabel(parentPartner.partner_type)})`
                   : '—'}
               </dd>
             </div>
@@ -173,7 +176,7 @@ export function OverviewTab({
                 >
                   <span className="text-lf-white">{p.full_name}</span>
                   <span className="text-xs uppercase tracking-wide2 text-lf-cream/50">
-                    {PARTNER_TYPE_LABELS[p.partner_type]}
+                    {partnerTypeLabel(p.partner_type)}
                   </span>
                 </li>
               ))}

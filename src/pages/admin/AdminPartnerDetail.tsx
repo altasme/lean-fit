@@ -6,9 +6,10 @@ import {
   assignParentPartner,
   assignPartnerTerritory,
   fetchEligibleParentPartners,
+  generatePassword,
   getPartner,
   getPartnerProofSignedUrl,
-  invitePartnerToPortal,
+  grantPartnerPortalAccess,
   reactivatePartner,
   rejectPartner,
   suspendPartner,
@@ -20,7 +21,7 @@ import type { TerritoryPickerValue } from '../../components/reseller/TerritoryPi
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
 import type { Partner } from '../../types/partner';
-import { PARTNER_STATUS_LABELS, PARTNER_TYPE_LABELS } from '../../types/partner';
+import { PARTNER_STATUS_LABELS, partnerTypeLabel } from '../../types/partner';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
 import { PARTNER_TYPE_TERRITORY_LEVEL, TERRITORY_LEVEL_LABELS } from '../../types/territory';
 
@@ -43,6 +44,7 @@ export default function AdminPartnerDetail() {
   const [parentSelection, setParentSelection] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [accessPassword, setAccessPassword] = useState(() => generatePassword());
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -52,13 +54,20 @@ export default function AdminPartnerDetail() {
       setProofUrl(p.payment_proof_path ? await getPartnerProofSignedUrl(p.payment_proof_path) : null);
       setOnboardedBy(p.onboarded_by_partner_id ? await getPartner(p.onboarded_by_partner_id) : null);
 
-      const level = PARTNER_TYPE_TERRITORY_LEVEL[p.partner_type];
-      const [territories, parents] = await Promise.all([
-        listTerritories(),
-        fetchEligibleParentPartners(p.partner_type),
-      ]);
-      setEligibleTerritories(territories.filter((t) => t.level === level));
-      setEligibleParents(parents.filter((parent) => parent.id !== p.id));
+      // A pending lead (submit_partner_lead()) has no partner_type yet - admin
+      // assigns one via the full "Add Partner" onboarding flow, not here.
+      if (p.partner_type) {
+        const level = PARTNER_TYPE_TERRITORY_LEVEL[p.partner_type];
+        const [territories, parents] = await Promise.all([
+          listTerritories(),
+          fetchEligibleParentPartners(p.partner_type),
+        ]);
+        setEligibleTerritories(territories.filter((t) => t.level === level));
+        setEligibleParents(parents.filter((parent) => parent.id !== p.id));
+      } else {
+        setEligibleTerritories([]);
+        setEligibleParents([]);
+      }
       setTerritorySelection(p.territory_id ?? '');
       setParentSelection(p.parent_partner_id ?? '');
     } catch (err) {
@@ -77,11 +86,11 @@ export default function AdminPartnerDetail() {
       const { referralCode, inviteError } = await approvePartner(partner.id);
       if (inviteError) {
         showToast(
-          `Partner approved - referral code ${referralCode}. Portal invite failed: ${inviteError}`,
+          `Partner approved - referral code ${referralCode}. Portal access failed to send: ${inviteError}`,
           'error',
         );
       } else {
-        showToast(`Partner approved - referral code ${referralCode}. Portal invite sent.`);
+        showToast(`Partner approved - referral code ${referralCode}. Portal access sent.`);
       }
       await load();
     } catch (err) {
@@ -91,19 +100,16 @@ export default function AdminPartnerDetail() {
     }
   }
 
-  async function handleResendInvite() {
-    if (!partner) return;
+  async function handleSendPortalAccess() {
+    if (!partner || accessPassword.length < 8) return;
     setBusy(true);
     try {
-      const { error } = await invitePartnerToPortal(partner.id);
+      const { error } = await grantPartnerPortalAccess(partner.id, accessPassword);
       if (error) {
-        showToast(`Could not send portal invite: ${error}`, 'error');
+        showToast(`Could not send portal access: ${error}`, 'error');
       } else {
-        showToast(
-          partner.user_id
-            ? 'Password reset email sent to the partner.'
-            : 'Portal invite sent to the partner.',
-        );
+        showToast('Portal access sent - the partner has been emailed their login.');
+        setAccessPassword(generatePassword());
       }
       await load();
     } finally {
@@ -235,18 +241,22 @@ export default function AdminPartnerDetail() {
           <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
             <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Applicant</h2>
             <dl className="mt-3 space-y-1.5 text-sm">
-              <Row label="Type" value={PARTNER_TYPE_LABELS[partner.partner_type]} />
+              <Row label="Type" value={partnerTypeLabel(partner.partner_type)} />
               <Row label="Email" value={partner.email} />
               <Row label="Mobile" value={partner.mobile} />
               <Row label="Address" value={partner.address ?? '—'} />
               <Row
                 label="Location"
-                value={[partner.barangay, partner.city, partner.region].filter(Boolean).join(', ') || '—'}
+                value={
+                  [partner.barangay, partner.city, partner.region].filter(Boolean).join(', ') ||
+                  [partner.city, partner.province].filter(Boolean).join(', ') ||
+                  '—'
+                }
               />
               {partner.referral_code && <Row label="Referral Code" value={partner.referral_code} />}
               <Row
                 label="Onboarded By"
-                value={onboardedBy ? `${onboardedBy.full_name} (${PARTNER_TYPE_LABELS[onboardedBy.partner_type]})` : 'Direct application'}
+                value={onboardedBy ? `${onboardedBy.full_name} (${partnerTypeLabel(onboardedBy.partner_type)})` : 'Direct application'}
               />
             </dl>
           </section>
@@ -312,21 +322,62 @@ export default function AdminPartnerDetail() {
                 <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">Portal Access</p>
                 <p className="mt-1.5 text-sm text-lf-cream/70">
                   {partner.user_id
-                    ? 'This partner has a portal login.'
+                    ? 'This partner has a portal login. Set a new password below to reset it.'
                     : "This partner hasn't set up their portal login yet."}
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    value={accessPassword}
+                    onChange={(e) => setAccessPassword(e.target.value)}
+                    className="w-48 rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+                    aria-label="Portal access password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAccessPassword(generatePassword())}
+                    className="text-xs text-lf-cream/50 hover:text-lf-gold"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-lf-cream/40">Login email: {partner.email}</p>
                 <button
                   type="button"
-                  disabled={busy}
-                  onClick={handleResendInvite}
+                  disabled={busy || accessPassword.length < 8}
+                  onClick={handleSendPortalAccess}
                   className="btn-outline mt-3 !px-5 !py-2.5 !text-sm disabled:opacity-50"
                 >
-                  {partner.user_id ? 'Resend Password Reset' : 'Resend Portal Invite'}
+                  Send Portal Access
                 </button>
               </div>
             )}
 
-            {canDecide && (
+            {canDecide && !partner.partner_type && (
+              <>
+                <p className="mt-2 text-sm text-lf-cream/70">
+                  This is a lead from the public form - no type, territory, or package yet. Call
+                  them, then complete their onboarding here.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <Link
+                    to={`/admin/partners/new?leadId=${partner.id}`}
+                    className="btn-gold !px-5 !py-2.5 !text-sm"
+                  >
+                    Complete Onboarding
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleReject}
+                    className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
+                  >
+                    Reject Lead
+                  </button>
+                </div>
+              </>
+            )}
+
+            {canDecide && partner.partner_type && (
               <>
                 <p className="mt-2 text-sm text-lf-cream/70">
                   Approving verifies the package payment and activates the partner, generating their
@@ -362,8 +413,9 @@ export default function AdminPartnerDetail() {
               </h2>
 
               <div className="mt-3">
+                {/* partner_type is always set for an active/suspended partner. */}
                 <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">
-                  {TERRITORY_LEVEL_LABELS[PARTNER_TYPE_TERRITORY_LEVEL[partner.partner_type]]}
+                  {TERRITORY_LEVEL_LABELS[PARTNER_TYPE_TERRITORY_LEVEL[partner.partner_type!]]}
                 </p>
 
                 {partner.partner_type === 'reseller' ? (
@@ -434,7 +486,7 @@ export default function AdminPartnerDetail() {
                       <option value="">None (Lean &amp; Fit)</option>
                       {eligibleParents.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.full_name} ({PARTNER_TYPE_LABELS[p.partner_type]})
+                          {p.full_name} ({partnerTypeLabel(p.partner_type)})
                         </option>
                       ))}
                     </select>

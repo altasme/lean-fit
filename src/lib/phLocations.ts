@@ -43,6 +43,31 @@ export async function fetchBarangaysForCity(cityId: string): Promise<string[]> {
   return barangaysCache[cityId]?.barangays ?? [];
 }
 
+export type PhProvinceOption = { id: string; name: string };
+
+/**
+ * Flat, nationwide province list (86, sorted) for the lead form's simple
+ * Province -> City picker (item #7 - no region context shown, no live
+ * capacity check needed since a lead isn't reserving a territory).
+ * Province names don't collide nationally (unlike the 25 real city-name
+ * collisions within a region), so a flat list is unambiguous.
+ */
+export async function fetchAllProvinces(): Promise<PhProvinceOption[]> {
+  const tree = await fetchPhLocationTree();
+  return tree
+    .flatMap((r) => r.provinces.map((p) => ({ id: p.id, name: p.name })))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function fetchCitiesForProvince(provinceId: string): Promise<PhCity[]> {
+  const tree = await fetchPhLocationTree();
+  for (const region of tree) {
+    const province = region.provinces.find((p) => p.id === provinceId);
+    if (province) return province.cities.slice().sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return [];
+}
+
 export type PhCityOption = { id: string; name: string; provinceName: string; displayName: string };
 
 /**

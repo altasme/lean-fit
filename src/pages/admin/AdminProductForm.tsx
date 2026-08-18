@@ -4,6 +4,7 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { createProduct, getProduct, productImages, updateProduct } from '../../lib/adminProducts';
 import type { ProductInput } from '../../lib/adminProducts';
 import { slugify } from '../../lib/slug';
+import { uploadImageToCloudinary } from '../../lib/cloudinary';
 import type { ProductStatus } from '../../types/product';
 import { PRODUCT_STATUS_LABELS } from '../../types/product';
 import { useToast } from '../../components/ui/Toast';
@@ -29,10 +30,10 @@ export default function AdminProductForm() {
   const { showToast } = useToast();
 
   const [form, setForm] = useState<ProductInput>(EMPTY);
-  const [slugTouched, setSlugTouched] = useState(false);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   useEffect(() => {
     if (isNew) return;
@@ -47,7 +48,6 @@ export default function AdminProductForm() {
           promo_exempt: product.promo_exempt,
           images: productImages(product),
         });
-        setSlugTouched(true);
         setLoading(false);
       })
       .catch((err) => {
@@ -56,12 +56,24 @@ export default function AdminProductForm() {
       });
   }, [id, isNew]);
 
+  // Item #3 - the slug field is hidden entirely, always derived from the
+  // name. No separate "touched" state to preserve anymore (there's
+  // nothing left for the admin to type into) - renaming a product now
+  // always renames its slug too.
   function handleNameChange(name: string) {
-    setForm((f) => ({ ...f, name, slug: slugTouched ? f.slug : slugify(name) }));
+    setForm((f) => ({ ...f, name, slug: slugify(name) }));
   }
 
-  function updateImage(index: number, value: string) {
-    setForm((f) => ({ ...f, images: f.images.map((img, i) => (i === index ? value : img)) }));
+  async function handleImageUpload(index: number, file: File) {
+    setUploadingSlot(index);
+    try {
+      const result = await uploadImageToCloudinary(file, 'products');
+      setForm((f) => ({ ...f, images: f.images.map((img, i) => (i === index ? result.secure_url : img)) }));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Image upload failed.', 'error');
+    } finally {
+      setUploadingSlot(null);
+    }
   }
 
   function removeImage(index: number) {
@@ -112,19 +124,7 @@ export default function AdminProductForm() {
             onChange={(e) => handleNameChange(e.target.value)}
             className={inputClass}
           />
-        </div>
-
-        <div>
-          <label className={labelClass}>Slug</label>
-          <input
-            required
-            value={form.slug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              setForm((f) => ({ ...f, slug: e.target.value }));
-            }}
-            className={inputClass}
-          />
+          {form.slug && <p className="mt-1.5 text-xs text-lf-cream/40">URL slug: {form.slug}</p>}
         </div>
 
         <div>
@@ -178,37 +178,44 @@ export default function AdminProductForm() {
         </label>
 
         <div>
-          <label className={labelClass}>Product Images (URLs)</label>
-          <p className="mb-2 text-xs text-lf-cream/50">
-            Full upload/versioning is coming in the media management phase - paste hosted image
-            URLs here for now.
-          </p>
-          <div className="space-y-2">
+          <label className={labelClass}>Product Images</label>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {form.images.map((img, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={i} className="relative aspect-square overflow-hidden rounded-sm border border-white/15 bg-lf-black">
+                {uploadingSlot === i ? (
+                  <div className="flex h-full items-center justify-center text-xs text-lf-cream/50">Uploading…</div>
+                ) : img ? (
+                  <img src={img} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-lf-cream/40">No image</div>
+                )}
                 <input
-                  value={img}
-                  onChange={(e) => updateImage(i, e.target.value)}
-                  placeholder="https://…"
-                  className={inputClass}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleImageUpload(i, file);
+                  }}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  aria-label={`Upload image ${i + 1}`}
                 />
                 <button
                   type="button"
                   onClick={() => removeImage(i)}
-                  className="shrink-0 rounded-sm border border-white/15 px-3 text-sm text-lf-cream/60 hover:text-lf-error"
+                  className="absolute right-1 top-1 rounded-full bg-lf-black/80 px-2 py-0.5 text-xs text-lf-cream/70 hover:text-lf-error"
                 >
-                  Remove
+                  ✕
                 </button>
               </div>
             ))}
+            <button
+              type="button"
+              onClick={() => setForm((f) => ({ ...f, images: [...f.images, ''] }))}
+              className="flex aspect-square items-center justify-center rounded-sm border border-dashed border-white/20 text-sm text-lf-cream/50 hover:border-lf-gold/50 hover:text-lf-gold"
+            >
+              + Add Slot
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setForm((f) => ({ ...f, images: [...f.images, ''] }))}
-            className="mt-2 text-sm text-lf-gold hover:underline"
-          >
-            + Add image URL
-          </button>
         </div>
 
         {error && <p className="text-sm text-lf-error">{error}</p>}

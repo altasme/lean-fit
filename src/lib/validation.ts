@@ -1,5 +1,6 @@
 import type { DeliveryDetails } from '../types/order';
 import type { PartnerType } from '../types/partner';
+import type { PaymentMethodId } from '../types/payment';
 
 const PH_MOBILE_RE = /^(?:\+63|0)9\d{9}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,27 +50,64 @@ export function validatePartnerIdentity(identity: PartnerIdentity): PartnerIdent
   return errors;
 }
 
-// Migration 0012: territoryId/barangayName (a real, live, capacity-checked
-// pick - src/components/reseller/TerritoryPicker.tsx) replaced free-text
-// region/city/barangay. territoryId is the city id for Reseller/
-// Distributor, the region id for Franchise; barangayName only applies to
-// Reseller (the barangay itself may not exist as a row yet - resolved/
-// lazily created server-side, see resolve_and_reserve_territory()).
-export type PartnerApplication = PartnerIdentity & {
-  address: string;
-  partnerType: PartnerType;
-  territoryId: string;
-  barangayName: string | null;
+// Migration 0014: the public "Become a Partner" form is now a lead
+// capture only - name/mobile/email/province/city, no type/territory/
+// package/payment. Admin completes onboarding later via the admin "Add
+// Partner" flow (AdminCreatePartnerInput below) after calling the lead.
+export type PartnerLead = PartnerIdentity & {
+  province: string;
+  city: string;
 };
 
-export type PartnerApplicationErrors = Partial<Record<keyof PartnerApplication, string>>;
+export type PartnerLeadErrors = Partial<Record<keyof PartnerLead, string>>;
 
-export function validatePartnerApplication(app: PartnerApplication): PartnerApplicationErrors {
-  const errors: PartnerApplicationErrors = { ...validatePartnerIdentity(app) };
+export function validatePartnerLead(lead: PartnerLead): PartnerLeadErrors {
+  const errors: PartnerLeadErrors = { ...validatePartnerIdentity(lead) };
 
-  if (!app.address.trim()) errors.address = 'Address is required.';
-  if (!app.territoryId) errors.territoryId = 'Select your location.';
-  if (app.partnerType === 'reseller' && !app.barangayName) errors.barangayName = 'Select a barangay.';
+  if (!lead.province.trim()) errors.province = 'Province is required.';
+  if (!lead.city.trim()) errors.city = 'City / municipality is required.';
+
+  return errors;
+}
+
+// Migration 0014's admin_create_partner() - the admin-side "Add Partner"
+// form (item #2), full manual onboarding after a phone call. Always
+// requires type/territory (payment/package/activation are the admin's
+// call - a partial save just means "not activated yet", not "no
+// territory reserved").
+export type AdminCreatePartnerInput = {
+  existingLeadId: string | null;
+  fullName: string;
+  email: string;
+  mobile: string;
+  address: string;
+  partnerType: PartnerType | null;
+  territoryId: string;
+  barangayName: string | null;
+  packageBoxes: number | null;
+  packageAmount: number | null;
+  paymentMethod: PaymentMethodId | null;
+  paymentReference: string;
+  paymentAmount: number | null;
+  paymentDate: string;
+  activate: boolean;
+};
+
+export type AdminCreatePartnerErrors = Partial<
+  Record<keyof Omit<AdminCreatePartnerInput, 'existingLeadId' | 'activate'>, string>
+>;
+
+export function validateAdminCreatePartner(input: AdminCreatePartnerInput): AdminCreatePartnerErrors {
+  const errors: AdminCreatePartnerErrors = {};
+
+  if (!input.fullName.trim()) errors.fullName = 'Full name is required.';
+  if (!EMAIL_RE.test(input.email.trim())) errors.email = 'Enter a valid email address.';
+  if (!PH_MOBILE_RE.test(input.mobile.trim())) {
+    errors.mobile = 'Enter a valid PH mobile number (e.g. 09171234567).';
+  }
+  if (!input.partnerType) errors.partnerType = 'Select a partner type.';
+  if (!input.territoryId) errors.territoryId = 'Select a territory.';
+  if (input.partnerType === 'reseller' && !input.barangayName) errors.barangayName = 'Select a barangay.';
 
   return errors;
 }
