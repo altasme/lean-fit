@@ -7,6 +7,7 @@ import { useActiveProduct } from '../../hooks/useActiveProduct';
 import { useEffect } from 'react';
 import { trackViewContent } from '../../lib/pixel';
 import productShot from '../../assets/product-shot.jpg';
+import sectionBg from '../../assets/backgrounds/product-intro-bg.jpg';
 
 const metrics = [
   { label: 'Protein', value: PRODUCT.metrics.protein },
@@ -27,8 +28,15 @@ export function ProductIntro() {
   }, [inView, price]);
 
   return (
-    <section id="product" className="scroll-mt-16 bg-lf-black py-20 sm:scroll-mt-20 sm:py-28">
-      <Container ref={ref} className="grid items-center gap-12 md:grid-cols-2">
+    <section id="product" className="relative scroll-mt-16 overflow-hidden bg-lf-black py-20 sm:scroll-mt-20 sm:py-28">
+      <img
+        src={sectionBg}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-[20%_65%]"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-lf-black/55" />
+      <Container ref={ref} className="relative grid items-center gap-12 md:grid-cols-2">
         <img
           src={productShot}
           alt={`${PRODUCT.name} sachet`}

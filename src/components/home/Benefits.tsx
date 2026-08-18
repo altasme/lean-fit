@@ -6,6 +6,7 @@ import iconLowSugar from '../../assets/icons/low-sugar-high-purpose.svg';
 import iconSupportsRecovery from '../../assets/icons/supports-recovery.svg';
 import iconGrabAndGo from '../../assets/icons/grab-and-go.svg';
 import iconGlutenFree from '../../assets/icons/gluten-free-keto-friendly.svg';
+import sectionBg from '../../assets/backgrounds/benefits-bg.jpg';
 
 const BENEFIT_ICONS: Record<string, string> = {
   'Fuels Discipline': iconFuelsDiscipline,
@@ -17,8 +18,15 @@ const BENEFIT_ICONS: Record<string, string> = {
 
 export function Benefits() {
   return (
-    <section className="bg-lf-black py-20 sm:py-28">
-      <Container>
+    <section className="relative overflow-hidden bg-lf-black py-20 sm:py-28">
+      <img
+        src={sectionBg}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-center"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-lf-black/55" />
+      <Container className="relative">
         <div className="text-center">
           <SectionKicker>Benefits</SectionKicker>
           <h2 className="mx-auto max-w-xl text-4xl text-lf-white sm:text-5xl">
