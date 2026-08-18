@@ -23,36 +23,35 @@ export function AdminLayout({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen bg-lf-black">
-      <header className="border-b border-white/10 bg-lf-charcoal">
-        <div className="mx-auto flex h-16 max-w-6xl flex-wrap items-center justify-between gap-4 px-5 sm:px-8">
-          <div className="flex items-center gap-6">
-            <Logo />
-            <nav className="flex items-center gap-5">
-              {NAV_LINKS.map((link) => {
-                const active =
-                  link.to === '/admin' ? pathname === '/admin' : pathname.startsWith(link.to);
-                return (
-                  <Link
-                    key={link.to}
-                    to={link.to}
-                    className={`font-kicker text-sm uppercase tracking-wide2 hover:text-lf-gold ${
-                      active ? 'text-lf-gold' : 'text-lf-cream/80'
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-lf-charcoal/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+          <Logo />
           <button
             type="button"
             onClick={() => supabase.auth.signOut()}
-            className="font-kicker text-sm uppercase tracking-wide2 text-lf-cream/60 hover:text-lf-gold"
+            className="font-kicker text-xs uppercase tracking-wide2 text-lf-cream/50 transition-colors hover:text-lf-gold"
           >
             Sign Out
           </button>
         </div>
+        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-3 sm:px-6">
+          {NAV_LINKS.map((link) => {
+            const active = link.to === '/admin' ? pathname === '/admin' : pathname.startsWith(link.to);
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-3 font-kicker text-xs uppercase tracking-wide2 transition-colors ${
+                  active
+                    ? 'border-lf-gold text-lf-gold'
+                    : 'border-transparent text-lf-cream/60 hover:border-white/20 hover:text-lf-cream'
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
       <main className="mx-auto max-w-6xl px-5 py-10 sm:px-8">{children}</main>
     </div>

@@ -66,48 +66,59 @@ export async function fetchTerritoryTree(): Promise<TerritoryNode[]> {
   return roots;
 }
 
-export type CoverageBucket = { total: number; occupied: number; vacant: number };
-export type TerritoryCoverageStats = {
-  region: CoverageBucket;
-  province: CoverageBucket;
-  city: CoverageBucket;
-  barangay: CoverageBucket;
-};
-
-/** Spec §59's strategic summary: coverage counts per level, walked from the tree. */
-export function summarizeCoverage(roots: TerritoryNode[]): TerritoryCoverageStats {
-  const stats: TerritoryCoverageStats = {
-    region: { total: 0, occupied: 0, vacant: 0 },
-    province: { total: 0, occupied: 0, vacant: 0 },
-    city: { total: 0, occupied: 0, vacant: 0 },
-    barangay: { total: 0, occupied: 0, vacant: 0 },
-  };
-
-  function walk(node: TerritoryNode) {
-    const bucket = stats[node.level];
-    bucket.total += 1;
-    if (node.occupiedCount > 0) bucket.occupied += 1;
-    else bucket.vacant += 1;
-    node.children.forEach(walk);
-  }
-  roots.forEach(walk);
-
-  return stats;
+/**
+ * Collapses the region -> province -> city -> barangay tree down to
+ * region -> city -> barangay for display - province is purely structural
+ * (migration 0012, disambiguates same-named cities across provinces
+ * within a region) and never partner-assignable, so it has no place in
+ * an admin-facing hierarchy that only ever means to show "who's where".
+ * Each region's children become the union of all its provinces' cities;
+ * nothing about a region's own occupancy changes.
+ */
+export function flattenSkipProvince(roots: TerritoryNode[]): TerritoryNode[] {
+  return roots.map((region) => {
+    if (region.level !== 'region') return region;
+    const cities = region.children
+      .flatMap((province) => province.children)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return { ...region, children: cities };
+  });
 }
 
-export type VacantTerritory = { id: string; name: string; level: Territory['level']; parentName: string | null };
+export type PartnerTypeCounts = { franchise: number; distributor: number; reseller: number };
 
-/** Spec §59's "potential expansion areas" - every territory with zero active occupants. */
-export function findVacantTerritories(roots: TerritoryNode[]): VacantTerritory[] {
-  const result: VacantTerritory[] = [];
-
-  function walk(node: TerritoryNode, parentName: string | null) {
-    if (node.occupiedCount === 0) {
-      result.push({ id: node.id, name: node.name, level: node.level, parentName });
+/**
+ * Franchise/Distributor/Reseller totals for one region, aggregated from
+ * the (already province-flattened) tree - a region's own occupiedCount is
+ * its Franchise count, each direct city child's occupiedCount is a
+ * Distributor count, each barangay grandchild's occupiedCount is a
+ * Reseller count. Territory level <-> partner type is a strict 1:1
+ * mapping (spec Part 1 §7), so this never double-counts.
+ */
+export function countPartnerTypesInRegion(region: TerritoryNode): PartnerTypeCounts {
+  let distributor = 0;
+  let reseller = 0;
+  for (const city of region.children) {
+    distributor += city.occupiedCount;
+    for (const barangay of city.children) {
+      reseller += barangay.occupiedCount;
     }
-    node.children.forEach((child) => walk(child, node.name));
   }
-  roots.forEach((r) => walk(r, null));
+  return { franchise: region.occupiedCount, distributor, reseller };
+}
 
-  return result;
+/** Sitewide Franchise/Distributor/Reseller totals - the Territory Map's summary strip. */
+export function countPartnerTypesTotal(flatRegions: TerritoryNode[]): PartnerTypeCounts {
+  return flatRegions.reduce<PartnerTypeCounts>(
+    (acc, region) => {
+      const c = countPartnerTypesInRegion(region);
+      return {
+        franchise: acc.franchise + c.franchise,
+        distributor: acc.distributor + c.distributor,
+        reseller: acc.reseller + c.reseller,
+      };
+    },
+    { franchise: 0, distributor: 0, reseller: 0 },
+  );
 }

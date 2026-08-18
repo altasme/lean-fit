@@ -4,94 +4,165 @@ import { useToast } from '../../components/ui/Toast';
 import {
   createTerritory,
   deleteTerritory,
-  listTerritories,
+  resolveBarangayTerritory,
   updateTerritoryCapacity,
 } from '../../lib/adminTerritories';
-import type { TerritoryWithOccupancy } from '../../lib/adminTerritories';
-import { TERRITORY_LEVEL_LABELS } from '../../types/territory';
-import type { TerritoryLevel } from '../../types/territory';
+import { fetchTerritoryTree, flattenSkipProvince } from '../../lib/adminTerritoryMap';
+import type { TerritoryNode } from '../../lib/adminTerritoryMap';
 
-const LEVELS: TerritoryLevel[] = ['region', 'province', 'city', 'barangay'];
-const TERRITORY_LEVEL_PLURAL_LABELS: Record<TerritoryLevel, string> = {
-  region: 'Regions',
-  province: 'Provinces',
-  city: 'Cities / Municipalities',
-  barangay: 'Barangays',
-};
-// Migration 0012: cities' real parent is a province, not a region directly
-// (25 real same-region city-name collisions across provinces confirmed
-// this can't be flattened) - kept in sync with the seeded hierarchy so
-// this admin form's own inserts nest correctly too.
-const PARENT_LEVEL: Record<TerritoryLevel, TerritoryLevel | null> = {
-  region: null,
-  province: 'region',
-  city: 'province',
-  barangay: 'city',
-};
+const inputClass =
+  'rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none';
+const rowBase = 'flex flex-wrap items-center gap-3 border-b border-white/5 py-3 last:border-0';
+
+function CapacityInput({ node, onSave }: { node: TerritoryNode; onSave: (value: number | null) => void }) {
+  const [value, setValue] = useState(node.capacity ?? '');
+  return (
+    <input
+      type="number"
+      min={1}
+      placeholder="Unlimited"
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={() => {
+        const next = value === '' ? null : Number(value);
+        if (next !== (node.capacity ?? null)) onSave(next);
+      }}
+      className={`${inputClass} tabular w-28 !py-1.5`}
+    />
+  );
+}
+
+function AddChildForm({
+  placeholder,
+  onAdd,
+  busy,
+}: {
+  placeholder: string;
+  onAdd: (name: string, capacity: number | null) => Promise<void>;
+  busy: boolean;
+}) {
+  const [name, setName] = useState('');
+  const [capacity, setCapacity] = useState('');
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    await onAdd(name.trim(), capacity.trim() === '' ? null : Number(capacity));
+    setName('');
+    setCapacity('');
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-2 py-2">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={placeholder}
+        className={`${inputClass} min-w-[200px] flex-1`}
+      />
+      <input
+        type="number"
+        min={1}
+        value={capacity}
+        onChange={(e) => setCapacity(e.target.value)}
+        placeholder="Capacity (blank = unlimited)"
+        className={`${inputClass} tabular w-48`}
+      />
+      <button type="submit" disabled={busy || !name.trim()} className="btn-outline !px-4 !py-2 !text-xs disabled:opacity-50">
+        Add
+      </button>
+    </form>
+  );
+}
+
+function DeleteButton({ onDelete }: { onDelete: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onDelete}
+      className="text-xs text-lf-cream/40 hover:text-lf-error"
+      title="Delete"
+    >
+      Delete
+    </button>
+  );
+}
 
 export default function AdminTerritories() {
   const { showToast } = useToast();
-  const [territories, setTerritories] = useState<TerritoryWithOccupancy[] | null>(null);
+  const [regions, setRegions] = useState<TerritoryNode[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [level, setLevel] = useState<TerritoryLevel>('region');
-  const [name, setName] = useState('');
-  const [parentId, setParentId] = useState('');
-  const [capacity, setCapacity] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [expandedRegion, setExpandedRegion] = useState<string | null>(null);
+  const [expandedCity, setExpandedCity] = useState<string | null>(null);
+  const [citySearch, setCitySearch] = useState('');
+  const [barangaySearch, setBarangaySearch] = useState('');
+  const [newRegionName, setNewRegionName] = useState('');
 
   function load() {
-    listTerritories()
-      .then(setTerritories)
+    fetchTerritoryTree()
+      .then((roots) => setRegions(flattenSkipProvince(roots)))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load territories.'));
   }
 
   useEffect(load, []);
 
-  const parentLevel = PARENT_LEVEL[level];
-  const parentOptions = territories?.filter((t) => t.level === parentLevel) ?? [];
-
-  async function handleCreate(e: React.FormEvent) {
+  async function handleAddRegion(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    if (parentLevel && !parentId) {
-      showToast(`Select a ${TERRITORY_LEVEL_LABELS[parentLevel]} first.`, 'error');
-      return;
-    }
-
-    setSubmitting(true);
+    if (!newRegionName.trim()) return;
+    setBusy(true);
     try {
-      await createTerritory({
-        level,
-        name: name.trim(),
-        parent_id: parentLevel ? parentId : null,
-        capacity: capacity.trim() === '' ? null : Number(capacity),
-      });
-      showToast(`${name.trim()} added.`);
-      setName('');
-      setCapacity('');
+      await createTerritory({ level: 'region', name: newRegionName.trim().toUpperCase(), parent_id: null, capacity: null });
+      showToast(`${newRegionName.trim()} added.`);
+      setNewRegionName('');
       load();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to create territory.', 'error');
+      showToast(err instanceof Error ? err.message : 'Failed to add region.', 'error');
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
   }
 
-  async function handleCapacityChange(t: TerritoryWithOccupancy, value: string) {
-    const capacityValue = value.trim() === '' ? null : Number(value);
+  async function handleAddCity(regionId: string, name: string, capacity: number | null) {
+    setBusy(true);
     try {
-      await updateTerritoryCapacity(t.id, capacityValue);
+      await createTerritory({ level: 'city', name: name.toUpperCase(), parent_id: regionId, capacity });
+      showToast(`${name} added.`);
+      load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to add city.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAddBarangay(cityId: string, name: string, capacity: number | null) {
+    setBusy(true);
+    try {
+      const id = await resolveBarangayTerritory(name.toUpperCase(), cityId);
+      if (capacity !== null) await updateTerritoryCapacity(id, capacity);
+      showToast(`${name} added.`);
+      load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to add barangay.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCapacityChange(id: string, capacity: number | null) {
+    try {
+      await updateTerritoryCapacity(id, capacity);
       load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to update capacity.', 'error');
     }
   }
 
-  async function handleDelete(t: TerritoryWithOccupancy) {
+  async function handleDelete(node: TerritoryNode) {
     try {
-      await deleteTerritory(t.id);
-      showToast(`${t.name} deleted.`);
+      await deleteTerritory(node.id);
+      showToast(`${node.name} deleted.`);
       load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to delete territory.', 'error');
@@ -103,167 +174,170 @@ export default function AdminTerritories() {
       <h1 className="font-kicker text-2xl uppercase tracking-wide2 text-lf-white">Territories</h1>
       <p className="mt-2 max-w-2xl text-sm text-lf-cream/60">
         Regions hold Franchises, cities hold Distributors, barangays hold Resellers (spec Part 1
-        §7/§9). Capacity limits how many active partners may occupy a territory - leave blank for
-        unlimited.
+        §7/§9). Click a region to reveal its cities, click a city to reveal its barangays -
+        capacity limits how many active partners may occupy a territory, leave blank for unlimited.
       </p>
 
       {error && <p className="mt-4 text-sm text-lf-error">{error}</p>}
+      {!regions && !error && <p className="mt-6 text-sm text-lf-cream/60">Loading…</p>}
 
-      <form
-        onSubmit={handleCreate}
-        className="mt-6 flex flex-wrap items-end gap-3 rounded-sm border border-white/10 bg-lf-charcoal p-5"
-      >
-        <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
-            Level
-          </label>
-          <select
-            value={level}
-            onChange={(e) => {
-              setLevel(e.target.value as TerritoryLevel);
-              setParentId('');
-            }}
-            className="rounded-sm border border-white/15 bg-lf-black px-3 py-2.5 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-          >
-            {LEVELS.map((l) => (
-              <option key={l} value={l}>
-                {TERRITORY_LEVEL_LABELS[l]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {parentLevel && (
-          <div>
-            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
-              Parent {TERRITORY_LEVEL_LABELS[parentLevel]}
-            </label>
-            <select
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
-              className="rounded-sm border border-white/15 bg-lf-black px-3 py-2.5 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-            >
-              <option value="">Select…</option>
-              {parentOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+      {regions && (
+        <div className="mt-6 rounded-sm border border-white/10 bg-lf-charcoal">
+          <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Regions</h2>
+            <form onSubmit={handleAddRegion} className="flex items-center gap-2">
+              <input
+                value={newRegionName}
+                onChange={(e) => setNewRegionName(e.target.value)}
+                placeholder="Add region…"
+                className={`${inputClass} !py-1.5`}
+              />
+              <button
+                type="submit"
+                disabled={busy || !newRegionName.trim()}
+                className="btn-outline !px-3 !py-1.5 !text-xs disabled:opacity-50"
+              >
+                Add
+              </button>
+            </form>
           </div>
-        )}
 
-        <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
-            Name
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="rounded-sm border border-white/15 bg-lf-black px-3 py-2.5 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-          />
-        </div>
+          <div className="px-5">
+            {regions.length === 0 && <p className="py-6 text-sm text-lf-cream/50">No regions yet.</p>}
 
-        <div>
-          <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
-            Capacity
-          </label>
-          <input
-            type="number"
-            min={1}
-            placeholder="Unlimited"
-            value={capacity}
-            onChange={(e) => setCapacity(e.target.value)}
-            className="w-28 rounded-sm border border-white/15 bg-lf-black px-3 py-2.5 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none"
-          />
-        </div>
+            {regions.map((region) => {
+              const isOpen = expandedRegion === region.id;
+              const cities = isOpen
+                ? region.children.filter((c) => c.name.toLowerCase().includes(citySearch.trim().toLowerCase()))
+                : [];
 
-        <button type="submit" disabled={submitting} className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50">
-          Add Territory
-        </button>
-      </form>
+              return (
+                <div key={region.id} className={rowBase.replace('items-center', 'items-start')}>
+                  <div className="w-full">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedRegion(isOpen ? null : region.id);
+                          setExpandedCity(null);
+                          setCitySearch('');
+                        }}
+                        className="flex min-w-[180px] flex-1 items-center gap-3 py-1 text-left text-lf-white hover:text-lf-gold"
+                      >
+                        <span className="w-4 shrink-0 text-xs text-lf-cream/50">{isOpen ? '▾' : '▸'}</span>
+                        <span className="text-sm font-medium">{region.name}</span>
+                      </button>
+                      <span className="text-xs text-lf-cream/50">
+                        {region.occupiedCount} Franchise{region.occupiedCount === 1 ? '' : 's'} ·{' '}
+                        {region.children.length} {region.children.length === 1 ? 'city' : 'cities'}
+                      </span>
+                      <CapacityInput node={region} onSave={(v) => handleCapacityChange(region.id, v)} />
+                      <DeleteButton onDelete={() => handleDelete(region)} />
+                    </div>
 
-      {!territories && !error && <p className="mt-6 text-sm text-lf-cream/60">Loading…</p>}
+                    {isOpen && (
+                      <div className="mt-3 ml-7 border-l border-white/10 pl-4">
+                        {region.children.length > 8 && (
+                          <input
+                            value={citySearch}
+                            onChange={(e) => setCitySearch(e.target.value)}
+                            placeholder={`Search ${region.children.length} cities…`}
+                            className={`${inputClass} mb-2 w-full max-w-xs !py-1.5`}
+                          />
+                        )}
 
-      {territories && (
-        <div className="mt-8 space-y-8">
-          {LEVELS.map((l) => {
-            const rows = territories.filter((t) => t.level === l);
-            const parentName = (t: TerritoryWithOccupancy) =>
-              territories.find((p) => p.id === t.parent_id)?.name ?? '—';
+                        <div className="max-h-[360px] overflow-y-auto">
+                          {cities.length === 0 && (
+                            <p className="py-2 text-xs text-lf-cream/40">
+                              {citySearch ? 'No matching cities.' : 'No cities yet.'}
+                            </p>
+                          )}
+                          {cities.map((city) => {
+                            const cityOpen = expandedCity === city.id;
+                            const barangays = cityOpen
+                              ? city.children.filter((b) =>
+                                  b.name.toLowerCase().includes(barangaySearch.trim().toLowerCase()),
+                                )
+                              : [];
 
-            return (
-              <section key={l}>
-                <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-                  {TERRITORY_LEVEL_PLURAL_LABELS[l]}
-                </h2>
-                {rows.length === 0 ? (
-                  <p className="mt-2 text-sm text-lf-cream/50">None yet.</p>
-                ) : (
-                  <div className="mt-3 overflow-x-auto rounded-sm border border-white/10 bg-lf-charcoal">
-                    <table className="tabular w-full min-w-[560px] text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-white/10 text-xs uppercase tracking-wide2 text-lf-cream/50">
-                          <th className="px-4 py-3">Name</th>
-                          {l !== 'region' && <th className="px-4 py-3">Parent</th>}
-                          <th className="px-4 py-3">Occupied</th>
-                          <th className="px-4 py-3">Capacity</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3" />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((t) => {
-                          const full = t.capacity != null && t.occupiedCount >= t.capacity;
-                          return (
-                            <tr key={t.id} className="border-b border-white/5 last:border-0">
-                              <td className="px-4 py-3 text-lf-white">{t.name}</td>
-                              {l !== 'region' && (
-                                <td className="px-4 py-3 text-lf-cream/60">{parentName(t)}</td>
-                              )}
-                              <td className="px-4 py-3 text-lf-cream/80">{t.occupiedCount}</td>
-                              <td className="px-4 py-3">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  defaultValue={t.capacity ?? ''}
-                                  placeholder="Unlimited"
-                                  onBlur={(e) => {
-                                    if (e.target.value !== String(t.capacity ?? '')) {
-                                      handleCapacityChange(t, e.target.value);
-                                    }
-                                  }}
-                                  className="w-24 rounded-sm border border-white/15 bg-lf-black px-2 py-1.5 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none"
-                                />
-                              </td>
-                              <td className="px-4 py-3">
-                                {full ? (
-                                  <span className="text-lf-error">Full</span>
-                                ) : t.occupiedCount > 0 ? (
-                                  <span className="text-lf-gold">Occupied</span>
-                                ) : (
-                                  <span className="text-lf-success">Available</span>
+                            return (
+                              <div key={city.id} className="border-b border-white/5 py-2 last:border-0">
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setExpandedCity(cityOpen ? null : city.id);
+                                      setBarangaySearch('');
+                                    }}
+                                    className="flex min-w-[160px] flex-1 items-center gap-3 py-1 text-left text-lf-white hover:text-lf-gold"
+                                  >
+                                    <span className="w-4 shrink-0 text-xs text-lf-cream/50">{cityOpen ? '▾' : '▸'}</span>
+                                    <span className="text-sm">{city.name}</span>
+                                  </button>
+                                  <span className="text-xs text-lf-cream/50">
+                                    {city.occupiedCount} Distributor{city.occupiedCount === 1 ? '' : 's'} ·{' '}
+                                    {city.children.length} barangay{city.children.length === 1 ? '' : 's'} added
+                                  </span>
+                                  <CapacityInput node={city} onSave={(v) => handleCapacityChange(city.id, v)} />
+                                  <DeleteButton onDelete={() => handleDelete(city)} />
+                                </div>
+
+                                {cityOpen && (
+                                  <div className="mt-2 ml-7 border-l border-white/10 pl-4">
+                                    {city.children.length > 8 && (
+                                      <input
+                                        value={barangaySearch}
+                                        onChange={(e) => setBarangaySearch(e.target.value)}
+                                        placeholder={`Search ${city.children.length} barangays…`}
+                                        className={`${inputClass} mb-2 w-full max-w-xs !py-1.5`}
+                                      />
+                                    )}
+                                    <div className="max-h-[280px] overflow-y-auto">
+                                      {barangays.length === 0 && (
+                                        <p className="py-2 text-xs text-lf-cream/40">
+                                          {barangaySearch ? 'No matching barangays.' : 'No barangays added yet.'}
+                                        </p>
+                                      )}
+                                      {barangays.map((barangay) => (
+                                        <div key={barangay.id} className="flex flex-wrap items-center gap-3 py-1.5">
+                                          <span className="min-w-[160px] flex-1 text-sm text-lf-cream/90">
+                                            {barangay.name}
+                                          </span>
+                                          <span className="text-xs text-lf-cream/50">
+                                            {barangay.occupiedCount > 0 ? 'Occupied' : 'Vacant'}
+                                          </span>
+                                          <CapacityInput
+                                            node={barangay}
+                                            onSave={(v) => handleCapacityChange(barangay.id, v)}
+                                          />
+                                          <DeleteButton onDelete={() => handleDelete(barangay)} />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <AddChildForm
+                                      placeholder="Add barangay…"
+                                      busy={busy}
+                                      onAdd={(name, capacity) => handleAddBarangay(city.id, name, capacity)}
+                                    />
+                                  </div>
                                 )}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDelete(t)}
-                                  className="text-xs text-lf-cream/50 hover:text-lf-error"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <AddChildForm
+                          placeholder="Add city / municipality…"
+                          busy={busy}
+                          onAdd={(name, capacity) => handleAddCity(region.id, name, capacity)}
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-              </section>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </AdminLayout>
