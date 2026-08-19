@@ -27,7 +27,7 @@ export const RESELLER = {
     'Marketing assets and product training',
     'Dedicated reseller support',
   ],
-  contactEmail: 'partners@leanfitcoffee.com',
+  contactEmail: 'partners@leanandfit.ph',
   // Spec Part 1 §45: "Google Drive link... configurable by Admin." No
   // admin UI exists to edit this yet (would live in Phase G's admin
   // partner management) - a content constant is the same swap point

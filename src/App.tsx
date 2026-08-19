@@ -60,9 +60,8 @@ function PixelInit() {
 
 export default function App() {
   // Same build/deployment serves the admin app AND the reseller/partner
-  // portal on their own subdomains (adminleanfit.altasme.com / rsleanfit.
-  // altasme.com today, admin.<client-domain> / reseller.<client-domain>
-  // at launch) - see src/lib/hostRouting.ts. "/" on either host goes
+  // portal on their own subdomains (admin.leanandfit.ph / partner.
+  // leanandfit.ph) - see src/lib/hostRouting.ts. "/" on either host goes
   // straight to that app instead of the marketing homepage; every
   // /admin/* and /reseller/* path keeps working normally regardless of
   // host, so nothing breaks if DNS for a subdomain isn't live yet.

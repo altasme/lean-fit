@@ -55,7 +55,7 @@
     Part 1, Phase E" below: `partner_pricing_tiers` had no anon-read
     policy, so every partner package has been quoted at full SRP with 0%
     tier discount since Phase C shipped).
-11. Deploy the partner-portal invite function and set its secret:
+11. Deploy the partner-portal invite function:
     ```bash
     supabase functions deploy invite-partner
     supabase secrets set SITE_URL=https://yourdomain.com
@@ -66,6 +66,13 @@
     must also be added to **Authentication → URL Configuration → Redirect
     URLs** in the Supabase dashboard, or Supabase will reject the redirect
     and the link will silently fall back to its default.
+
+    **Superseded, see step 15 below:** `invite-partner` was later renamed
+    to `grant-portal-access` and no longer uses an invite-link flow at
+    all (admin sets the password directly instead) - `SITE_URL` is not
+    needed by the current function. This step is kept only as history for
+    anyone reading the migration log in order; skip straight to step 15
+    on a fresh setup.
 12. Run `supabase/migrations/0012_ph_territory_data.sql` in the SQL editor,
     after 0011, **in two separate paste-and-run steps** (the file itself is
     clearly divided into "STEP 1 OF 2" / "STEP 2 OF 2" - follow those
@@ -103,7 +110,7 @@
     step 5 - nothing new to configure. Fired right after a partner submits
     their package payment (Route A or Route B), tells them their payment is
     being reviewed and that portal login details follow separately once
-    approved (the actual login email is `invite-partner`, step 11).
+    approved (the actual login email is `grant-portal-access`, step 16).
 14. Run `supabase/migrations/0013_fix_assign_partner_territory.sql` in the
     SQL editor, after 0012 (single paste, no enum split needed - this one
     doesn't touch the enum). Fixes two bugs in admin's territory
@@ -122,44 +129,67 @@
       they went stale the moment admin reassigned someone. Now synced via
       `describe_territory_chain()` on every reassignment, same as
       application-time.
+15. Run `supabase/migrations/0014_admin_restructure_leads_rbac.sql` in the
+    SQL editor, after 0013 (single paste, no enum split needed). Adds
+    `is_full_admin()` and tightens `products`/`promotions`/
+    `partner_pricing_tiers` RLS to it (staff accounts can no longer write
+    those tables), makes `partners.partner_type` nullable so the public
+    lead form can create a bare lead row, adds `partners.province`, and
+    replaces `apply_for_partner()` with `submit_partner_lead()` (anon,
+    lead capture only) and `admin_create_partner()` (authenticated admin,
+    full manual partner creation - also completes a lead in place via
+    `p_existing_partner_id` instead of leaving it stuck pending).
+16. Deploy `grant-portal-access`, which **replaces** `invite-partner`
+    (step 11 above is obsolete - delete the old `invite-partner` function
+    from the project once this is deployed, Supabase does not do this
+    automatically on a rename):
+    ```bash
+    supabase functions deploy grant-portal-access
+    ```
+    No `SITE_URL` secret needed - it reuses the `RESEND_API_KEY`/
+    `EMAIL_FROM` secrets already set in step 5. Admin sets the
+    partner/staff password directly (`mode: 'partner'` or `mode: 'staff'`)
+    and the credentials are emailed to them; there is no invite link and
+    nothing to add under Authentication → URL Configuration.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
-(`Lean & Fit <realfitorders@altasme.com>`, sending domain verified in
-Resend) are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
-not required for MVP launch). Migrations 0002-0011 have all been applied
+are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
+not required for MVP launch). Migrations 0002-0013 have all been applied
 (0008-0011 confirmed run - 0008 fixes a real pricing bug: `partner_pricing_tiers`
 had no anon-read policy, so every partner package was quoted at full SRP
 with 0% tier discount until this ran; 0009 is pure RLS for the partner
 dashboard; 0010 adds the territory/partner-assignment RPCs for the admin
-panel; 0011 adds partner-assisted onboarding). Migration 0012's Step 1
-(the `province` enum value) is confirmed run; **confirm Step 2 (the actual
-seed data + RPCs) has been run too** before relying on the redesigned
-`/reseller` form or the "Add Partner" territory picker - neither works
-without it. **Migration 0013 (fixes two `assign_partner_territory` bugs
-found while auditing this session's changes, see step 14 above) still
-needs to be run** - paste it in after 0012. `invite-partner` and
-`send-partner-email` are both confirmed deployed, with `SITE_URL` set and
-its redirect URL added in the dashboard.
+panel; 0011 adds partner-assisted onboarding; 0012's two-step seed +
+RPCs and 0013's `assign_partner_territory` fixes are both confirmed run).
+`invite-partner` and `send-partner-email` are confirmed deployed from the
+earlier setup.
 
-Historical note (now resolved, kept for context): `invite-partner` was
-initially deployed with no `SITE_URL` secret set, which was the confirmed
-cause of "Approve Partner"/"Resend Portal Invite" failing to send any
-email. The client code and the Edge Function itself were always correct
-(verified - `invitePartnerToPortal()` in `src/lib/adminPartners.ts` calls
-`supabase.functions.invoke('invite-partner', ...)` and surfaces whatever
-error comes back in a toast) - it was purely a deployment/config gap, not
-a code bug. For reference, the commands that fixed it:
-```bash
-supabase functions deploy invite-partner
-supabase secrets set SITE_URL=https://yourdomain.com
-```
-and add that same `SITE_URL/reseller/set-password` URL to **Authentication
-→ URL Configuration → Redirect URLs** in the Supabase dashboard (a missing
-redirect URL makes Supabase silently reject the redirect even once the
-function is deployed and the secret is set). Approval itself still works
-either way - only the invite/resend email step is blocked until this is
-done.
+**Still pending on the live project - domain lock (this update):** the
+domains are now finalized as `leanandfit.ph` / `admin.leanandfit.ph` /
+`partner.leanandfit.ph` (see root `README.md` → "Deploying to Cloudflare
+Pages"). Three follow-ups this creates, none done yet:
+- Add the `admin.leanandfit.ph` and `partner.leanandfit.ph` custom domains
+  to the Cloudflare Pages project (the `admin.leanandfit.ph` custom domain
+  from the prior interim domain must be re-added under the new zone -
+  DNS doesn't carry over automatically between domains).
+- Verify a `leanandfit.ph` sending domain in Resend, then update the
+  `EMAIL_FROM` secret to match (`supabase secrets set EMAIL_FROM="Lean &
+  Fit <orders@leanandfit.ph>"`) - the interim sender identity
+  (`realfitorders@altasme.com`) still works but should be retired once
+  the new domain is verified.
+- **Still not deployed at all:** migration 0014 and the renamed
+  `grant-portal-access` function (steps 15-16 above) - this is the whole
+  admin-restructure/RBAC/lead-funnel change from the prior session, not
+  yet pushed to the live Supabase project.
+
+Historical note (kept for context, now fully superseded by
+`grant-portal-access` above): `invite-partner` was initially deployed
+with no `SITE_URL` secret set, which was the confirmed cause of "Approve
+Partner"/"Resend Portal Invite" failing to send any email - purely a
+deployment/config gap, not a code bug. That whole invite-link mechanism
+(and the `SITE_URL` secret it needed) no longer exists in the current
+codebase; there is nothing left to configure for it.
 
 ## Order → Payment → Provider (v2)
 

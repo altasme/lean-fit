@@ -91,11 +91,15 @@ for the canonical list:
    wait on the client's copy). (Logo, hero, product, and lifestyle
    photography are now in from the client.)
 
-Resolved: business notification inbox (`vanamaranto1@gmail.com`) and
-sender identity (`realfitorders@altasme.com`, domain verified in Resend)
-are set as Supabase Edge Function secrets - see
-[`supabase/README.md`](./supabase/README.md). Cloudflare Pages env vars
-and the `adminleanfit.altasme.com` custom domain are also live.
+Resolved: business notification inbox (`vanamaranto1@gmail.com`) is set
+as a Supabase Edge Function secret - see
+[`supabase/README.md`](./supabase/README.md). The live domains are now
+locked: `leanandfit.ph` (site), `admin.leanandfit.ph` (admin),
+`partner.leanandfit.ph` (reseller/partner portal) - see "Deploying to
+Cloudflare Pages" below. **Still open:** the `EMAIL_FROM` sender identity
+needs a `@leanandfit.ph` address verified as a sending domain in Resend
+before Supabase secrets are updated to match (currently still pointed at
+the interim sending domain used during development).
 
 ## Conversion instrumentation
 
@@ -133,9 +137,11 @@ baseline security headers.
    the first build that needs them, since Vite inlines `VITE_*` vars at
    build time.
 4. **Custom domain** - Pages project → Custom domains → Add
-   `leanfit.altasme.com`. If `altasme.com`'s DNS zone is already on this
-   Cloudflare account, Pages adds the CNAME automatically; otherwise add
-   `leanfit → <project>.pages.dev` as a CNAME manually in that zone.
+   `leanandfit.ph`. If `leanandfit.ph`'s DNS zone is already on this
+   Cloudflare account, Pages adds the CNAME/A record automatically;
+   otherwise point `leanandfit.ph` at `<project>.pages.dev` manually in
+   that zone (see also `www.leanandfit.ph` if the client wants the `www`
+   host to resolve too).
 5. Every push to `claude/lean-fit-project-spec-82vyqt` (or whichever branch
    is set as the production branch) triggers a new deploy; other branches
    get preview URLs.
@@ -144,27 +150,22 @@ Supabase/Resend/Meta secrets (§ above) are separate from Pages - they're
 Supabase Edge Function secrets, not Cloudflare env vars, since they must
 never reach the client bundle.
 
-### Admin on its own subdomain
+### Admin and reseller/partner portals on their own subdomains
 
-The admin app runs from this same deployment - no second Pages project,
-no separate build. `src/lib/hostRouting.ts` detects any hostname starting
-with `admin` at runtime and serves the order list at `/` instead of the
-marketing homepage; every `/admin/*` path keeps working normally on the
-main domain too, so this is purely additive.
+The admin app and the reseller/partner portal both run from this same
+deployment - no second Pages project, no separate build.
+`src/lib/hostRouting.ts` detects the hostname at runtime: anything
+starting with `admin` serves the order list at `/` instead of the
+marketing homepage, anything starting with `partner` (or the older
+`reseller`/`rs` dev prefixes) serves the partner dashboard at `/`. Every
+`/admin/*` and `/reseller/*` path keeps working normally on the main
+domain too, so this is purely additive.
 
-To turn it on, add the extra custom domain on the **same** Pages project
-(step 4 above, repeated) - no code change, no redeploy, no new env vars:
-- Dev: `adminleanfit.altasme.com`
-- Launch: `admin.<client-domain>` (domain TBD - client hasn't locked
-  `.ph` vs `.com` yet, see CLAUDE.md §15)
-
-A reseller portal (`rsleanfit.altasme.com` dev / `reseller.<client-domain>`
-launch) is intentionally not built yet - Phase 2 only added the
-`ref_code`/`reseller_id` stub columns on `orders` for future attribution
-(CLAUDE.md §11/§13). When that panel gets built, the same pattern applies:
-extend `ADMIN_HOST_PREFIXES`-style matching in `hostRouting.ts` for a
-`reseller`/`rs` prefix and add the domain in Cloudflare - no new
-deployment required.
+To turn each on, add the extra custom domain on the **same** Pages
+project (step 4 above, repeated) - no code change, no redeploy, no new
+env vars:
+- Admin: `admin.leanandfit.ph`
+- Reseller/Partner: `partner.leanandfit.ph`
 
 ## Out of scope (this launch)
 
