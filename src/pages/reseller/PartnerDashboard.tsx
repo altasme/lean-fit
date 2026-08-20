@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { PartnerLayout } from '../../components/reseller/PartnerLayout';
 import { usePartnerAuth } from '../../components/reseller/PartnerAuthProvider';
 import { OverviewTab } from '../../components/reseller/tabs/OverviewTab';
+import { TopSellersTab } from '../../components/reseller/tabs/TopSellersTab';
 import { ClientOrdersTab } from '../../components/reseller/tabs/ClientOrdersTab';
 import { MyOrdersTab } from '../../components/reseller/tabs/MyOrdersTab';
 import { CustomersTab } from '../../components/reseller/tabs/CustomersTab';
@@ -26,6 +27,7 @@ import type { Partner } from '../../types/partner';
 // read-only dashboard with no per-section deep-linking need yet).
 const TABS = [
   { key: 'overview', label: 'Overview' },
+  { key: 'top-sellers', label: 'Top Sellers' },
   { key: 'client-orders', label: 'Client Orders' },
   { key: 'my-orders', label: 'My Orders' },
   { key: 'customers', label: 'Customers' },
@@ -119,8 +121,10 @@ export default function PartnerDashboard() {
                 partner={partner}
                 parentPartner={parentPartner}
                 downstreamPartners={downstreamPartners}
+                clientOrders={clientOrders}
               />
             )}
+            {tab === 'top-sellers' && <TopSellersTab partner={partner} />}
             {tab === 'client-orders' && <ClientOrdersTab orders={clientOrders} />}
             {tab === 'my-orders' && <MyOrdersTab orders={myOrders} />}
             {tab === 'customers' && <CustomersTab customers={customers} />}

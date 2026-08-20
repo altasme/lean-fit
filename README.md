@@ -133,9 +133,12 @@ baseline security headers.
    - Root directory: `/`
 3. **Environment variables** (Pages project → Settings → Environment
    variables, for both Production and Preview): `VITE_SUPABASE_URL`,
-   `VITE_SUPABASE_ANON_KEY`, `VITE_META_PIXEL_ID`. These must exist *before*
-   the first build that needs them, since Vite inlines `VITE_*` vars at
-   build time.
+   `VITE_SUPABASE_ANON_KEY`, `VITE_META_PIXEL_ID`, `VITE_SITE_URL`
+   (`https://leanandfit.ph` - the customer-facing origin, used to build
+   partner referral links correctly even when built from inside the
+   admin/partner subdomain; see `supabase/README.md` step 21). These must
+   exist *before* the first build that needs them, since Vite inlines
+   `VITE_*` vars at build time.
 4. **Custom domain** - Pages project → Custom domains → Add
    `leanandfit.ph`. If `leanandfit.ph`'s DNS zone is already on this
    Cloudflare account, Pages adds the CNAME/A record automatically;

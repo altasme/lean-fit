@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Checkout from './pages/Checkout';
 import OrderConfirmed from './pages/OrderConfirmed';
+import ReferralRedirect from './pages/ReferralRedirect';
 import Reseller from './pages/Reseller';
 import PartnerLogin from './pages/reseller/PartnerLogin';
 import PartnerSetPassword from './pages/reseller/PartnerSetPassword';
@@ -23,6 +24,7 @@ import AdminPartners from './pages/admin/AdminPartners';
 import AdminPartnerCreate from './pages/admin/AdminPartnerCreate';
 import AdminPartnerDetail from './pages/admin/AdminPartnerDetail';
 import AdminStaff from './pages/admin/AdminStaff';
+import AdminTopSellers from './pages/admin/AdminTopSellers';
 // AdminTerritories/AdminTerritoryMap and AdminMedia are hidden for now -
 // see the /admin/territories, /admin/territory-map, and /admin/media
 // routes below.
@@ -273,6 +275,26 @@ export default function App() {
               </RequireAuth>
             }
           />
+          <Route
+            path="/admin/top-sellers"
+            element={
+              <RequireAuth>
+                <AdminTopSellers />
+              </RequireAuth>
+            }
+          />
+
+          {/* Path-based referral link catch-all (leanandfit.ph/{code}) -
+              public host only. Ranks below every route above it
+              regardless of declaration order (React Router always prefers
+              a static path segment over a dynamic one), so it only ever
+              catches a genuinely unmatched single segment. Omitted on the
+              admin/reseller subdomains - those hosts have no referral
+              links to resolve and shouldn't force-redirect a mistyped
+              path to "/". */}
+          {!onAdminHost && !onResellerHost && (
+            <Route path="/:slug" element={<ReferralRedirect />} />
+          )}
         </Routes>
       </AuthProvider>
     </ToastProvider>

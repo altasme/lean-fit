@@ -218,6 +218,30 @@
     supabase functions deploy send-partner-email
     supabase functions deploy capi-purchase
     ```
+21. Run `supabase/migrations/0018_path_referral_codes_top_sellers.sql` in
+    the SQL editor, after 0017 (single paste). Client request: referral
+    links are now path-based (`leanandfit.ph/{code}` instead of
+    `leanandfit.ph/?ref=CODE`) and act as a real attribution tracker, plus
+    a top-20 "Top Seller Rankings" leaderboard (partner portal and admin,
+    same query).
+    - `generate_referral_code()` now produces the FULL name, lowercased,
+      concatenated (e.g. "Juan Dela Cruz" -> "juandelacruz") instead of
+      just the first word uppercased - matches the new code's use as a
+      URL path segment. Existing partners keep whatever code they already
+      have; matching has always been case-insensitive
+      (`create_order_with_payment`), so nothing breaks or needs backfill.
+    - New `get_top_sellers(p_month date default null)` RPC, granted to
+      `authenticated` only (both admin and partner sessions authenticate
+      as `authenticated`) - `revoke all ... from public` first, since
+      Postgres grants EXECUTE to PUBLIC by default and that would
+      otherwise let an anonymous visitor call it too.
+    - **Also set the `VITE_SITE_URL` env var** (Cloudflare Pages build
+      env, not a Supabase secret) to `https://leanandfit.ph` - without it,
+      a referral link built from inside the partner portal
+      (`partner.leanandfit.ph`) falls back to stripping the `partner.`
+      prefix off the current hostname, which works for this exact domain
+      setup but is a safety net, not the primary path. See
+      `src/lib/partners.ts` `buildReferralUrl`.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -249,6 +273,11 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
+- **Also still not deployed:** migrations 0015-0018 (Order Management RTS/
+  discount codes, territory level remap, partner-onboarding disablement,
+  and the path-based referral URLs/Top Sellers leaderboard - step 21
+  above), plus setting the `VITE_SITE_URL` build env var on Cloudflare
+  Pages.
 
 Historical note (kept for context, now fully superseded by
 `grant-portal-access` above): `invite-partner` was initially deployed

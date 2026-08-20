@@ -1,6 +1,7 @@
 import { supabase, uploadPaymentProof } from './supabase';
 import { calculatePartnerPrice } from './pricing';
 import { notifyPartnerEvent } from './notify';
+import { stripPortalPrefix } from './hostRouting';
 import type { OnboardPartnerInput, PartnerLead } from './validation';
 import type { Partner, PartnerPricingTier, PartnerStatus, PartnerType } from '../types/partner';
 import { PARTNER_PACKAGE_BOXES } from '../types/partner';
@@ -58,14 +59,30 @@ export async function fetchParentPartner(parentPartnerId: string): Promise<Partn
 }
 
 /**
- * A partner's referral URL. Query-param based (`?ref=CODE`) rather than
- * the spec's cosmetic path-style example (`leanandfit.ph/maria`) - a
- * per-partner route would collide with the app's fixed routes and need
- * its own slug-routing layer; `?ref=` is the standard affiliate-link
- * pattern and is what Phase E's checkout attribution capture will read.
+ * A partner's referral URL: leanandfit.ph/{referral_code} - resolved by
+ * the /:slug catch-all route (App.tsx / pages/ReferralRedirect.tsx),
+ * which ranks below every fixed route so it can never collide with them.
+ *
+ * This is called from inside the partner portal, which itself lives on
+ * its own subdomain (partner.leanandfit.ph) - using window.location.origin
+ * directly here would build a link back to the PORTAL, not the
+ * customer-facing site the link is actually meant to send buyers to. Set
+ * VITE_SITE_URL to the customer-facing origin to make this exact
+ * regardless of which host the portal happens to be served from; without
+ * it, fall back to stripping a known admin/partner subdomain prefix off
+ * the current hostname (works for the deployed leanandfit.ph setup and
+ * for local/preview builds where portal and storefront share one host).
  */
 export function buildReferralUrl(referralCode: string): string {
-  return `${window.location.origin}/?ref=${referralCode}`;
+  const configured = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+  if (configured) {
+    return `${configured.replace(/\/+$/, '')}/${referralCode}`;
+  }
+
+  const { protocol, hostname, port } = window.location;
+  const bareHost = stripPortalPrefix(hostname);
+  const portSuffix = port ? `:${port}` : '';
+  return `${protocol}//${bareHost}${portSuffix}/${referralCode}`;
 }
 
 export type SubmittedLead = {

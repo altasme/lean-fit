@@ -5,6 +5,8 @@ import { buildReferralUrl } from '../../../lib/partners';
 import { formatPHP } from '../../../lib/format';
 import { partnerTypeLabel } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
+import { SalesOverviewCards } from './SalesOverviewCards';
+import type { PartnerOrder } from '../../../lib/partnerOrders';
 
 // Phase D's original dashboard content (referral identity + account
 // summary), now the "Overview" tab alongside Phase F's other sections.
@@ -19,10 +21,12 @@ export function OverviewTab({
   partner,
   parentPartner,
   downstreamPartners,
+  clientOrders,
 }: {
   partner: Partner;
   parentPartner: Partner | null;
   downstreamPartners: Partner[];
+  clientOrders: PartnerOrder[];
 }) {
   const { showToast } = useToast();
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
@@ -58,7 +62,10 @@ export function OverviewTab({
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="space-y-6">
+      <SalesOverviewCards clientOrders={clientOrders} />
+
+      <div className="grid gap-6 lg:grid-cols-2">
       <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
         <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
           Your Referral Identity
@@ -176,6 +183,7 @@ export function OverviewTab({
             <p className="mt-4 text-xs text-lf-cream/50">No downstream partners yet.</p>
           )}
         </section>
+      </div>
       </div>
     </div>
   );

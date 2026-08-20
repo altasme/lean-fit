@@ -119,6 +119,41 @@ export type EarningsSummary = {
   entries: EarningsEntry[];
 };
 
+export type MonthlySales = { onlineSales: number; earnings: number; orderCount: number };
+
+/** 'YYYY-MM' key for grouping by calendar month, derived from an ISO timestamp. */
+export function monthKey(dateIso: string): string {
+  return dateIso.slice(0, 7);
+}
+
+/**
+ * Partner Overview's month-filterable "Total Online Sales" / "Total
+ * Earnings" cards - Client Orders (referred-customer sales) grouped by
+ * the calendar month they were placed in. Follows the same revenue
+ * convention as admin's "Revenue (Paid)" card (OrderStats.tsx): only a
+ * payment that actually cleared counts, and a cancelled or
+ * returned-to-seller order never counts even if it was paid first - an
+ * "online sale" here means a sale that actually converted, not merely
+ * submitted.
+ */
+export function summarizePartnerSalesByMonth(clientOrders: PartnerOrder[]): Map<string, MonthlySales> {
+  const byMonth = new Map<string, MonthlySales>();
+
+  for (const order of clientOrders) {
+    if (order.payment?.status !== 'paid') continue;
+    if (order.status === 'cancelled' || order.status === 'returned') continue;
+
+    const key = monthKey(order.created_at);
+    const existing = byMonth.get(key) ?? { onlineSales: 0, earnings: 0, orderCount: 0 };
+    existing.onlineSales += order.total;
+    existing.earnings += order.partner_earnings ?? 0;
+    existing.orderCount += 1;
+    byMonth.set(key, existing);
+  }
+
+  return byMonth;
+}
+
 /** Spec §44 "Commission / Earnings" - summarized from Client Orders' partner_earnings. */
 export function summarizePartnerEarnings(clientOrders: PartnerOrder[]): EarningsSummary {
   const entries: EarningsEntry[] = clientOrders

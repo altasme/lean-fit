@@ -30,3 +30,21 @@ const RESELLER_HOST_PREFIXES = ['partner', 'reseller', 'rs'];
 export function isResellerHost(hostname: string = window.location.hostname): boolean {
   return RESELLER_HOST_PREFIXES.some((prefix) => hostname.startsWith(prefix));
 }
+
+/**
+ * "admin." / "partner." stripped off, e.g. "admin.leanandfit.ph" ->
+ * "leanandfit.ph". Used by lib/partners.ts buildReferralUrl as a
+ * best-effort fallback (when VITE_SITE_URL isn't configured) so a
+ * referral link built from inside the partner portal points at the
+ * customer-facing site instead of the portal subdomain itself. Falls
+ * through unchanged if the hostname doesn't start with a known prefix
+ * (plain custom domains, localhost, preview URLs).
+ */
+export function stripPortalPrefix(hostname: string = window.location.hostname): string {
+  for (const prefix of [...ADMIN_HOST_PREFIXES, ...RESELLER_HOST_PREFIXES]) {
+    if (hostname === prefix || hostname.startsWith(`${prefix}.`)) {
+      return hostname.slice(prefix.length + 1);
+    }
+  }
+  return hostname;
+}

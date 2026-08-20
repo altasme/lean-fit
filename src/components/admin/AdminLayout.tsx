@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { to: '/admin', label: 'Orders' },
   { to: '/admin/products', label: 'Products', fullAdminOnly: true },
   { to: '/admin/promotions', label: 'Promotions', fullAdminOnly: true },
+  { to: '/admin/top-sellers', label: 'Top Sellers' },
   { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 
