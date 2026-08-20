@@ -16,6 +16,9 @@ export type CreateOrderInput = {
   proofFile?: File;
   /** From getStoredReferralCode() - resolved/validated server-side, see migration 0008. */
   referralCode?: string | null;
+  /** Set when a discount code was applied at checkout - see store/cart.ts. */
+  discountAmount?: number;
+  appliedPromotionId?: string | null;
 };
 
 export type CreatedOrder = {
@@ -52,6 +55,8 @@ export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder
     p_payment_date: null,
     p_payment_proof_path: proofPath,
     p_referral_code: input.referralCode ?? null,
+    p_discount_amount: input.discountAmount ?? 0,
+    p_applied_promotion_id: input.appliedPromotionId ?? null,
   });
 
   if (error) throw new Error(`Failed to create order: ${error.message}`);

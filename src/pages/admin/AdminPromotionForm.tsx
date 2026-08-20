@@ -9,20 +9,22 @@ import {
 import type { PromotionInput } from '../../lib/adminPromotions';
 import { listProducts } from '../../lib/adminProducts';
 import type { Product } from '../../types/product';
-import type { DiscountType, PromotionStatus } from '../../types/promotion';
+import type { DiscountType, PromotionStatus, PromotionType } from '../../types/promotion';
+import { PROMOTION_TYPE_LABELS } from '../../types/promotion';
 import { useToast } from '../../components/ui/Toast';
 
 const EMPTY: PromotionInput = {
   name: '',
-  code: '',
+  promotion_type: 'product',
+  code: null,
   discount_type: 'percentage',
   discount_value: 0,
+  min_order_value: null,
+  product_id: null,
   starts_at: null,
   ends_at: null,
   usage_limit: null,
   status: 'inactive',
-  applicable_product_ids: [],
-  auto_apply: false,
 };
 
 const inputClass =
@@ -59,15 +61,16 @@ export default function AdminPromotionForm() {
       .then((promo) => {
         setForm({
           name: promo.name,
+          promotion_type: promo.promotion_type,
           code: promo.code,
           discount_type: promo.discount_type,
           discount_value: promo.discount_value,
+          min_order_value: promo.min_order_value,
+          product_id: promo.product_id,
           starts_at: promo.starts_at,
           ends_at: promo.ends_at,
           usage_limit: promo.usage_limit,
           status: promo.status,
-          applicable_product_ids: promo.applicable_product_ids,
-          auto_apply: promo.auto_apply,
         });
         setLoading(false);
       })
@@ -77,12 +80,12 @@ export default function AdminPromotionForm() {
       });
   }, [id, isNew]);
 
-  function toggleProduct(productId: string) {
+  function selectType(type: PromotionType) {
     setForm((f) => ({
       ...f,
-      applicable_product_ids: f.applicable_product_ids.includes(productId)
-        ? f.applicable_product_ids.filter((p) => p !== productId)
-        : [...f.applicable_product_ids, productId],
+      promotion_type: type,
+      code: type === 'product' ? null : f.code,
+      product_id: type === 'code' ? null : f.product_id,
     }));
   }
 
@@ -111,6 +114,8 @@ export default function AdminPromotionForm() {
     );
   }
 
+  const isProduct = form.promotion_type === 'product';
+
   return (
     <AdminLayout>
       <Link to="/admin/promotions" className="text-sm text-lf-gold hover:underline">
@@ -122,26 +127,72 @@ export default function AdminPromotionForm() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 max-w-2xl space-y-5">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <label className={labelClass}>Promo Name</label>
-            <input
-              required
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className={inputClass}
-            />
+        <div>
+          <label className={labelClass}>Promotion Type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(['product', 'code'] as PromotionType[]).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => selectType(type)}
+                className={`rounded-sm border px-3 py-2.5 text-sm font-kicker uppercase tracking-wide2 transition-colors ${
+                  form.promotion_type === type
+                    ? 'border-lf-gold bg-lf-gold text-lf-black'
+                    : 'border-white/15 text-lf-cream/70 hover:border-lf-gold/50'
+                }`}
+              >
+                {PROMOTION_TYPE_LABELS[type]}
+              </button>
+            ))}
           </div>
+          <p className="mt-2 text-xs text-lf-cream/50">
+            {isProduct
+              ? 'Applies automatically to one product once the order reaches the minimum value below - no code needed.'
+              : 'Customer enters this code at checkout to discount their order once it reaches the minimum value below.'}
+          </p>
+        </div>
+
+        <div>
+          <label className={labelClass}>Promo Name</label>
+          <input
+            required
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            className={inputClass}
+          />
+        </div>
+
+        {isProduct ? (
+          <div>
+            <label className={labelClass}>Applies To</label>
+            <select
+              required
+              value={form.product_id ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, product_id: e.target.value || null }))}
+              className={inputClass}
+            >
+              <option value="">Select a product…</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {products.length === 0 && (
+              <p className="mt-1.5 text-xs text-lf-cream/50">No products yet - create one first.</p>
+            )}
+          </div>
+        ) : (
           <div>
             <label className={labelClass}>Discount Code</label>
             <input
               required
-              value={form.code}
+              value={form.code ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
               className={inputClass}
             />
           </div>
-        </div>
+        )}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -171,6 +222,29 @@ export default function AdminPromotionForm() {
               className={inputClass}
             />
           </div>
+        </div>
+
+        <div>
+          <label className={labelClass}>Minimum Order Value (₱, optional)</label>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={form.min_order_value ?? ''}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                min_order_value: e.target.value === '' ? null : Number(e.target.value),
+              }))
+            }
+            placeholder="No minimum"
+            className={inputClass}
+          />
+          <p className="mt-1.5 text-xs text-lf-cream/50">
+            {isProduct
+              ? "Cart subtotal must reach this before the product's discount applies."
+              : 'Order subtotal must reach this before the code can be applied.'}
+          </p>
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
@@ -211,57 +285,22 @@ export default function AdminPromotionForm() {
           />
         </div>
 
-        <div>
-          <label className={labelClass}>Applicable Products</label>
-          <p className="mb-2 text-xs text-lf-cream/50">None selected = applies to every product.</p>
-          <div className="space-y-2 rounded-sm border border-white/10 bg-lf-black p-3">
-            {products.length === 0 && (
-              <p className="text-xs text-lf-cream/50">No products yet.</p>
-            )}
-            {products.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm text-lf-cream/80">
-                <input
-                  type="checkbox"
-                  checked={form.applicable_product_ids.includes(p.id)}
-                  onChange={() => toggleProduct(p.id)}
-                  className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
-                />
-                {p.name}
-              </label>
-            ))}
-          </div>
-        </div>
+        <label className="flex items-center gap-2 text-sm text-lf-cream/80">
+          <input
+            type="checkbox"
+            checked={form.status === 'active'}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, status: (e.target.checked ? 'active' : 'inactive') as PromotionStatus }))
+            }
+            className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
+          />
+          Active
+        </label>
 
-        <div className="flex flex-wrap gap-6">
-          <label className="flex items-center gap-2 text-sm text-lf-cream/80">
-            <input
-              type="checkbox"
-              checked={form.auto_apply}
-              onChange={(e) => setForm((f) => ({ ...f, auto_apply: e.target.checked }))}
-              className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
-            />
-            Auto-Apply (no code needed at checkout)
-          </label>
-
-          <label className="flex items-center gap-2 text-sm text-lf-cream/80">
-            <input
-              type="checkbox"
-              checked={form.status === 'active'}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, status: (e.target.checked ? 'active' : 'inactive') as PromotionStatus }))
-              }
-              className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
-            />
-            Active
-          </label>
-        </div>
-
-        {form.auto_apply && (
-          <p className="rounded-sm border border-lf-gold/30 bg-lf-gold/5 px-4 py-3 text-xs text-lf-cream/70">
-            A customer-entered discount code always overrides this auto-apply promotion - the two
-            never stack.
-          </p>
-        )}
+        <p className="rounded-sm border border-lf-gold/30 bg-lf-gold/5 px-4 py-3 text-xs text-lf-cream/70">
+          Discounts never stack - a discount code entered at checkout always replaces a product
+          promotion, and only one active product promotion applies at a time.
+        </p>
 
         {error && <p className="text-sm text-lf-error">{error}</p>}
 

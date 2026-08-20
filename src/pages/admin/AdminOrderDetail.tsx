@@ -113,6 +113,9 @@ export default function AdminOrderDetail() {
             <dl className="tabular mt-3 space-y-1.5 text-sm">
               <Row label="Product" value={`${order.product} × ${order.quantity}`} />
               <Row label="Unit Price" value={formatPHP(order.unit_price)} />
+              {order.discount_amount > 0 && (
+                <Row label="Discount Applied" value={`-${formatPHP(order.discount_amount)}`} />
+              )}
               <Row label="Subtotal" value={formatPHP(order.subtotal)} />
               <Row label="Delivery Fee" value={formatPHP(order.delivery_fee)} />
               <Row label="Total" value={formatPHP(order.total)} />

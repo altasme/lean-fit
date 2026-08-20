@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { calculatePartnerPrice, calculateRetailPrice } from './pricing';
 import type { Product } from '../types/product';
 import type { Promotion } from '../types/promotion';
-import type { PartnerPricingTier } from '../types/partner';
+import type { PartnerPricingTier, PartnerType } from '../types/partner';
 
 export type ActiveProductPricing = {
   product: Product;
@@ -24,22 +24,32 @@ export type ActiveProductPricing = {
   partnerReferralCode: string | null;
 };
 
+/** Raw ingredients for pricing - fetched once, recomputed locally as the
+ * cart quantity changes (a Product Promotion's minimum order value is
+ * quantity-dependent) without round-tripping to Supabase on every qty tick. */
+export type ActiveProductData = {
+  product: Product;
+  promotions: Promotion[];
+  partner: { partner_type: PartnerType; referral_code: string | null } | null;
+  tiers: PartnerPricingTier[];
+};
+
 /**
- * Live product + price for the public site and checkout - the single
- * fetch both call into, per Admin Panel spec §12 ("never calculate/fetch
- * pricing independently in product cards vs checkout"). Picks the oldest
- * active product; this storefront only ever shows one product today, so
- * there's no product-selection UI yet to pick a different one if the
- * admin ever creates a second.
+ * Fetches the live product + everything needed to price it, for the
+ * public site and checkout - the single fetch both call into, per Admin
+ * Panel spec §12 ("never calculate/fetch pricing independently in product
+ * cards vs checkout"). Picks the oldest active product; this storefront
+ * only ever shows one product today, so there's no product-selection UI
+ * yet to pick a different one if the admin ever creates a second.
  *
  * A signed-in, active partner buying for themselves gets their own tier
- * price here instead of retail/promo pricing (retail promotions never
- * apply to partner pricing - see calculatePartnerPrice). This is the same
+ * price via `computeActiveProductPricing` instead of retail/promo pricing
+ * (retail promotions never apply to partner pricing). This is the same
  * Supabase Auth session as the partner portal - anyone who happens to be
  * signed in on the public site while shopping for themselves gets it
  * automatically, no separate "shop as partner" toggle needed.
  */
-export async function fetchActiveProduct(): Promise<ActiveProductPricing | null> {
+export async function fetchActiveProductData(): Promise<ActiveProductData | null> {
   const { data: products, error: productError } = await supabase
     .from('products')
     .select('*')
@@ -67,14 +77,11 @@ export async function fetchActiveProduct(): Promise<ActiveProductPricing | null>
       const { data: tiers, error: tierError } = await supabase.from('partner_pricing_tiers').select('*');
       if (tierError) throw new Error(tierError.message);
 
-      const result = calculatePartnerPrice(product, partner.partner_type, (tiers ?? []) as PartnerPricingTier[]);
       return {
         product,
-        price: result.price,
-        srp: result.srp,
-        appliedPromotion: null,
-        partnerPricing: true,
-        partnerReferralCode: partner.referral_code ?? null,
+        promotions: [],
+        partner: { partner_type: partner.partner_type, referral_code: partner.referral_code ?? null },
+        tiers: (tiers ?? []) as PartnerPricingTier[],
       };
     }
   }
@@ -85,9 +92,26 @@ export async function fetchActiveProduct(): Promise<ActiveProductPricing | null>
     .eq('status', 'active');
   if (promoError) throw new Error(promoError.message);
 
-  const result = calculateRetailPrice(product, (promotions ?? []) as Promotion[]);
+  return { product, promotions: (promotions ?? []) as Promotion[], partner: null, tiers: [] };
+}
+
+/** Pure - derives the price for `data` at `quantity`, no network access. */
+export function computeActiveProductPricing(data: ActiveProductData, quantity: number): ActiveProductPricing {
+  if (data.partner) {
+    const result = calculatePartnerPrice(data.product, data.partner.partner_type, data.tiers);
+    return {
+      product: data.product,
+      price: result.price,
+      srp: result.srp,
+      appliedPromotion: null,
+      partnerPricing: true,
+      partnerReferralCode: data.partner.referral_code,
+    };
+  }
+
+  const result = calculateRetailPrice(data.product, data.promotions, quantity);
   return {
-    product,
+    product: data.product,
     price: result.price,
     srp: result.srp,
     appliedPromotion: result.appliedPromotion,

@@ -155,9 +155,28 @@ export async function rejectPayment(paymentId: string): Promise<void> {
   await setPaymentStatus(paymentId, 'rejected', 'Payment rejected by admin');
 }
 
-/** COD only - payment collected on delivery. Order is already `confirmed`. */
-export async function markCodPaid(paymentId: string): Promise<void> {
+/**
+ * COD only - a COD order can't be marked paid independently of delivery
+ * (there's nothing to verify beforehand, unlike manual payments). It's
+ * only ever marked paid at the same moment it's marked completed, as one
+ * combined action: cash was collected on delivery, so the order is both
+ * done and paid. Order must already be `shipped`.
+ */
+export async function completeCodOrder(orderId: string, paymentId: string): Promise<void> {
   await setPaymentStatus(paymentId, 'paid', 'Cash collected on delivery', { verified: true });
+  await setOrderStatus(orderId, 'completed', 'Order completed - COD payment collected');
+}
+
+/**
+ * Return to Seller - a shipped-stage exception for an order the courier
+ * never delivered. Only reachable from `shipped`. Doesn't touch payment
+ * status (a prepaid manual order stays `paid` on its payment record for
+ * refund bookkeeping, a COD order stays unpaid since cash was never
+ * collected) - it's purely a fulfillment dead end, deliberately excluded
+ * from revenue reporting regardless of payment status (see OrderStats.tsx).
+ */
+export async function markOrderReturned(orderId: string): Promise<void> {
+  await setOrderStatus(orderId, 'returned', 'Returned to seller (RTS) - not delivered');
 }
 
 export async function refundPayment(paymentId: string): Promise<void> {

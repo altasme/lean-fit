@@ -28,6 +28,8 @@ export default function Checkout() {
   const deliveryFee = useCartStore((s) => s.deliveryFee);
   const subtotal = useCartStore((s) => s.subtotal());
   const total = useCartStore((s) => s.total());
+  const discountAmount = useCartStore((s) => s.discountAmount());
+  const appliedDiscountPromotionId = useCartStore((s) => s.appliedDiscountPromotionId);
 
   const selectedMethod = PAYMENT_METHODS.find((m) => m.code === paymentMethod);
   const requiresProof = selectedMethod?.requiresProof ?? false;
@@ -88,7 +90,11 @@ export default function Checkout() {
         delivery,
         productName,
         quantity,
-        unitPrice,
+        // A discount code discounts the order subtotal, not a per-unit
+        // price - re-derive unitPrice from the actually-charged subtotal
+        // so it never disagrees with subtotal (unitPrice * quantity always
+        // equals subtotal on the order record admin sees).
+        unitPrice: discountAmount > 0 ? Math.round((subtotal / quantity) * 100) / 100 : unitPrice,
         subtotal,
         deliveryFee,
         total,
@@ -100,6 +106,8 @@ export default function Checkout() {
         // below-SRP price with no explanation. Only overrides a stored
         // `?ref=` code when partner pricing actually applied.
         referralCode: partnerReferralCode ?? getStoredReferralCode(),
+        discountAmount,
+        appliedPromotionId: appliedDiscountPromotionId,
         ...(requiresProof ? { proofFile: file ?? undefined } : {}),
       });
 

@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { listPromotions } from '../../lib/adminPromotions';
+import { listProducts } from '../../lib/adminProducts';
 import type { Promotion } from '../../types/promotion';
+import { PROMOTION_TYPE_LABELS } from '../../types/promotion';
+import { formatPHP } from '../../lib/format';
+import type { Product } from '../../types/product';
 
 function formatDiscount(p: Promotion): string {
   return p.discount_type === 'percentage' ? `${p.discount_value}%` : `₱${p.discount_value}`;
@@ -10,13 +14,17 @@ function formatDiscount(p: Promotion): string {
 
 export default function AdminPromotions() {
   const [promotions, setPromotions] = useState<Promotion[] | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     listPromotions()
       .then(setPromotions)
       .catch((err) => setError(err.message));
+    listProducts().then(setProducts).catch(() => undefined);
   }, []);
+
+  const productName = (id: string | null) => products.find((p) => p.id === id)?.name ?? '—';
 
   return (
     <AdminLayout>
@@ -35,13 +43,14 @@ export default function AdminPromotions() {
 
       {promotions && promotions.length > 0 && (
         <div className="tabular mt-6 overflow-x-auto rounded-sm border border-white/10">
-          <table className="w-full min-w-[820px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-lf-charcoal text-xs uppercase tracking-wide2 text-lf-cream/60">
               <tr>
                 <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Code</th>
+                <th className="px-4 py-3">Type</th>
+                <th className="px-4 py-3">Code / Product</th>
                 <th className="px-4 py-3">Discount</th>
-                <th className="px-4 py-3">Auto-Apply</th>
+                <th className="px-4 py-3">Min. Order</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Usage</th>
               </tr>
@@ -57,9 +66,14 @@ export default function AdminPromotions() {
                       {promo.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-lf-white">{promo.code}</td>
+                  <td className="px-4 py-3 text-lf-cream/70">{PROMOTION_TYPE_LABELS[promo.promotion_type]}</td>
+                  <td className="px-4 py-3 text-lf-white">
+                    {promo.promotion_type === 'code' ? promo.code : productName(promo.product_id)}
+                  </td>
                   <td className="px-4 py-3 text-lf-white">{formatDiscount(promo)}</td>
-                  <td className="px-4 py-3 text-lf-cream/70">{promo.auto_apply ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-3 text-lf-cream/70">
+                    {promo.min_order_value != null ? formatPHP(promo.min_order_value) : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full border px-2.5 py-1 text-xs uppercase tracking-wide2 ${

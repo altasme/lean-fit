@@ -151,6 +151,29 @@
     partner/staff password directly (`mode: 'partner'` or `mode: 'staff'`)
     and the credentials are emailed to them; there is no invite link and
     nothing to add under Authentication → URL Configuration.
+17. Run `supabase/migrations/0015_promotions_split_order_rts.sql` in the
+    SQL editor, after 0014 (single paste, no enum split needed - it adds
+    `order_status`'s new `'returned'` value but never uses it in the same
+    transaction, so it doesn't hit the two-step restriction 0012 needed).
+    No Edge Function or secret involved - just SQL. Two things it does:
+    - Splits `promotions` into two mutually exclusive types (`promotion_
+      type`): **Product Promotion** (`code` null, `product_id` set, auto-
+      applies once the cart subtotal reaches `min_order_value`) and
+      **Discount Code** (`code` set, `product_id` null, customer enters it
+      at checkout once the order subtotal reaches `min_order_value`).
+      Backfills existing rows from the old `auto_apply`/
+      `applicable_product_ids` columns (both dropped) - a legacy auto-
+      apply promo that meant "applies to every product" (empty array) is
+      approximated by pointing it at the oldest active product, since the
+      new model requires exactly one; re-check any such backfilled
+      promotion in the admin UI before relying on it.
+    - Adds `orders.discount_amount`/`orders.applied_promotion_id`
+      (audit-only - `unit_price`/`subtotal` already reflect whatever
+      actually got charged) and redefines `create_order_with_payment` to
+      accept and store them, and adds `order_status`'s `'returned'` value
+      for the Order Management "Return to Seller" exception (shipped-stage
+      only, deliberately excluded from revenue regardless of payment
+      status - see `OrderStats.tsx`).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`

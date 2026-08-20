@@ -2,7 +2,17 @@ import type { PartnerType } from './partner';
 
 // Fulfillment lifecycle only - payment lives in its own record, see
 // types/payment.ts. Do not merge these two axes; see CLAUDE.md §10.
-export type OrderStatus = 'pending' | 'confirmed' | 'packing' | 'shipped' | 'completed' | 'cancelled';
+// 'returned' (Return to Seller / RTS) is a shipped-stage exception - the
+// courier never delivered it. Deliberately excluded from revenue
+// reporting regardless of payment status - see components/admin/OrderStats.tsx.
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'packing'
+  | 'shipped'
+  | 'completed'
+  | 'cancelled'
+  | 'returned';
 
 // Part 2 addendum §33 - always 'lean_and_fit_dropship' today (migration
 // 0011's default): every order that exists in this table came through
@@ -43,6 +53,11 @@ export type Order = {
   partner_price: number | null;
   partner_earnings: number | null;
   fulfillment_method: FulfillmentMethod;
+  // Traceability only - unit_price/subtotal already reflect whatever
+  // discount actually applied (product promo or discount code); these two
+  // just record which one (if any) so admin isn't left guessing.
+  discount_amount: number;
+  applied_promotion_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -74,6 +89,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   shipped: 'Shipped',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  returned: 'Returned to Seller',
 };
 
 export const ORDER_STATUS_EMOJI: Record<OrderStatus, string> = {
@@ -83,6 +99,7 @@ export const ORDER_STATUS_EMOJI: Record<OrderStatus, string> = {
   shipped: '🔵',
   completed: '✅',
   cancelled: '⚫',
+  returned: '↩️',
 };
 
 export const FULFILLMENT_METHOD_LABELS: Record<FulfillmentMethod, string> = {

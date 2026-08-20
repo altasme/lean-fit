@@ -3,7 +3,8 @@ import {
   advanceOrderStatus,
   approvePayment,
   cancelOrder,
-  markCodPaid,
+  completeCodOrder,
+  markOrderReturned,
   refundPayment,
   rejectPayment,
 } from '../../lib/adminOrders';
@@ -43,7 +44,8 @@ export function StatusControls({
     }
   };
 
-  const canCancel = order.status !== 'completed' && order.status !== 'cancelled';
+  const canCancel =
+    order.status !== 'completed' && order.status !== 'cancelled' && order.status !== 'returned';
 
   return (
     <div className="space-y-4">
@@ -81,26 +83,6 @@ export function StatusControls({
               Reject Payment
             </button>
           </div>
-        </div>
-      )}
-
-      {payment && payment.provider === 'cod' && payment.status === 'pending' && (
-        <div className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-            Cash On Delivery
-          </h2>
-          {error && <p className="mt-2 text-xs text-lf-error">{error}</p>}
-          <p className="mt-2 text-sm text-lf-cream/70">
-            Mark this once cash has been collected from the customer.
-          </p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => run(() => markCodPaid(payment.id), 'Marked as paid')}
-            className="btn-gold mt-4 !px-5 !py-2.5 !text-sm disabled:opacity-50"
-          >
-            Mark Paid
-          </button>
         </div>
       )}
 
@@ -155,7 +137,19 @@ export function StatusControls({
             </div>
           )}
 
-          {order.status === 'shipped' && (
+          {order.status === 'shipped' && payment?.provider === 'cod' && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                run(() => completeCodOrder(order.id, payment.id), 'Marked as completed and paid')
+              }
+              className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
+            >
+              Mark As Delivered (Cash Collected)
+            </button>
+          )}
+          {order.status === 'shipped' && payment?.provider !== 'cod' && (
             <button
               type="button"
               disabled={busy}
@@ -177,15 +171,30 @@ export function StatusControls({
           {order.status === 'cancelled' && (
             <p className="text-sm text-lf-cream/60">This order was cancelled.</p>
           )}
+          {order.status === 'returned' && (
+            <p className="text-sm text-lf-cream/60">This order was returned to seller.</p>
+          )}
         </div>
       </div>
 
-      {(canCancel || payment?.status === 'paid') && (
+      {(canCancel || payment?.status === 'paid' || order.status === 'shipped') && (
         <div className="rounded-sm border border-lf-error/30 bg-lf-charcoal p-6">
           <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-error">
             Exceptions
           </h2>
           <div className="mt-4 flex flex-wrap gap-3">
+            {order.status === 'shipped' && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  run(() => markOrderReturned(order.id), 'Marked as returned to seller')
+                }
+                className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
+              >
+                Mark As Return To Seller (RTS)
+              </button>
+            )}
             {payment?.status === 'paid' && (
               <button
                 type="button"
