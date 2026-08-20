@@ -55,7 +55,14 @@ export function RequireAuth({ children }: PropsWithChildren) {
     let cancelled = false;
     supabase
       .from('admin_users')
-      .select('role, permissions')
+      // `select('*')` rather than naming `permissions` explicitly - that
+      // column only exists once migration 0019 is deployed, and naming a
+      // column that isn't there yet makes PostgREST error the whole
+      // query (not just omit it), which previously locked out every
+      // admin - including ones with a perfectly valid admin_users row -
+      // the moment this code shipped ahead of that migration. `select('*')`
+      // just returns whatever columns exist.
+      .select('*')
       .eq('user_id', session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {

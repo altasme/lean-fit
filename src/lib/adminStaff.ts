@@ -23,11 +23,17 @@ export type StaffAccount = {
   created_at: string;
 };
 
-/** Every admin_users row - both roles, so a full admin can see who else has access. */
+/**
+ * Every admin_users row - both roles, so a full admin can see who else has
+ * access. `select('*')` rather than naming `permissions` explicitly - see
+ * RequireAuth.tsx's identical note; a named column that doesn't exist yet
+ * (migration 0019 not deployed) errors the whole query instead of just
+ * omitting it.
+ */
 export async function listStaffAccounts(): Promise<StaffAccount[]> {
   const { data, error } = await supabase
     .from('admin_users')
-    .select('user_id, role, email, full_name, permissions, created_at')
+    .select('*')
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => ({ ...row, permissions: row.permissions ?? {} })) as StaffAccount[];

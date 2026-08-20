@@ -315,6 +315,26 @@ Pages"). Three follow-ups this creates, none done yet:
   fixed in step 23, and 0014 must be applied (steps 15-16) before 0019
   will even work, since 0019's `has_permission()` and its RLS policy
   updates both build directly on 0014's `is_full_admin()`.
+- **Regression caught and fixed (client-reported, same day as step 22):**
+  shipping step 22's client code (`RequireAuth.tsx` explicitly selecting
+  `admin_users.permissions`) *before* migration 0019 actually ran on the
+  live project locked out every single admin login - not just staff
+  accounts missing a grant. PostgREST errors an entire query when a named
+  `select()` column doesn't exist yet, rather than just omitting it, and
+  the code collapsed "query errored" and "no admin_users row for this
+  user" into the same "Not An Admin Account" screen. A real admin with a
+  perfectly valid `admin_users` row saw the exact same "add yourself to
+  admin_users" message as someone who'd genuinely never been added -
+  worse, re-running that INSERT would have failed on the primary key
+  since the row already existed. Fixed by switching both `RequireAuth.tsx`
+  and `lib/adminStaff.ts`'s `listStaffAccounts()` to `select('*')` instead
+  of naming `permissions` explicitly - a missing column is then just
+  absent from the row instead of erroring the whole query. **Lesson for
+  future migrations here:** never name a brand-new column in an explicit
+  `select()` list from client code in the same push as the migration that
+  adds it, unless the migration is confirmed already applied live -
+  `select('*')` (or shipping the migration first, confirmed, then the
+  client code) avoids this exact class of lockout.
 
 Historical note (kept for context, now fully superseded by
 `grant-portal-access` above): `invite-partner` was initially deployed
