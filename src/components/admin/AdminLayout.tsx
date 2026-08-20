@@ -4,22 +4,23 @@ import type { PropsWithChildren } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Logo } from '../layout/Logo';
-import { useAdminRole } from './RequireAuth';
+import { useAdminPermissions, useAdminRole } from './RequireAuth';
+import type { StaffPermissions } from '../../lib/adminStaff';
 
 // Media, Territories, and Territory Map are all built but hidden from the
 // nav for now per client request - their routes also redirect away in
 // App.tsx so they're not reachable by direct URL either. Nothing was
 // deleted; re-add the nav entry (and un-redirect the route) to bring any
 // of them back.
-const NAV_LINKS = [
+const NAV_LINKS: { to: string; label: string; permission?: keyof StaffPermissions }[] = [
   { to: '/admin', label: 'Orders' },
-  { to: '/admin/products', label: 'Products', fullAdminOnly: true },
-  { to: '/admin/promotions', label: 'Promotions', fullAdminOnly: true },
+  { to: '/admin/products', label: 'Products', permission: 'products' },
+  { to: '/admin/promotions', label: 'Promotions', permission: 'promotions' },
   { to: '/admin/top-sellers', label: 'Top Sellers' },
   { to: '/admin/audit-log', label: 'Audit Log' },
 ];
 
-function PartnersMenu({ active, fullAdmin }: { active: boolean; fullAdmin: boolean }) {
+function PartnersMenu({ active, showPricing }: { active: boolean; showPricing: boolean }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -87,7 +88,7 @@ function PartnersMenu({ active, fullAdmin }: { active: boolean; fullAdmin: boole
             >
               All Partners
             </Link>
-            {fullAdmin && (
+            {showPricing && (
               <Link
                 to="/admin/partner-pricing"
                 onClick={() => setOpen(false)}
@@ -106,9 +107,11 @@ function PartnersMenu({ active, fullAdmin }: { active: boolean; fullAdmin: boole
 export function AdminLayout({ children }: PropsWithChildren) {
   const { pathname } = useLocation();
   const role = useAdminRole();
+  const permissions = useAdminPermissions();
   const fullAdmin = role === 'admin';
+  const has = (p?: keyof StaffPermissions) => !p || fullAdmin || Boolean(permissions[p]);
 
-  const links = NAV_LINKS.filter((l) => !l.fullAdminOnly || fullAdmin);
+  const links = NAV_LINKS.filter((l) => has(l.permission));
   const partnersActive = pathname.startsWith('/admin/partners') || pathname.startsWith('/admin/partner-pricing');
 
   return (
@@ -141,7 +144,7 @@ export function AdminLayout({ children }: PropsWithChildren) {
               </Link>
             );
           })}
-          <PartnersMenu active={partnersActive} fullAdmin={fullAdmin} />
+          <PartnersMenu active={partnersActive} showPricing={has('partner_pricing')} />
           {fullAdmin && (
             <Link
               to="/admin/staff"

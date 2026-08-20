@@ -242,6 +242,36 @@
       prefix off the current hostname, which works for this exact domain
       setup but is a safety net, not the primary path. See
       `src/lib/partners.ts` `buildReferralUrl`.
+22. Run `supabase/migrations/0019_staff_permissions.sql` in the SQL
+    editor, after 0018 (single paste). Client request: admins can edit an
+    existing staff account, "including permissions on what they can and
+    can't do." Adds `admin_users.permissions` (jsonb) and a
+    `has_permission(key)` helper - a full admin still passes every check
+    unconditionally, and Products/Promotions/Partner Pricing (the only
+    areas ever gated at all) are now individually grantable per staff
+    account instead of all-or-nothing. Orders/Partners/Top Sellers/Audit
+    Log stay open to every staff account as before; User Management
+    itself is intentionally never a grantable permission (would let a
+    staff account widen its own access).
+23. **Redeploy `grant-portal-access`** - real bug fix, not just the new
+    `update_staff`/`revoke_staff` modes above. "Add Staff Account" was
+    returning a bare 500 with no way to tell what actually failed
+    (`createUser()`'s "already registered" and the DB insert failure both
+    landed on the same generic 500). Root cause of any *specific* report
+    like that needs the Function's logs to confirm, but this redeploy
+    fixes a real defect regardless: on a partial failure (auth user
+    created, `admin_users` insert then failed) there was no rollback, so
+    the orphaned auth user permanently failed every retry with that email
+    with the exact same unhelpful 500 - now rolled back automatically,
+    and duplicate-email failures return a real 409 with an actionable
+    message instead of a bare 500. Also fixes `admin_users.email`/
+    `full_name` never actually being written on staff creation (migration
+    0014 added those columns and said this function would populate them;
+    the function never did, so every staff account's row showed "—" for
+    name/email in the All Accounts table until now).
+    ```bash
+    supabase functions deploy grant-portal-access
+    ```
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -273,11 +303,18 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0018 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0019 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
-  and the path-based referral URLs/Top Sellers leaderboard - step 21
-  above), plus setting the `VITE_SITE_URL` build env var on Cloudflare
-  Pages.
+  path-based referral URLs/Top Sellers leaderboard, and staff permissions
+  - steps 21-22 above), the `grant-portal-access` redeploy (step 23), plus
+  setting the `VITE_SITE_URL` build env var on Cloudflare Pages.
+  **If migration 0014 genuinely hasn't run live yet** (see the note right
+  above this list), that's very likely the actual cause of "Add Staff
+  Account" 500ing in production: `is_full_admin()`/RBAC enforcement never
+  existing on that project is a bigger gap than the Edge Function bug
+  fixed in step 23, and 0014 must be applied (steps 15-16) before 0019
+  will even work, since 0019's `has_permission()` and its RLS policy
+  updates both build directly on 0014's `is_full_admin()`.
 
 Historical note (kept for context, now fully superseded by
 `grant-portal-access` above): `invite-partner` was initially deployed

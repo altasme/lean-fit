@@ -34,6 +34,7 @@ import { ScrollToTop } from './components/layout/ScrollToTop';
 import { AuthProvider } from './components/auth/AuthProvider';
 import { RequireAuth } from './components/admin/RequireAuth';
 import { RequireFullAdmin } from './components/admin/RequireFullAdmin';
+import { RequirePermission } from './components/admin/RequirePermission';
 import { PartnerAuthProvider } from './components/reseller/PartnerAuthProvider';
 import { RequirePartnerAuth } from './components/reseller/RequirePartnerAuth';
 import { ToastProvider } from './components/ui/Toast';
@@ -157,9 +158,9 @@ export default function App() {
             path="/admin/products"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="products">
                   <AdminProducts />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />
@@ -167,9 +168,9 @@ export default function App() {
             path="/admin/products/new"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="products">
                   <AdminProductForm />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />
@@ -177,9 +178,9 @@ export default function App() {
             path="/admin/products/:id"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="products">
                   <AdminProductForm />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />
@@ -187,9 +188,9 @@ export default function App() {
             path="/admin/promotions"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="promotions">
                   <AdminPromotions />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />
@@ -197,9 +198,9 @@ export default function App() {
             path="/admin/promotions/new"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="promotions">
                   <AdminPromotionForm />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />
@@ -207,9 +208,9 @@ export default function App() {
             path="/admin/promotions/:id"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="promotions">
                   <AdminPromotionForm />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />
@@ -217,9 +218,9 @@ export default function App() {
             path="/admin/partner-pricing"
             element={
               <RequireAuth>
-                <RequireFullAdmin>
+                <RequirePermission permission="partner_pricing">
                   <AdminPartnerPricing />
-                </RequireFullAdmin>
+                </RequirePermission>
               </RequireAuth>
             }
           />

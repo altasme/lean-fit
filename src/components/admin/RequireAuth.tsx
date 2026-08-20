@@ -4,13 +4,27 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { supabase } from '../../lib/supabase';
 import type { AdminRole } from '../../types/partner';
+import type { StaffPermissions } from '../../lib/adminStaff';
 
 const AdminRoleContext = createContext<AdminRole | null>(null);
+const AdminPermissionsContext = createContext<StaffPermissions>({});
 
 /** The signed-in admin's role ('admin' | 'staff_admin') - null outside RequireAuth. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAdminRole(): AdminRole | null {
   return useContext(AdminRoleContext);
+}
+
+/**
+ * The signed-in staff account's per-feature grants (migration 0019) -
+ * meaningless for role='admin' (they already pass every check
+ * unconditionally, see RequirePermission below) and empty by default for
+ * a fresh staff_admin account until an admin grants something in User
+ * Management.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAdminPermissions(): StaffPermissions {
+  return useContext(AdminPermissionsContext);
 }
 
 /**
@@ -30,20 +44,24 @@ export function RequireAuth({ children }: PropsWithChildren) {
   const { session, loading: sessionLoading } = useAuth();
   const location = useLocation();
   const [role, setRole] = useState<AdminRole | null | undefined>(undefined);
+  const [permissions, setPermissions] = useState<StaffPermissions>({});
 
   useEffect(() => {
     if (!session) {
       setRole(undefined);
+      setPermissions({});
       return;
     }
     let cancelled = false;
     supabase
       .from('admin_users')
-      .select('role')
+      .select('role, permissions')
       .eq('user_id', session.user.id)
       .maybeSingle()
       .then(({ data, error }) => {
-        if (!cancelled) setRole(error || !data ? null : (data.role as AdminRole));
+        if (cancelled) return;
+        setRole(error || !data ? null : (data.role as AdminRole));
+        setPermissions((data?.permissions as StaffPermissions | null) ?? {});
       });
     return () => {
       cancelled = true;
@@ -89,5 +107,9 @@ export function RequireAuth({ children }: PropsWithChildren) {
     );
   }
 
-  return <AdminRoleContext.Provider value={role}>{children}</AdminRoleContext.Provider>;
+  return (
+    <AdminRoleContext.Provider value={role}>
+      <AdminPermissionsContext.Provider value={permissions}>{children}</AdminPermissionsContext.Provider>
+    </AdminRoleContext.Provider>
+  );
 }
