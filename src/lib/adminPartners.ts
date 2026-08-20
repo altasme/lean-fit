@@ -27,19 +27,6 @@ export async function getPartnerProofSignedUrl(path: string): Promise<string> {
 }
 
 /**
- * A strong, easy-to-read-aloud default password - admin can edit it before
- * sending, or type their own entirely (item #2/#4's "admin sets the
- * password"), this is just a safer starting point than asking admin to
- * invent one. Avoids visually similar characters (0/O, 1/l/I).
- */
-export function generatePassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let out = '';
-  for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
-}
-
-/**
  * Grants (or resets) a partner's portal login by setting their password
  * directly via the `grant-portal-access` Edge Function - admin-only,
  * service-role. Creates the Supabase Auth user and links `partners.user_id`
@@ -65,12 +52,12 @@ export async function grantPartnerPortalAccess(
  * activates the partner in one step (see migration 0006's approve_partner()
  * for why this is a single combined action rather than the two independent
  * axes retail orders use). Generates the partner's referral code server-side
- * for atomic uniqueness, then grants portal access with an auto-generated
- * password (emailed to the partner immediately).
+ * for atomic uniqueness. Portal access is a deliberately separate, manual
+ * step (the "Portal Access" panel on the partner's detail page, once
+ * active) - admin always types the password themselves, nothing is
+ * auto-generated or auto-sent on approval.
  */
-export async function approvePartner(
-  partnerId: string,
-): Promise<{ referralCode: string; password: string; inviteError: string | null }> {
+export async function approvePartner(partnerId: string): Promise<{ referralCode: string }> {
   const { data, error } = await supabase.rpc('approve_partner', { p_partner_id: partnerId });
   if (error) throw new Error(error.message);
   const row = Array.isArray(data) ? data[0] : data;
@@ -83,10 +70,7 @@ export async function approvePartner(
     note: `Referral code: ${row.referral_code}`,
   });
 
-  const password = generatePassword();
-  const { error: inviteError } = await grantPartnerPortalAccess(partnerId, password);
-
-  return { referralCode: row.referral_code, password, inviteError };
+  return { referralCode: row.referral_code };
 }
 
 export type AdminCreatedPartner = { partnerId: string; status: PartnerStatus };
@@ -129,11 +113,9 @@ export async function adminCreatePartner(input: AdminCreatePartnerInput): Promis
     note: input.activate ? 'Activated immediately' : 'Saved as pending',
   });
 
-  if (input.activate) {
-    const password = generatePassword();
-    await grantPartnerPortalAccess(row.partner_id, password);
-  }
-
+  // Portal access is a separate, manual step (the "Portal Access" panel on
+  // the partner's detail page) - admin always sets the password themselves,
+  // even when activating immediately here.
   return { partnerId: row.partner_id, status: row.status };
 }
 

@@ -282,14 +282,14 @@ export default function AdminPartnerCreate() {
               onChange={(e) => update('activate', e.target.checked)}
               className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
             />
-            Activate immediately (payment already collected - marks paid, generates referral code,
-            and emails portal access)
+            Activate immediately (payment already collected - marks paid and generates a referral
+            code)
           </label>
-          {!form.activate && (
-            <p className="text-xs text-lf-cream/50">
-              Saved as pending instead - approve later from the partner's detail page once payment is confirmed.
-            </p>
-          )}
+          <p className="text-xs text-lf-cream/50">
+            {form.activate
+              ? "Portal access is a separate step - set the partner's password from their detail page after this."
+              : "Saved as pending instead - approve later from the partner's detail page once payment is confirmed."}
+          </p>
         </section>
 
         {submitError && (

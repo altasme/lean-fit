@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { PropsWithChildren } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -19,21 +20,46 @@ const NAV_LINKS = [
 
 function PartnersMenu({ active, fullAdmin }: { active: boolean; fullAdmin: boolean }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  // Closing on scroll (rather than repositioning) is simplest - the admin
+  // header is sticky so the trigger rarely moves anyway, and this avoids a
+  // stale-position dropdown floating away from its button.
+  useEffect(() => {
+    if (!open) return;
+    function onScroll() {
+      setOpen(false);
+    }
+    window.addEventListener('scroll', onScroll, true);
+    return () => window.removeEventListener('scroll', onScroll, true);
+  }, [open]);
+
+  function toggle() {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom, left: rect.left });
+    }
+    setOpen((o) => !o);
+  }
+
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className={`flex items-center gap-1 whitespace-nowrap border-b-2 px-3 py-3 font-kicker text-xs uppercase tracking-wide2 transition-colors ${
           active || open
             ? 'border-lf-gold text-lf-gold'
@@ -42,26 +68,36 @@ function PartnersMenu({ active, fullAdmin }: { active: boolean; fullAdmin: boole
       >
         Partners <span className="text-[10px]">{open ? '▴' : '▾'}</span>
       </button>
-      {open && (
-        <div className="absolute left-0 top-full z-40 min-w-[180px] rounded-sm border border-white/10 bg-lf-charcoal py-1.5 shadow-lg">
-          <Link
-            to="/admin/partners"
-            onClick={() => setOpen(false)}
-            className="block px-4 py-2.5 font-kicker text-xs uppercase tracking-wide2 text-lf-cream/80 hover:bg-white/5 hover:text-lf-gold"
+      {open &&
+        createPortal(
+          // Rendered via portal, not as a child of the horizontally-scrolling
+          // <nav> below - `overflow-x-auto` on that nav implicitly forces
+          // overflow-y to `auto` too (a real CSS quirk, not a typo), which
+          // was clipping this dropdown before it could ever be seen.
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', top: coords.top, left: coords.left }}
+            className="z-50 min-w-[180px] rounded-sm border border-white/10 bg-lf-charcoal py-1.5 shadow-lg"
           >
-            All Partners
-          </Link>
-          {fullAdmin && (
             <Link
-              to="/admin/partner-pricing"
+              to="/admin/partners"
               onClick={() => setOpen(false)}
               className="block px-4 py-2.5 font-kicker text-xs uppercase tracking-wide2 text-lf-cream/80 hover:bg-white/5 hover:text-lf-gold"
             >
-              Partner Pricing
+              All Partners
             </Link>
-          )}
-        </div>
-      )}
+            {fullAdmin && (
+              <Link
+                to="/admin/partner-pricing"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2.5 font-kicker text-xs uppercase tracking-wide2 text-lf-cream/80 hover:bg-white/5 hover:text-lf-gold"
+              >
+                Partner Pricing
+              </Link>
+            )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

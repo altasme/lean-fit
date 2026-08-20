@@ -3,10 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import {
   approvePartner,
-  assignParentPartner,
-  assignPartnerTerritory,
-  fetchEligibleParentPartners,
-  generatePassword,
   getPartner,
   getPartnerProofSignedUrl,
   grantPartnerPortalAccess,
@@ -14,16 +10,11 @@ import {
   rejectPartner,
   suspendPartner,
 } from '../../lib/adminPartners';
-import { listTerritories, resolveBarangayTerritory } from '../../lib/adminTerritories';
-import type { TerritoryWithOccupancy } from '../../lib/adminTerritories';
-import { TerritoryPicker } from '../../components/reseller/TerritoryPicker';
-import type { TerritoryPickerValue } from '../../components/reseller/TerritoryPicker';
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
 import type { Partner } from '../../types/partner';
 import { PARTNER_STATUS_LABELS, partnerTypeLabel } from '../../types/partner';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
-import { PARTNER_TYPE_TERRITORY_LEVEL, TERRITORY_LEVEL_LABELS } from '../../types/territory';
 
 const METHOD_LABELS: Record<string, string> = {
   gcash: 'GCash',
@@ -36,15 +27,10 @@ export default function AdminPartnerDetail() {
   const { showToast } = useToast();
   const [partner, setPartner] = useState<Partner | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
-  const [eligibleTerritories, setEligibleTerritories] = useState<TerritoryWithOccupancy[]>([]);
-  const [eligibleParents, setEligibleParents] = useState<Partner[]>([]);
   const [onboardedBy, setOnboardedBy] = useState<Partner | null>(null);
-  const [territorySelection, setTerritorySelection] = useState('');
-  const [pickedBarangay, setPickedBarangay] = useState<TerritoryPickerValue | null>(null);
-  const [parentSelection, setParentSelection] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [accessPassword, setAccessPassword] = useState(() => generatePassword());
+  const [accessPassword, setAccessPassword] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -53,23 +39,6 @@ export default function AdminPartnerDetail() {
       setPartner(p);
       setProofUrl(p.payment_proof_path ? await getPartnerProofSignedUrl(p.payment_proof_path) : null);
       setOnboardedBy(p.onboarded_by_partner_id ? await getPartner(p.onboarded_by_partner_id) : null);
-
-      // A pending lead (submit_partner_lead()) has no partner_type yet - admin
-      // assigns one via the full "Add Partner" onboarding flow, not here.
-      if (p.partner_type) {
-        const level = PARTNER_TYPE_TERRITORY_LEVEL[p.partner_type];
-        const [territories, parents] = await Promise.all([
-          listTerritories(),
-          fetchEligibleParentPartners(p.partner_type),
-        ]);
-        setEligibleTerritories(territories.filter((t) => t.level === level));
-        setEligibleParents(parents.filter((parent) => parent.id !== p.id));
-      } else {
-        setEligibleTerritories([]);
-        setEligibleParents([]);
-      }
-      setTerritorySelection(p.territory_id ?? '');
-      setParentSelection(p.parent_partner_id ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load partner.');
     }
@@ -83,15 +52,8 @@ export default function AdminPartnerDetail() {
     if (!partner) return;
     setBusy(true);
     try {
-      const { referralCode, inviteError } = await approvePartner(partner.id);
-      if (inviteError) {
-        showToast(
-          `Partner approved - referral code ${referralCode}. Portal access failed to send: ${inviteError}`,
-          'error',
-        );
-      } else {
-        showToast(`Partner approved - referral code ${referralCode}. Portal access sent.`);
-      }
+      const { referralCode } = await approvePartner(partner.id);
+      showToast(`Partner approved - referral code ${referralCode}. Set their portal password below to send access.`);
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Approval failed.', 'error');
@@ -109,7 +71,7 @@ export default function AdminPartnerDetail() {
         showToast(`Could not send portal access: ${error}`, 'error');
       } else {
         showToast('Portal access sent - the partner has been emailed their login.');
-        setAccessPassword(generatePassword());
+        setAccessPassword('');
       }
       await load();
     } finally {
@@ -131,56 +93,12 @@ export default function AdminPartnerDetail() {
     }
   }
 
-  async function handleAssignTerritory() {
-    if (!partner) return;
-    setBusy(true);
-    try {
-      // Resellers pick a real barangay via TerritoryPicker (migration
-      // 0012's data - most of the ~42,000 real barangays don't have a
-      // `territories` row yet), so it needs a resolve/lazy-create step
-      // find_or_create_barangay_territory() does for the applicant flows,
-      // before assign_partner_territory() can point the partner at it.
-      // Franchise/Distributor territories are fully pre-seeded (region/
-      // city), so their raw dropdown already selects a real row directly.
-      const territoryId =
-        partner.partner_type === 'reseller'
-          ? pickedBarangay?.barangayName
-            ? await resolveBarangayTerritory(pickedBarangay.barangayName, pickedBarangay.territoryId)
-            : null
-          : territorySelection || null;
-      if (!territoryId) return;
-
-      await assignPartnerTerritory(partner.id, territoryId);
-      showToast('Territory assigned.');
-      setPickedBarangay(null);
-      await load();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to assign territory.', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleAssignParent() {
-    if (!partner) return;
-    setBusy(true);
-    try {
-      await assignParentPartner(partner.id, parentSelection || null);
-      showToast(parentSelection ? 'Parent partner assigned.' : 'Parent partner cleared.');
-      await load();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to assign parent partner.', 'error');
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleSuspend() {
     if (!partner) return;
     setBusy(true);
     try {
       await suspendPartner(partner.id);
-      showToast('Partner suspended - their territory slot is now available for reassignment.');
+      showToast('Partner suspended.');
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to suspend partner.', 'error');
@@ -325,20 +243,14 @@ export default function AdminPartnerDetail() {
                     ? 'This partner has a portal login. Set a new password below to reset it.'
                     : "This partner hasn't set up their portal login yet."}
                 </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
+                <div className="mt-3">
                   <input
                     value={accessPassword}
                     onChange={(e) => setAccessPassword(e.target.value)}
-                    className="w-48 rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+                    placeholder="Type a password (min. 8 characters)"
+                    className="w-64 rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none"
                     aria-label="Portal access password"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setAccessPassword(generatePassword())}
-                    className="text-xs text-lf-cream/50 hover:text-lf-gold"
-                  >
-                    Regenerate
-                  </button>
                 </div>
                 <p className="mt-1 text-xs text-lf-cream/40">Login email: {partner.email}</p>
                 <button
@@ -408,122 +320,26 @@ export default function AdminPartnerDetail() {
 
           {(partner.status === 'active' || partner.status === 'suspended') && (
             <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-              <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-                Territory &amp; Hierarchy
-              </h2>
-
-              <div className="mt-3">
-                {/* partner_type is always set for an active/suspended partner. */}
-                <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">
-                  {TERRITORY_LEVEL_LABELS[PARTNER_TYPE_TERRITORY_LEVEL[partner.partner_type!]]}
-                </p>
-
-                {partner.partner_type === 'reseller' ? (
-                  <div className="mt-1.5 space-y-3">
-                    <p className="text-xs text-lf-cream/50">
-                      Current: {[partner.barangay, partner.city, partner.region].filter(Boolean).join(', ') || 'Unassigned'}
-                    </p>
-                    <TerritoryPicker
-                      key={partner.territory_id ?? 'unassigned'}
-                      partnerType="reseller"
-                      onChange={setPickedBarangay}
-                    />
-                    <button
-                      type="button"
-                      disabled={busy || !pickedBarangay?.barangayName}
-                      onClick={handleAssignTerritory}
-                      className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
-                    >
-                      {partner.territory_id ? 'Change' : 'Assign'}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <select
-                      value={territorySelection}
-                      onChange={(e) => setTerritorySelection(e.target.value)}
-                      className="rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-                    >
-                      <option value="">Unassigned</option>
-                      {eligibleTerritories.map((t) => {
-                        const full = t.capacity != null && t.occupiedCount >= t.capacity && t.id !== partner.territory_id;
-                        return (
-                          <option key={t.id} value={t.id} disabled={full}>
-                            {t.name} ({t.occupiedCount}
-                            {t.capacity != null ? `/${t.capacity}` : ''}
-                            {full ? ' - Full' : ''})
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={busy || !territorySelection || territorySelection === partner.territory_id}
-                      onClick={handleAssignTerritory}
-                      className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
-                    >
-                      {partner.territory_id ? 'Change' : 'Assign'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">Parent Partner</p>
-                {eligibleParents.length === 0 ? (
-                  <p className="mt-1.5 text-sm text-lf-cream/50">
-                    {partner.partner_type === 'franchise'
-                      ? 'Franchise partners have no parent - they report to Lean & Fit directly.'
-                      : 'No eligible upstream partners exist yet.'}
-                  </p>
-                ) : (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <select
-                      value={parentSelection}
-                      onChange={(e) => setParentSelection(e.target.value)}
-                      className="rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
-                    >
-                      <option value="">None (Lean &amp; Fit)</option>
-                      {eligibleParents.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name} ({partnerTypeLabel(p.partner_type)})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={busy || parentSelection === (partner.parent_partner_id ?? '')}
-                      onClick={handleAssignParent}
-                      className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">Status</p>
-                {partner.status === 'active' ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={handleSuspend}
-                    className="btn-outline mt-2 !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
-                  >
-                    Suspend Partner
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={handleReactivate}
-                    className="btn-gold mt-2 !px-5 !py-2.5 !text-sm disabled:opacity-50"
-                  >
-                    Reactivate Partner
-                  </button>
-                )}
-              </div>
+              <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Status</h2>
+              {partner.status === 'active' ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleSuspend}
+                  className="btn-outline mt-3 !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
+                >
+                  Suspend Partner
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={handleReactivate}
+                  className="btn-gold mt-3 !px-5 !py-2.5 !text-sm disabled:opacity-50"
+                >
+                  Reactivate Partner
+                </button>
+              )}
             </section>
           )}
         </div>

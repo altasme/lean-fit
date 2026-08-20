@@ -3,7 +3,6 @@ import { AdminLayout } from '../../components/admin/AdminLayout';
 import { useToast } from '../../components/ui/Toast';
 import { createStaffAccount, listStaffAccounts } from '../../lib/adminStaff';
 import type { StaffAccount } from '../../lib/adminStaff';
-import { generatePassword } from '../../lib/adminPartners';
 
 const inputClass =
   'w-full rounded-sm border border-white/15 bg-lf-black px-4 py-3 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none';
@@ -20,7 +19,7 @@ export default function AdminStaff() {
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(() => generatePassword());
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -47,7 +46,7 @@ export default function AdminStaff() {
       showToast('Staff account created - credentials emailed.');
       setFullName('');
       setEmail('');
-      setPassword(generatePassword());
+      setPassword('');
       load();
     } finally {
       setSubmitting(false);
@@ -79,16 +78,12 @@ export default function AdminStaff() {
         </div>
         <div>
           <label className={labelClass}>Password</label>
-          <div className="flex flex-wrap items-center gap-2">
-            <input value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputClass} flex-1`} />
-            <button
-              type="button"
-              onClick={() => setPassword(generatePassword())}
-              className="text-xs text-lf-cream/50 hover:text-lf-gold"
-            >
-              Regenerate
-            </button>
-          </div>
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Type a password (min. 8 characters)"
+            className={inputClass}
+          />
         </div>
 
         {submitError && (
