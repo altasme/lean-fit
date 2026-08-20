@@ -16,6 +16,7 @@
 // joins both by order_id rather than reading payment fields off `orders`.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const BUSINESS_EMAIL = Deno.env.get('BUSINESS_NOTIFICATION_EMAIL') ?? '';
@@ -87,12 +88,13 @@ async function sendResendEmail(to: string, subject: string, html: string) {
 }
 
 Deno.serve(async (req) => {
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
   try {
     const { orderId, event: rawEvent, isNewOrder } = await req.json();
     if (!orderId || !rawEvent) {
-      return new Response(JSON.stringify({ error: 'orderId and event are required' }), {
-        status: 400,
-      });
+      return jsonResponse({ error: 'orderId and event are required' }, 400);
     }
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -102,7 +104,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (orderError || !order) {
-      return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
+      return jsonResponse({ error: 'Order not found' }, 404);
     }
 
     const { data: payment } = await supabaseAdmin
@@ -128,11 +130,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return jsonResponse({ error: String(err) }, 500);
   }
 });

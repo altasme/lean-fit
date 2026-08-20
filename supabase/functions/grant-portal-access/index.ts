@@ -25,6 +25,7 @@
 // generated anymore, the partner logs in directly with email + password.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <orders@leanandfit.ph>';
@@ -55,6 +56,9 @@ async function sendCredentialsEmail(to: string, name: string, email: string, pas
 }
 
 Deno.serve(async (req) => {
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
   try {
     const token = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const {
@@ -62,7 +66,7 @@ Deno.serve(async (req) => {
       error: authError,
     } = await supabaseAdmin.auth.getUser(token);
     if (authError || !caller) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     const { data: callerRow } = await supabaseAdmin
@@ -71,20 +75,20 @@ Deno.serve(async (req) => {
       .eq('user_id', caller.id)
       .maybeSingle();
     if (!callerRow) {
-      return new Response(JSON.stringify({ error: 'Only admins can grant portal access' }), { status: 403 });
+      return jsonResponse({ error: 'Only admins can grant portal access' }, 403);
     }
 
     const { mode, password, partnerId, fullName, email, sendEmail } = await req.json();
     if (!password || password.length < 8) {
-      return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), { status: 400 });
+      return jsonResponse({ error: 'Password must be at least 8 characters' }, 400);
     }
 
     if (mode === 'staff') {
       if (callerRow.role !== 'admin') {
-        return new Response(JSON.stringify({ error: 'Only a full admin can create staff accounts' }), { status: 403 });
+        return jsonResponse({ error: 'Only a full admin can create staff accounts' }, 403);
       }
       if (!email || !fullName) {
-        return new Response(JSON.stringify({ error: 'email and fullName are required' }), { status: 400 });
+        return jsonResponse({ error: 'email and fullName are required' }, 400);
       }
 
       const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -94,14 +98,14 @@ Deno.serve(async (req) => {
         user_metadata: { full_name: fullName },
       });
       if (createError || !created.user) {
-        return new Response(JSON.stringify({ error: createError?.message ?? 'Failed to create staff user' }), { status: 500 });
+        return jsonResponse({ error: createError?.message ?? 'Failed to create staff user' }, 500);
       }
 
       const { error: insertError } = await supabaseAdmin
         .from('admin_users')
         .insert({ user_id: created.user.id, role: 'staff_admin' });
       if (insertError) {
-        return new Response(JSON.stringify({ error: insertError.message }), { status: 500 });
+        return jsonResponse({ error: insertError.message }, 500);
       }
 
       let emailError: string | null = null;
@@ -112,17 +116,15 @@ Deno.serve(async (req) => {
           emailError = String(err);
         }
       }
-      return new Response(JSON.stringify({ ok: true, emailSent: Boolean(sendEmail) && !emailError, emailError }), {
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return jsonResponse({ ok: true, emailSent: Boolean(sendEmail) && !emailError, emailError });
     }
 
     // mode === 'partner' (default)
     if (callerRow.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Only a full admin can grant partner portal access' }), { status: 403 });
+      return jsonResponse({ error: 'Only a full admin can grant partner portal access' }, 403);
     }
     if (!partnerId) {
-      return new Response(JSON.stringify({ error: 'partnerId is required' }), { status: 400 });
+      return jsonResponse({ error: 'partnerId is required' }, 400);
     }
 
     const { data: partner, error: partnerError } = await supabaseAdmin
@@ -131,16 +133,16 @@ Deno.serve(async (req) => {
       .eq('id', partnerId)
       .single();
     if (partnerError || !partner) {
-      return new Response(JSON.stringify({ error: 'Partner not found' }), { status: 404 });
+      return jsonResponse({ error: 'Partner not found' }, 404);
     }
     if (partner.status !== 'active') {
-      return new Response(JSON.stringify({ error: 'Only an active (approved) partner can be granted access' }), { status: 400 });
+      return jsonResponse({ error: 'Only an active (approved) partner can be granted access' }, 400);
     }
 
     if (partner.user_id) {
       const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(partner.user_id, { password });
       if (updateError) {
-        return new Response(JSON.stringify({ error: updateError.message }), { status: 500 });
+        return jsonResponse({ error: updateError.message }, 500);
       }
     } else {
       const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -150,14 +152,14 @@ Deno.serve(async (req) => {
         user_metadata: { partner_id: partner.id, full_name: partner.full_name },
       });
       if (createError || !created.user) {
-        return new Response(JSON.stringify({ error: createError?.message ?? 'Failed to create partner user' }), { status: 500 });
+        return jsonResponse({ error: createError?.message ?? 'Failed to create partner user' }, 500);
       }
       const { error: linkError } = await supabaseAdmin
         .from('partners')
         .update({ user_id: created.user.id })
         .eq('id', partner.id);
       if (linkError) {
-        return new Response(JSON.stringify({ error: linkError.message }), { status: 500 });
+        return jsonResponse({ error: linkError.message }, 500);
       }
     }
 
@@ -169,11 +171,9 @@ Deno.serve(async (req) => {
         emailError = String(err);
       }
     }
-    return new Response(JSON.stringify({ ok: true, emailSent: Boolean(sendEmail) && !emailError, emailError }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true, emailSent: Boolean(sendEmail) && !emailError, emailError });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return jsonResponse({ error: String(err) }, 500);
   }
 });

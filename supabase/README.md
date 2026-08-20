@@ -200,6 +200,24 @@
     RPC directly rather than going through the UI; the "+ Add Partner"
     link and `/reseller/add-partner` route are hidden client-side too
     (`OverviewTab.tsx`, `App.tsx`).
+20. **Redeploy every Edge Function** - this one's a code fix, not SQL, but
+    it's the reason "Send Portal Access"/media uploads/order emails were
+    failing with a browser CORS error (`No 'Access-Control-Allow-Origin'
+    header`) the moment they were called from a real deployed frontend
+    instead of local dev: none of the functions answered the browser's
+    OPTIONS preflight or stamped `Access-Control-Allow-Origin` on their
+    responses - Supabase's Edge Runtime doesn't add that automatically.
+    Fixed via a shared `supabase/functions/_shared/cors.ts` helper every
+    function now imports (`_shared/` folders aren't deployed as their own
+    function, just bundled into whichever ones import them - nothing to
+    deploy for it directly). Redeploy all five to pick this up:
+    ```bash
+    supabase functions deploy grant-portal-access
+    supabase functions deploy cloudinary-sign
+    supabase functions deploy send-order-email
+    supabase functions deploy send-partner-email
+    supabase functions deploy capi-purchase
+    ```
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`

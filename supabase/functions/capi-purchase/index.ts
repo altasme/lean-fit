@@ -21,6 +21,7 @@
 //   what makes the COD "paid" signal trustworthy for optimization.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const META_CAPI_TOKEN = Deno.env.get('META_CAPI_TOKEN') ?? '';
 const META_PIXEL_ID = Deno.env.get('META_PIXEL_ID') ?? '';
@@ -31,17 +32,17 @@ const supabaseAdmin = createClient(
 );
 
 Deno.serve(async (req) => {
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
   if (!META_CAPI_TOKEN || !META_PIXEL_ID) {
-    return new Response(
-      JSON.stringify({ error: 'CAPI not configured - set META_CAPI_TOKEN and META_PIXEL_ID' }),
-      { status: 501 },
-    );
+    return jsonResponse({ error: 'CAPI not configured - set META_CAPI_TOKEN and META_PIXEL_ID' }, 501);
   }
 
   try {
     const { orderId } = await req.json();
     if (!orderId) {
-      return new Response(JSON.stringify({ error: 'orderId is required' }), { status: 400 });
+      return jsonResponse({ error: 'orderId is required' }, 400);
     }
 
     const { data: order, error } = await supabaseAdmin
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (error || !order) {
-      return new Response(JSON.stringify({ error: 'Order not found' }), { status: 404 });
+      return jsonResponse({ error: 'Order not found' }, 404);
     }
 
     const payload = {
@@ -86,14 +87,12 @@ Deno.serve(async (req) => {
 
     if (!res.ok) {
       const text = await res.text();
-      return new Response(JSON.stringify({ error: `Meta CAPI error: ${text}` }), { status: 502 });
+      return jsonResponse({ error: `Meta CAPI error: ${text}` }, 502);
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true });
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return jsonResponse({ error: String(err) }, 500);
   }
 });
 

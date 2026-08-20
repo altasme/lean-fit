@@ -11,6 +11,7 @@
 // gets uploaded to the site's media library.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const CLOUDINARY_API_KEY = Deno.env.get('CLOUDINARY_API_KEY') ?? '';
 const CLOUDINARY_API_SECRET = Deno.env.get('CLOUDINARY_API_SECRET') ?? '';
@@ -30,6 +31,9 @@ async function sha1Hex(input: string): Promise<string> {
 }
 
 Deno.serve(async (req) => {
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
   try {
     const token = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
     const {
@@ -38,18 +42,16 @@ Deno.serve(async (req) => {
     } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+      return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     if (!CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET || !CLOUDINARY_CLOUD_NAME) {
-      return new Response(JSON.stringify({ error: 'Cloudinary is not configured' }), {
-        status: 500,
-      });
+      return jsonResponse({ error: 'Cloudinary is not configured' }, 500);
     }
 
     const { slot } = await req.json();
     if (!slot || typeof slot !== 'string') {
-      return new Response(JSON.stringify({ error: 'slot is required' }), { status: 400 });
+      return jsonResponse({ error: 'slot is required' }, 400);
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
@@ -60,18 +62,15 @@ Deno.serve(async (req) => {
     const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
     const signature = await sha1Hex(paramsToSign + CLOUDINARY_API_SECRET);
 
-    return new Response(
-      JSON.stringify({
-        timestamp,
-        folder,
-        signature,
-        apiKey: CLOUDINARY_API_KEY,
-        cloudName: CLOUDINARY_CLOUD_NAME,
-      }),
-      { headers: { 'Content-Type': 'application/json' } },
-    );
+    return jsonResponse({
+      timestamp,
+      folder,
+      signature,
+      apiKey: CLOUDINARY_API_KEY,
+      cloudName: CLOUDINARY_CLOUD_NAME,
+    });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return jsonResponse({ error: String(err) }, 500);
   }
 });

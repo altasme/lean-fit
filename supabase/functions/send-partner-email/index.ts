@@ -15,6 +15,7 @@
 // (kept in sync manually - same convention as send-order-email/emails.ts).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <orders@leanandfit.ph>';
@@ -70,12 +71,13 @@ async function sendResendEmail(to: string, subject: string, html: string) {
 }
 
 Deno.serve(async (req) => {
+  const preflight = handleCorsPreflight(req);
+  if (preflight) return preflight;
+
   try {
     const { partnerId, event: rawEvent } = await req.json();
     if (!partnerId || !rawEvent) {
-      return new Response(JSON.stringify({ error: 'partnerId and event are required' }), {
-        status: 400,
-      });
+      return jsonResponse({ error: 'partnerId and event are required' }, 400);
     }
 
     const { data: partner, error: partnerError } = await supabaseAdmin
@@ -85,7 +87,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (partnerError || !partner) {
-      return new Response(JSON.stringify({ error: 'Partner not found' }), { status: 404 });
+      return jsonResponse({ error: 'Partner not found' }, 404);
     }
 
     const event = rawEvent as PartnerEmailEvent;
@@ -95,11 +97,9 @@ Deno.serve(async (req) => {
       await sendResendEmail(partner.email, subjectFn(), renderCustomerBody(event, partner));
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonResponse({ ok: true });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return jsonResponse({ error: String(err) }, 500);
   }
 });
