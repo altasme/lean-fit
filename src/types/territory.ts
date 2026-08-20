@@ -21,18 +21,21 @@ export const TERRITORY_LEVEL_LABELS: Record<TerritoryLevel, string> = {
 };
 
 /**
- * Which partner type occupies which territory level - spec Part 1 §7
- * (strict 1:1 mapping). Province has no entry - it's never assignable.
+ * Which partner type(s) occupy which territory level. No longer 1:1 -
+ * Distributor and Reseller are both barangay-level now, with independent
+ * capacity per barangay (a barangay can have an active Distributor AND an
+ * active Reseller at once - see migration 0016). Franchise is city-level
+ * (moved down from region). Region/province have no entry - never
+ * directly assignable to a partner.
  */
-export const TERRITORY_LEVEL_PARTNER_TYPE = {
-  region: 'franchise',
-  city: 'distributor',
-  barangay: 'reseller',
+export const TERRITORY_LEVEL_PARTNER_TYPES = {
+  city: ['franchise'],
+  barangay: ['distributor', 'reseller'],
 } as const;
 
 /** Reverse of the above - which territory level a given partner type is assigned at. */
 export const PARTNER_TYPE_TERRITORY_LEVEL = {
-  franchise: 'region',
-  distributor: 'city',
+  franchise: 'city',
+  distributor: 'barangay',
   reseller: 'barangay',
 } as const;

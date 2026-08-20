@@ -20,6 +20,7 @@ export default function AdminStaff() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [sendEmail, setSendEmail] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -38,15 +39,19 @@ export default function AdminStaff() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const { error: createError } = await createStaffAccount({ fullName: fullName.trim(), email: email.trim(), password });
+      const { error: createError } = await createStaffAccount(
+        { fullName: fullName.trim(), email: email.trim(), password },
+        sendEmail,
+      );
       if (createError) {
         setSubmitError(createError);
         return;
       }
-      showToast('Staff account created - credentials emailed.');
+      showToast(sendEmail ? 'Staff account created - credentials emailed.' : 'Staff account created.');
       setFullName('');
       setEmail('');
       setPassword('');
+      setSendEmail(false);
       load();
     } finally {
       setSubmitting(false);
@@ -59,7 +64,8 @@ export default function AdminStaff() {
       <p className="mt-2 max-w-2xl text-sm text-lf-cream/60">
         Staff accounts can view and act on Orders, but can't edit Products, Promotions, or Partner
         Pricing. They log in the same way at{' '}
-        <span className="text-lf-cream/80">/admin/login</span> with the email and password you set here.
+        <span className="text-lf-cream/80">/admin/login</span> with the email and password you set
+        here - just tell them in person, or check the box below to also email it.
       </p>
 
       <form
@@ -85,6 +91,16 @@ export default function AdminStaff() {
             className={inputClass}
           />
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-lf-cream/80">
+          <input
+            type="checkbox"
+            checked={sendEmail}
+            onChange={(e) => setSendEmail(e.target.checked)}
+            className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
+          />
+          Also email these credentials to them now
+        </label>
 
         {submitError && (
           <p className="rounded-sm border border-lf-error/40 bg-lf-error/10 px-4 py-3 text-sm text-lf-error">

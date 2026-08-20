@@ -130,12 +130,13 @@ export default function AddPartner() {
     );
   }
 
-  // Part 2 §28 containment: a sponsor's own coverage area is fixed, not
-  // chosen - a Distributor's new Reseller is always within their own city,
-  // a Franchise's new Distributor/Reseller is always within their own
-  // region. TerritoryPicker hides the corresponding step's UI accordingly.
-  const lockedCityId = partner.partner_type === 'distributor' ? partner.territory_id ?? undefined : undefined;
-  const lockedRegionId = partner.partner_type === 'franchise' ? partner.territory_id ?? undefined : undefined;
+  // Part 2 §28's containment (a sponsor's coverage area confines who they
+  // can onboard) was deferred - migration 0016 moved Franchise to
+  // city-level and Distributor to barangay-level, so the old "lock the
+  // step matching my own territory" trick no longer lines up (a
+  // Distributor's own territory is a barangay now, not a city). Picker
+  // shows the full region/city/barangay flow unlocked until containment
+  // is redesigned for the new levels.
 
   return (
     <PartnerLayout>
@@ -224,8 +225,6 @@ export default function AddPartner() {
           key={form.partnerType}
           partnerType={form.partnerType}
           onChange={handleTerritoryChange}
-          lockedRegionId={lockedRegionId}
-          lockedCityId={lockedCityId}
         />
         {errors.territoryId && <p className="text-xs text-lf-error">{errors.territoryId}</p>}
         {errors.barangayName && <p className="text-xs text-lf-error">{errors.barangayName}</p>}

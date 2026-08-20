@@ -31,16 +31,17 @@ export async function getPartnerProofSignedUrl(path: string): Promise<string> {
  * directly via the `grant-portal-access` Edge Function - admin-only,
  * service-role. Creates the Supabase Auth user and links `partners.user_id`
  * the first time, or just updates the password if they already have a
- * login. The partner's credentials are emailed to them either way (item
- * #6 - "Send Portal Access"). Never throws - delivery is best-effort, same
- * reasoning as `writeAuditLog`; callers surface `error` in a toast instead.
+ * login. Setting the password always happens; emailing the credentials to
+ * the partner is a separate, optional step (`sendEmail`, default off - the
+ * admin often just tells them in person).
  */
 export async function grantPartnerPortalAccess(
   partnerId: string,
   password: string,
+  sendEmail = false,
 ): Promise<{ error: string | null }> {
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
-    body: { mode: 'partner', partnerId, password },
+    body: { mode: 'partner', partnerId, password, sendEmail },
   });
   if (error) return { error: error.message };
   if (data?.error) return { error: data.error as string };

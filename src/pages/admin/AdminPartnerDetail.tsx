@@ -31,6 +31,7 @@ export default function AdminPartnerDetail() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [accessPassword, setAccessPassword] = useState('');
+  const [sendAccessEmail, setSendAccessEmail] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -53,7 +54,7 @@ export default function AdminPartnerDetail() {
     setBusy(true);
     try {
       const { referralCode } = await approvePartner(partner.id);
-      showToast(`Partner approved - referral code ${referralCode}. Set their portal password below to send access.`);
+      showToast(`Partner approved - referral code ${referralCode}. Set their portal password below.`);
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Approval failed.', 'error');
@@ -66,12 +67,13 @@ export default function AdminPartnerDetail() {
     if (!partner || accessPassword.length < 8) return;
     setBusy(true);
     try {
-      const { error } = await grantPartnerPortalAccess(partner.id, accessPassword);
+      const { error } = await grantPartnerPortalAccess(partner.id, accessPassword, sendAccessEmail);
       if (error) {
-        showToast(`Could not send portal access: ${error}`, 'error');
+        showToast(`Could not set portal access: ${error}`, 'error');
       } else {
-        showToast('Portal access sent - the partner has been emailed their login.');
+        showToast(sendAccessEmail ? 'Portal access set - credentials emailed.' : 'Portal access set.');
         setAccessPassword('');
+        setSendAccessEmail(false);
       }
       await load();
     } finally {
@@ -253,13 +255,22 @@ export default function AdminPartnerDetail() {
                   />
                 </div>
                 <p className="mt-1 text-xs text-lf-cream/40">Login email: {partner.email}</p>
+                <label className="mt-3 flex items-center gap-2 text-sm text-lf-cream/80">
+                  <input
+                    type="checkbox"
+                    checked={sendAccessEmail}
+                    onChange={(e) => setSendAccessEmail(e.target.checked)}
+                    className="h-4 w-4 rounded-sm border-white/20 bg-lf-black accent-lf-gold"
+                  />
+                  Also email these credentials to the partner now
+                </label>
                 <button
                   type="button"
                   disabled={busy || accessPassword.length < 8}
                   onClick={handleSendPortalAccess}
                   className="btn-outline mt-3 !px-5 !py-2.5 !text-sm disabled:opacity-50"
                 >
-                  Send Portal Access
+                  Set Portal Access
                 </button>
               </div>
             )}

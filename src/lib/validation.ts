@@ -107,7 +107,12 @@ export function validateAdminCreatePartner(input: AdminCreatePartnerInput): Admi
   }
   if (!input.partnerType) errors.partnerType = 'Select a partner type.';
   if (!input.territoryId) errors.territoryId = 'Select a territory.';
-  if (input.partnerType === 'reseller' && !input.barangayName) errors.barangayName = 'Select a barangay.';
+  if (
+    (input.partnerType === 'reseller' || input.partnerType === 'distributor') &&
+    !input.barangayName
+  ) {
+    errors.barangayName = 'Select a barangay.';
+  }
 
   return errors;
 }
@@ -138,7 +143,12 @@ export function validateOnboardPartner(input: OnboardPartnerInput): OnboardPartn
   }
   if (!input.address.trim()) errors.address = 'Address is required.';
   if (!input.territoryId) errors.territoryId = 'Select a territory.';
-  if (input.partnerType === 'reseller' && !input.barangayName) errors.barangayName = 'Select a barangay.';
+  if (
+    (input.partnerType === 'reseller' || input.partnerType === 'distributor') &&
+    !input.barangayName
+  ) {
+    errors.barangayName = 'Select a barangay.';
+  }
 
   return errors;
 }

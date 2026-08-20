@@ -174,6 +174,24 @@
       for the Order Management "Return to Seller" exception (shipped-stage
       only, deliberately excluded from revenue regardless of payment
       status - see `OrderStats.tsx`).
+18. Run `supabase/migrations/0016_territory_level_remap.sql` in the SQL
+    editor, after 0015 (single paste, no secret/function deploy needed).
+    Client decisions this encodes:
+    - **Franchise moves to city-level** (was region-level); **Distributor
+      moves to barangay-level** (was city-level, now the same granularity
+      as Reseller).
+    - **No limit** on the number of Franchise, Distributor, or Reseller
+      partners at all - capacity checking is removed from
+      `resolve_and_reserve_territory()`/`assign_partner_territory()`
+      entirely. `territories.capacity` is left in the schema (unused)
+      rather than dropped, in case limits come back later.
+    - Not touched (deferred by the client): the sponsor-onboarding
+      containment checks in `onboard_partner()` that used to confine a
+      Distributor/Franchise to onboarding within their own territory -
+      those compared same-granularity ids under the old level mapping,
+      which no longer holds, so they were removed rather than left
+      silently always-failing. A real containment model for the new
+      levels is a separate design task.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`

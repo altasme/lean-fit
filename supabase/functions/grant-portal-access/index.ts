@@ -2,16 +2,20 @@
 // partner or a new staff account, no email-invite-link flow (replaces the
 // old invite-partner function, which used Supabase Auth's inviteUserByEmail/
 // resetPasswordForEmail - the client's brief now wants admin to set
-// username(=email)/password directly and have those credentials emailed to
-// the account holder, not a "click here to set your own password" link).
+// username(=email)/password directly, not a "click here to set your own
+// password" link).
 //
 // Two modes:
-//   mode: 'partner' - links/creates the auth user, sets partners.user_id,
-//     sends the partner their credentials via send-partner-email.
+//   mode: 'partner' - links/creates the auth user, sets partners.user_id.
 //   mode: 'staff' - creates the auth user, inserts an admin_users row with
 //     role 'staff_admin'. Only a FULL admin (role='admin') may create staff
 //     accounts - checked here server-side via admin_users.role, not just
 //     "is this caller an admin at all."
+//
+// Emailing the credentials is opt-in (`sendEmail: true` in the request
+// body), never automatic - staff and partners are both told their login in
+// person as often as not, so the account is always created/password set
+// regardless, and the email is a separate, optional courtesy on top.
 //
 // Secrets required (set with `supabase secrets set KEY=value`):
 //   RESEND_API_KEY, EMAIL_FROM (already set - reused from send-order-email/
@@ -70,7 +74,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Only admins can grant portal access' }), { status: 403 });
     }
 
-    const { mode, password, partnerId, fullName, email } = await req.json();
+    const { mode, password, partnerId, fullName, email, sendEmail } = await req.json();
     if (!password || password.length < 8) {
       return new Response(JSON.stringify({ error: 'Password must be at least 8 characters' }), { status: 400 });
     }
@@ -100,8 +104,17 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: insertError.message }), { status: 500 });
       }
 
-      await sendCredentialsEmail(email, fullName, email, password, 'Staff Admin');
-      return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+      let emailError: string | null = null;
+      if (sendEmail) {
+        try {
+          await sendCredentialsEmail(email, fullName, email, password, 'Staff Admin');
+        } catch (err) {
+          emailError = String(err);
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, emailSent: Boolean(sendEmail) && !emailError, emailError }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     // mode === 'partner' (default)
@@ -148,8 +161,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    await sendCredentialsEmail(partner.email, partner.full_name, partner.email, password, 'Partner Portal');
-    return new Response(JSON.stringify({ ok: true }), { headers: { 'Content-Type': 'application/json' } });
+    let emailError: string | null = null;
+    if (sendEmail) {
+      try {
+        await sendCredentialsEmail(partner.email, partner.full_name, partner.email, password, 'Partner Portal');
+      } catch (err) {
+        emailError = String(err);
+      }
+    }
+    return new Response(JSON.stringify({ ok: true, emailSent: Boolean(sendEmail) && !emailError, emailError }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: String(err) }), { status: 500 });

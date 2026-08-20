@@ -6,7 +6,6 @@ import type { Partner, PartnerPricingTier, PartnerStatus, PartnerType } from '..
 import { PARTNER_PACKAGE_BOXES } from '../types/partner';
 import type { Product } from '../types/product';
 import type { PaymentMethodId, PaymentStatus } from '../types/payment';
-import type { TerritoryLevel } from '../types/territory';
 
 /**
  * The signed-in partner's own record, via the "partner can read own
@@ -174,29 +173,6 @@ export async function submitPartnerPackagePayment(
   void notifyPartnerEvent(row.partner_id, 'package_payment_submitted');
 
   return { partnerId: row.partner_id, paymentStatus: row.payment_status };
-}
-
-export type TerritoryOption = {
-  id: string;
-  name: string;
-  parentId: string | null;
-  capacity: number | null;
-  occupied: number;
-};
-
-/**
- * Capacity-aware territory options for the "Add Partner" form's picker -
- * migration 0011's list_territories_with_occupancy() RPC, since a
- * partner's own `partners` RLS visibility (migration 0009) doesn't extend
- * to computing occupancy across arbitrary other partners themselves.
- */
-export async function fetchTerritoriesWithOccupancy(level: TerritoryLevel): Promise<TerritoryOption[]> {
-  const { data, error } = await supabase.rpc('list_territories_with_occupancy', { p_level: level });
-  if (error) throw new Error(error.message);
-
-  return ((data ?? []) as { id: string; name: string; parent_id: string | null; capacity: number | null; occupied: number }[]).map(
-    (t) => ({ id: t.id, name: t.name, parentId: t.parent_id, capacity: t.capacity, occupied: t.occupied }),
-  );
 }
 
 export type OnboardedPartner = { partnerId: string; status: PartnerStatus };
