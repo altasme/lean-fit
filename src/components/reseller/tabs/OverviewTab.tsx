@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useToast } from '../../ui/Toast';
 import { buildReferralUrl } from '../../../lib/partners';
 import { formatPHP } from '../../../lib/format';
-import { ONBOARDABLE_PARTNER_TYPES, partnerTypeLabel } from '../../../types/partner';
+import { partnerTypeLabel } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
 
 // Phase D's original dashboard content (referral identity + account
 // summary), now the "Overview" tab alongside Phase F's other sections.
 // Parent/downstream partner display (spec §46) is populated by Phase G's
-// admin reassignment or Part 2's onboard_partner() (sponsor becomes
-// parent automatically). The "Add Partner" entry point (Part 2 §1 Route
-// B) only renders for Distributor/Franchise - Resellers can't onboard
-// anyone (spec §3), so there's nothing to link to for them.
+// admin reassignment. Partner-assisted onboarding (Part 2 §1 Route B,
+// "+ Add Partner" here) is disabled by client decision - partners can no
+// longer onboard other partners, that's admin-only now (migration 0017,
+// see pages/reseller/AddPartner.tsx and App.tsx for how it's hidden
+// rather than deleted). Parent/downstream display stays since it's
+// read-only history, not a new-onboarding capability.
 export function OverviewTab({
   partner,
   parentPartner,
@@ -143,19 +144,9 @@ export function OverviewTab({
         </section>
 
         <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-              Partner Network
-            </h2>
-            {/* partner.partner_type is always set here - RequirePartnerAuth already
-                gates on status === 'active', which only ever happens after a
-                partner_type is assigned (a pending lead never reaches this page). */}
-            {ONBOARDABLE_PARTNER_TYPES[partner.partner_type!].length > 0 && (
-              <Link to="/reseller/add-partner" className="btn-outline !px-3 !py-1.5 !text-xs">
-                + Add Partner
-              </Link>
-            )}
-          </div>
+          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+            Partner Network
+          </h2>
           <dl className="mt-4 space-y-1.5 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-lf-cream/60">Parent Partner</dt>

@@ -7,7 +7,10 @@ import Reseller from './pages/Reseller';
 import PartnerLogin from './pages/reseller/PartnerLogin';
 import PartnerSetPassword from './pages/reseller/PartnerSetPassword';
 import PartnerDashboard from './pages/reseller/PartnerDashboard';
-import AddPartner from './pages/reseller/AddPartner';
+// AddPartner (partner-assisted onboarding, Part 2 Route B) is hidden -
+// partners can no longer onboard other partners (client decision,
+// migration 0017 also rejects the RPC server-side) - see the
+// /reseller/add-partner route below.
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
@@ -124,16 +127,12 @@ export default function App() {
               </PartnerAuthProvider>
             }
           />
-          <Route
-            path="/reseller/add-partner"
-            element={
-              <PartnerAuthProvider>
-                <RequirePartnerAuth>
-                  <AddPartner />
-                </RequirePartnerAuth>
-              </PartnerAuthProvider>
-            }
-          />
+          {/* Add Partner is built but hidden for now (nav link removed in
+              OverviewTab.tsx) - redirect rather than leaving a dead
+              direct-URL route. Swap back to <AddPartner /> to re-enable
+              (also revert migration 0017's unconditional rejection in
+              onboard_partner()). */}
+          <Route path="/reseller/add-partner" element={<Navigate to="/reseller/dashboard" replace />} />
 
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route

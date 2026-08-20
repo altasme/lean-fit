@@ -192,6 +192,14 @@
       which no longer holds, so they were removed rather than left
       silently always-failing. A real containment model for the new
       levels is a separate design task.
+19. Run `supabase/migrations/0017_disable_partner_onboarding.sql` in the
+    SQL editor, after 0016 (single paste). Client decision: partners can
+    no longer onboard other partners - Part 2 Route B is disabled.
+    `onboard_partner()` now unconditionally rejects (rest of its body is
+    left in place, not deleted) so this holds even if a partner calls the
+    RPC directly rather than going through the UI; the "+ Add Partner"
+    link and `/reseller/add-partner` route are hidden client-side too
+    (`OverviewTab.tsx`, `App.tsx`).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
