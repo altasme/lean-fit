@@ -105,30 +105,55 @@ export const PRODUCT = {
   ],
 
   /**
-   * The subset of `ingredients` above with an actual wellness story to
-   * tell (spec §5.7) - Non-Dairy Creamer/Premix Coffee Powder/Sweetener
-   * Blend/Hazelnut Flavor are base/flavor ingredients with nothing
-   * distinct to spotlight, same reasoning that kept "Instant Coffee" and
-   * "Natural Flavors" out of this list before. Blurbs are deliberately
-   * descriptive, not efficacy claims (e.g. Garcinia Cambogia isn't said
-   * to DO anything) - claim approval is still open per §15.4.
+   * All 8 of `ingredients` above, as cards (spec §5.7) - the 4 with an
+   * actual wellness story get highlighted (`functional: true`) in
+   * IngredientsSpotlight.tsx; the other 4 (Non-Dairy Creamer/Premix
+   * Coffee Powder/Sweetener Blend/Hazelnut Flavor) are the base/flavor
+   * blend and get plainer, purely descriptive cards - nothing dishonestly
+   * inflated just to give them a "benefit." Blurbs throughout are
+   * deliberately descriptive, not efficacy claims (e.g. Garcinia Cambogia
+   * isn't said to DO anything) - claim approval is still open per §15.4.
    */
   functionalIngredients: [
     {
       name: 'Whey Protein Concentrate',
       blurb: 'A quality protein source to help keep you full and support an active lifestyle.',
+      functional: true,
     },
     {
       name: 'Garcinia Cambogia',
       blurb: 'A popular addition to many wellness and weight-management routines.',
+      functional: true,
     },
     {
       name: 'Hydrolyzed Collagen',
       blurb: 'Supports skin, joints, and connective tissue.',
+      functional: true,
     },
     {
       name: 'Chia Seed',
       blurb: 'Fiber and micronutrients in every sachet.',
+      functional: true,
+    },
+    {
+      name: 'Non-Dairy Creamer',
+      blurb: 'Gives every cup its smooth, creamy texture.',
+      functional: false,
+    },
+    {
+      name: 'Premix Coffee Powder',
+      blurb: 'The coffee base itself, for a familiar coffee taste in every sachet.',
+      functional: false,
+    },
+    {
+      name: 'Sweetener & Flavor Premix',
+      blurb: 'A light sweetness (Stevia/Sucralose Blend) with virtually no added sugar.',
+      functional: false,
+    },
+    {
+      name: 'Hazelnut Flavor',
+      blurb: 'Rounds out the blend with a warm, nutty finish.',
+      functional: false,
     },
   ],
 
