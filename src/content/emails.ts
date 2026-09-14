@@ -42,7 +42,7 @@ export const CUSTOMER_EMAILS: Record<OrderEmailEvent, EmailTemplate> = {
     subject: () => 'Your Lean & Fit Payment Has Been Verified',
     heading: 'PAYMENT VERIFIED',
     body: (v) =>
-      `Hi ${v.customerName}, your payment for order #${v.orderNo} has been verified. We're getting your Lean & Fit Protein Coffee ready.`,
+      `Hi ${v.customerName}, your order and payment for #${v.orderNo} is confirmed. We will pack your order and ship it shortly.`,
   },
   payment_rejected: {
     subject: () => 'Action Required - Lean & Fit Payment Verification',
@@ -59,7 +59,7 @@ export const CUSTOMER_EMAILS: Record<OrderEmailEvent, EmailTemplate> = {
     subject: () => 'Your Lean & Fit Order Has Shipped',
     heading: 'ORDER SHIPPED',
     body: (v) =>
-      `Hi ${v.customerName}, order #${v.orderNo} is on its way via ${v.courier} - tracking number ${v.trackingNumber}.`,
+      `Hi ${v.customerName}, order #${v.orderNo} has been shipped through ${v.courier} with tracking number ${v.trackingNumber}.`,
   },
 };
 
@@ -72,9 +72,10 @@ export const BUSINESS_NEW_ORDER_EMAIL = {
  * Partner-side email events, sent via supabase/functions/send-partner-email
  * (mirrors send-order-email's structure, kept as its own function since it
  * reads from `partners` rather than `orders`/`payments`). Just the one event
- * for now (Issue #1's confirmation email) - `payment_approved`'s "portal
- * login details" email is already covered separately by the invite-partner
- * Edge Function's own Supabase auth invite email, not this one.
+ * for now (Issue #1's confirmation email) - there's no automatic email on
+ * partner approval/activation; portal credentials are only ever emailed as
+ * an admin-triggered opt-in (grant-portal-access, "Also email these
+ * credentials" checkbox), never automatically.
  */
 export type PartnerEmailEvent = 'package_payment_submitted';
 

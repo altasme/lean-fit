@@ -298,6 +298,35 @@
     - `approve_partner()` needed no change - it already sets `'active'`
       unconditionally with no status filter, so it works the same from
       `'pending'` or `'onboarding'`.
+25. **Client supplied the final Resend API key and sending identity** -
+    set (or update) both secrets:
+    ```bash
+    supabase secrets set RESEND_API_KEY=<the key the client gave you - not written here, never commit a live API key to the repo>
+    supabase secrets set EMAIL_FROM="Lean & Fit <no-reply@leanandfit.ph>"
+    ```
+    This supersedes the "still pending" `orders@leanandfit.ph` note further
+    down - the client's final answer is `no-reply@leanandfit.ph` (they
+    initially wrote `no-reply.leanandfit.ph`, missing the `@`, which isn't
+    a valid address on its own - confirmed with them before using it). All
+    three Edge Functions that send mail (`send-order-email`,
+    `send-partner-email`, `grant-portal-access`) already default to this
+    address in code if `EMAIL_FROM` isn't set, but the live secret should
+    still be set explicitly rather than relying on that fallback. Redeploy
+    all three after setting the secrets so they pick up the new default
+    (only matters if the secret is ever unset - setting it takes effect
+    immediately either way, no redeploy strictly required for the secret
+    itself, but these three also got a small copy update this same pass -
+    see the customer-email copy changes below - so redeploy anyway):
+    ```bash
+    supabase functions deploy send-order-email
+    supabase functions deploy send-partner-email
+    supabase functions deploy grant-portal-access
+    ```
+    Also confirms the client's answer on email scope: keep all of
+    `payment_rejected` (customer), the internal new-order notification
+    (`BUSINESS_NOTIFICATION_EMAIL`), and `package_payment_submitted`
+    (partner) - none of those are being removed, only `payment_approved`'s
+    and `shipped`'s copy changed (see `src/content/emails.ts`).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -320,9 +349,10 @@ Pages"). Three follow-ups this creates, none done yet:
   to the Cloudflare Pages project (the `admin.leanandfit.ph` custom domain
   from the prior interim domain must be re-added under the new zone -
   DNS doesn't carry over automatically between domains).
-- Verify a `leanandfit.ph` sending domain in Resend, then update the
-  `EMAIL_FROM` secret to match (`supabase secrets set EMAIL_FROM="Lean &
-  Fit <orders@leanandfit.ph>"`) - the interim sender identity
+- Verify a `leanandfit.ph` sending domain in Resend, then set the
+  `EMAIL_FROM` secret per step 25 above (`no-reply@leanandfit.ph`, not
+  `orders@leanandfit.ph` as originally planned here - superseded by the
+  client's final answer) - the interim sender identity
   (`realfitorders@altasme.com`) still works but should be retired once
   the new domain is verified.
 - **Still not deployed at all:** migration 0014 and the renamed

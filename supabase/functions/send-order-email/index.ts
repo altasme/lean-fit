@@ -20,7 +20,7 @@ import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const BUSINESS_EMAIL = Deno.env.get('BUSINESS_NOTIFICATION_EMAIL') ?? '';
-const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <orders@leanandfit.ph>';
+const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfit.ph>';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -54,13 +54,13 @@ function renderCustomerBody(event: OrderEmailEvent, order: Record<string, unknow
     case 'order_confirmed_cod':
       return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is confirmed for Cash on Delivery. Please have ₱${order.total} ready when your order arrives.</p>`;
     case 'payment_approved':
-      return `<p>Hi ${name},</p><p>Your payment for order <strong>#${orderNo}</strong> has been verified. We're getting your Lean & Fit Protein Coffee ready.</p>`;
+      return `<p>Hi ${name},</p><p>Your order and payment for <strong>#${orderNo}</strong> is confirmed. We will pack your order and ship it shortly.</p>`;
     case 'payment_rejected':
       return `<p>Hi ${name},</p><p>We couldn't verify the payment details submitted for order <strong>#${orderNo}</strong>. Please reply to this email or resubmit your proof of payment so we can continue processing your order.</p>`;
     case 'packing':
       return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is being packed and will ship soon.</p>`;
     case 'shipped':
-      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is on its way via ${order.courier ?? 'our courier'} - tracking number ${order.tracking_number ?? 'TBD'}.</p>`;
+      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> has been shipped through ${order.courier ?? 'our courier'} with tracking number ${order.tracking_number ?? 'TBD'}.</p>`;
     default:
       return `<p>Hi ${name}, there's an update on your order #${orderNo}.</p>`;
   }
