@@ -102,8 +102,9 @@ export const TAGLINE = {
 ### 4c. CONFIRM BEFORE LAUNCH — not final
 1. **Price** — absent from every asset. Checkout math is blocked on this.
 2. **15g vs 20g** — image 11 is an older/dead design (20g, 24g serving, soya, different logo, `leanandfit.com`). Confirm dead; all live copy = 15g / whey / `@leanfitcoffee`.
-3. **Senna** — image 5 lists "Laxative (Senna Leaf Extract)." Changes honest "daily/anytime" copy. Confirm in final formula.
-4. **Ingredient list** — differs image 5 vs 10 vs 11. Get one approved list.
+3. ✅ **Senna** — resolved 2026-09-14: client-supplied final formula has no Senna Leaf Extract. The "daily/anytime" usage copy no longer needs a laxative caveat.
+4. ✅ **Ingredient list** — resolved 2026-09-14: client supplied the final formula (`src/content/product.ts` `PRODUCT.ingredients`/`functionalIngredients`) — Whey Protein Concentrate, Non-Dairy Creamer, Premix Coffee Powder, Garcinia Cambogia, Hydrolyzed Collagen, Chia Seed, Sweetener & Flavor Premix (Stevia/Sucralose Blend), Hazelnut Flavor.
+   - ⚠️ **New open item this created:** that formula's ingredient weights total **21g net per sachet**, not the `sachetGrams: 25` locked above / `nutrition.servingSize: "1 Sachet (25g)"` below — and its 10g Whey Protein *Concentrate* line (concentrate isn't 100% protein by weight) doesn't obviously add up to the locked `metrics.protein: "15g"`. Not corrected here since I have no basis to invent replacement numbers - confirm the true net sachet weight and get an updated protein/full-nutrition breakdown from the manufacturer before launch. A nutrition panel overstating protein or showing the wrong net weight is a labeling/compliance risk, not just a copy question.
 5. **Final claims** — keep in `PRODUCT.claims`; default to lifestyle framing where unconfirmed.
 
 ---
@@ -385,7 +386,7 @@ Mode A needs `ENABLE_GARDEN_IMAGEGEN` + `OPENAI_API_KEY`; else the skill returns
 
 1. **Base price (PHP)** ✅ locked at ₱250 + delivery fee(s)/coverage — still open.
 2. Confirm image 11 (20g) dead → all copy 15g — still open (site treats 15g/whey as canonical in the meantime).
-3. Final ingredient list + senna yes/no — still open.
+3. ✅ Final ingredient list + senna — resolved 2026-09-14 (no senna in the final formula) — but see §4c.4's new open item: the supplied formula's weights total 21g/sachet and its whey concentrate line doesn't clearly support the locked 25g sachet / 15g protein figures. Needs a corrected nutrition breakdown from the manufacturer before launch.
 4. Approved claim list — still open.
 5. Locked tagline — still open (default in place).
 6. Payment account details + **GCash & Maya QR** + bank details — still open.

@@ -63,22 +63,32 @@ export const PRODUCT = {
   prep: ['Tear 1 sachet', 'Add 180ml hot water', 'Stir', 'Enjoy'],
 
   /**
-   * ⚠️ SEE §4c.4 - ingredient list differs across supplied assets.
-   * Placeholder list below; client must approve one final list before launch.
-   * Includes Senna Leaf Extract per image 5 - confirm §4c.3 before launch,
-   * this changes "daily / anytime" usage copy if it stays in the formula.
+   * Final formula, client-supplied (2026-09-14) - resolves §4c.3/§4c.4:
+   * no Senna Leaf Extract in this formula (the "daily/anytime" usage copy
+   * in §5 no longer needs the laxative caveat), and this is the one
+   * approved ingredient list, superseding the placeholder that mixed
+   * ingredients from images 5/10/11.
+   *
+   * ⚠️ NOT YET RECONCILED: the client's ingredient-weight breakdown totals
+   * 21.00g net per sachet, not the 25g locked in `sachetGrams` above /
+   * `nutrition.servingSize` below, and its Whey Protein Concentrate line
+   * (10g of the sachet, and whey protein CONCENTRATE is well under 100%
+   * protein by weight) doesn't obviously support the locked "15g protein"
+   * in `metrics.protein` / `nutrition.protein`. Left those numbers
+   * untouched rather than guessing corrected figures - flag to the client
+   * before launch, since a nutrition panel overstating protein or the
+   * wrong net weight is a real labeling/compliance risk, not just
+   * marketing copy.
    */
   ingredients: [
-    'Whey Protein Isolate',
-    'Instant Coffee',
-    'Inulin (Prebiotic Fiber)',
-    'L-Carnitine',
-    'Green Tea Extract',
+    'Whey Protein Concentrate',
+    'Non-Dairy Creamer',
+    'Premix Coffee Powder',
+    'Garcinia Cambogia',
+    'Hydrolyzed Collagen',
     'Chia Seed',
-    'Collagen Peptides',
-    'Natural Flavors',
-    'Stevia',
-    'Laxative (Senna Leaf Extract)', // ⛔ confirm before launch - §4c.3
+    'Sweetener & Flavor Premix (Stevia/Sucralose Blend)',
+    'Hazelnut Flavor',
   ],
 
   /**
@@ -94,30 +104,31 @@ export const PRODUCT = {
     'Aids digestion', // ⛔ unconfirmed functional claim - verify before launch
   ],
 
+  /**
+   * The subset of `ingredients` above with an actual wellness story to
+   * tell (spec §5.7) - Non-Dairy Creamer/Premix Coffee Powder/Sweetener
+   * Blend/Hazelnut Flavor are base/flavor ingredients with nothing
+   * distinct to spotlight, same reasoning that kept "Instant Coffee" and
+   * "Natural Flavors" out of this list before. Blurbs are deliberately
+   * descriptive, not efficacy claims (e.g. Garcinia Cambogia isn't said
+   * to DO anything) - claim approval is still open per §15.4.
+   */
   functionalIngredients: [
     {
-      name: 'Whey Protein',
-      blurb: 'Complete protein to support lean muscle and satiety.',
+      name: 'Whey Protein Concentrate',
+      blurb: 'A quality protein source to help keep you full and support an active lifestyle.',
     },
     {
-      name: 'Inulin',
-      blurb: 'Prebiotic fiber that supports a healthy gut.',
+      name: 'Garcinia Cambogia',
+      blurb: 'A popular addition to many wellness and weight-management routines.',
     },
     {
-      name: 'L-Carnitine',
-      blurb: 'Amino acid compound associated with energy metabolism.',
-    },
-    {
-      name: 'Green Tea Extract',
-      blurb: 'A light, natural lift alongside your coffee.',
+      name: 'Hydrolyzed Collagen',
+      blurb: 'Supports skin, joints, and connective tissue.',
     },
     {
       name: 'Chia Seed',
       blurb: 'Fiber and micronutrients in every sachet.',
-    },
-    {
-      name: 'Collagen Peptides',
-      blurb: 'Supports skin, joints, and connective tissue.',
     },
   ],
 
