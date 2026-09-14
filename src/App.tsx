@@ -4,6 +4,9 @@ import Home from './pages/Home';
 import Checkout from './pages/Checkout';
 import OrderConfirmed from './pages/OrderConfirmed';
 import ReferralRedirect from './pages/ReferralRedirect';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import RefundPolicy from './pages/RefundPolicy';
+import ShippingPolicy from './pages/ShippingPolicy';
 import Reseller from './pages/Reseller';
 import PartnerLogin from './pages/reseller/PartnerLogin';
 import PartnerSetPassword from './pages/reseller/PartnerSetPassword';
@@ -107,6 +110,30 @@ export default function App() {
             element={
               <PublicLayout>
                 <OrderConfirmed />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/privacy-policy"
+            element={
+              <PublicLayout>
+                <PrivacyPolicy />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/refund-policy"
+            element={
+              <PublicLayout>
+                <RefundPolicy />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/shipping-policy"
+            element={
+              <PublicLayout>
+                <ShippingPolicy />
               </PublicLayout>
             }
           />

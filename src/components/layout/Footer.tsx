@@ -18,6 +18,26 @@ export function Footer() {
         >
           Become A Reseller
         </Link>
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <Link
+            to="/privacy-policy"
+            className="text-xs uppercase tracking-wide2 text-lf-cream/50 transition-colors hover:text-lf-gold"
+          >
+            Privacy Policy
+          </Link>
+          <Link
+            to="/refund-policy"
+            className="text-xs uppercase tracking-wide2 text-lf-cream/50 transition-colors hover:text-lf-gold"
+          >
+            Refund Policy
+          </Link>
+          <Link
+            to="/shipping-policy"
+            className="text-xs uppercase tracking-wide2 text-lf-cream/50 transition-colors hover:text-lf-gold"
+          >
+            Shipping Policy
+          </Link>
+        </nav>
         <p className="text-xs text-lf-cream/40">
           &copy; {new Date().getFullYear()} {SITE.fullName}. All rights reserved.
         </p>
