@@ -1,5 +1,6 @@
 import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
 import { writeAuditLog } from './auditLog';
+import { functionErrorMessage } from './functionsError';
 import type { Partner, PartnerStatus, PartnerType } from '../types/partner';
 import type { AdminCreatePartnerInput } from './validation';
 
@@ -43,7 +44,7 @@ export async function grantPartnerPortalAccess(
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: { mode: 'partner', partnerId, password, sendEmail },
   });
-  if (error) return { error: error.message };
+  if (error) return { error: await functionErrorMessage(error) };
   if (data?.error) return { error: data.error as string };
   return { error: null };
 }

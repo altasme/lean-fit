@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { functionErrorMessage } from './functionsError';
 
 type SignedUploadParams = {
   timestamp: number;
@@ -20,7 +21,7 @@ export type CloudinaryUploadResult = {
 
 async function getSignedUploadParams(slot: string): Promise<SignedUploadParams> {
   const { data, error } = await supabase.functions.invoke('cloudinary-sign', { body: { slot } });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await functionErrorMessage(error));
   return data as SignedUploadParams;
 }
 

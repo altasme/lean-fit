@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { functionErrorMessage } from './functionsError';
 import type { AdminRole } from '../types/partner';
 
 /**
@@ -69,7 +70,7 @@ export async function createStaffAccount(
       sendEmail,
     },
   });
-  if (error) return { error: error.message };
+  if (error) return { error: await functionErrorMessage(error) };
   if (data?.error) return { error: data.error as string };
   return { error: null };
 }
@@ -96,7 +97,7 @@ export async function updateStaffAccount(
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: { mode: 'update_staff', ...input, sendEmail },
   });
-  if (error) return { error: error.message };
+  if (error) return { error: await functionErrorMessage(error) };
   if (data?.error) return { error: data.error as string };
   return { error: null };
 }
@@ -106,7 +107,7 @@ export async function revokeStaffAccount(staffUserId: string): Promise<{ error: 
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: { mode: 'revoke_staff', staffUserId },
   });
-  if (error) return { error: error.message };
+  if (error) return { error: await functionErrorMessage(error) };
   if (data?.error) return { error: data.error as string };
   return { error: null };
 }

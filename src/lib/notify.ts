@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { functionErrorMessage } from './functionsError';
 import type { OrderEmailEvent, PartnerEmailEvent } from '../content/emails';
 
 /**
@@ -16,7 +17,7 @@ export async function notifyOrderEvent(
   });
 
   if (error) {
-    console.error('Failed to send order email notification:', error);
+    console.error('Failed to send order email notification:', await functionErrorMessage(error));
   }
 }
 
@@ -32,6 +33,6 @@ export async function notifyPartnerEvent(partnerId: string, event: PartnerEmailE
   });
 
   if (error) {
-    console.error('Failed to send partner email notification:', error);
+    console.error('Failed to send partner email notification:', await functionErrorMessage(error));
   }
 }
