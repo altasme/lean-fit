@@ -1,6 +1,7 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
 import { Badge } from '../ui/Badge';
+import { Reveal } from '../ui/Reveal';
 import { PRODUCT } from '../../content/product';
 
 const NUTRITION_ROWS: Array<[string, string]> = [
@@ -27,7 +28,7 @@ export function ProductDetails() {
   return (
     <section id="details" className="bg-lf-charcoal py-20 sm:py-28">
       <Container className="grid gap-14 lg:grid-cols-2">
-        <div>
+        <Reveal>
           <SectionKicker>What&apos;s Inside</SectionKicker>
           <h2 className="text-4xl text-lf-white sm:text-5xl">Full Nutrition Panel</h2>
 
@@ -52,9 +53,12 @@ export function ProductDetails() {
               </li>
             ))}
           </ol>
-        </div>
+        </Reveal>
 
-        <div className="tabular rounded-sm border border-white/10 bg-lf-black p-6 sm:p-8">
+        <Reveal
+          className="tabular rounded-sm border border-white/10 bg-lf-black p-6 sm:p-8"
+          delay={150}
+        >
           <h3 className="border-b-4 border-lf-white pb-2 font-display text-2xl uppercase text-lf-white">
             Nutrition Facts
           </h3>
@@ -66,7 +70,7 @@ export function ProductDetails() {
               </div>
             ))}
           </dl>
-        </div>
+        </Reveal>
       </Container>
     </section>
   );

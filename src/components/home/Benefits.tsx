@@ -1,5 +1,6 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
+import { Reveal } from '../ui/Reveal';
 import { BENEFITS } from '../../content/site';
 import iconFuelsDiscipline from '../../assets/icons/fuels-discipline.svg';
 import iconLowSugar from '../../assets/icons/low-sugar-high-purpose.svg';
@@ -27,16 +28,16 @@ export function Benefits() {
       />
       <div className="pointer-events-none absolute inset-0 bg-lf-black/55" />
       <Container className="relative">
-        <div className="text-center">
+        <Reveal className="text-center">
           <SectionKicker>Benefits</SectionKicker>
           <h2 className="mx-auto max-w-xl text-4xl text-lf-white sm:text-5xl">
             Built For The Grind
           </h2>
-        </div>
+        </Reveal>
 
         <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
-          {BENEFITS.map((b) => (
-            <div key={b.title} className="text-center sm:text-left">
+          {BENEFITS.map((b, i) => (
+            <Reveal key={b.title} className="text-center sm:text-left" delay={i * 100}>
               <img
                 src={BENEFIT_ICONS[b.title]}
                 alt=""
@@ -46,7 +47,7 @@ export function Benefits() {
                 {b.title}
               </h3>
               <p className="mt-2 text-sm text-lf-cream/70">{b.blurb}</p>
-            </div>
+            </Reveal>
           ))}
         </div>
       </Container>

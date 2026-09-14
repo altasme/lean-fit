@@ -1,5 +1,6 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
+import { Reveal } from '../ui/Reveal';
 import { PRODUCT } from '../../content/product';
 import sectionBg from '../../assets/backgrounds/ingredients-bg.jpg';
 
@@ -29,26 +30,27 @@ export function IngredientsSpotlight() {
         }}
       />
       <Container className="relative">
-        <div className="text-center">
+        <Reveal className="text-center">
           <SectionKicker>What&apos;s In The Blend</SectionKicker>
           <h2 className="mx-auto max-w-xl text-4xl text-lf-white sm:text-5xl">
             Every Sachet, Working Harder
           </h2>
-        </div>
+        </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {PRODUCT.functionalIngredients
             .filter((ing) => ing.functional)
-            .map((ing) => (
-              <div
+            .map((ing, i) => (
+              <Reveal
                 key={ing.name}
                 className="rounded-sm border border-lf-gold/40 bg-lf-charcoal/50 p-6"
+                delay={i * 100}
               >
                 <h3 className="font-kicker text-lg uppercase tracking-wide2 text-lf-gold">
                   {ing.name}
                 </h3>
                 <p className="mt-2 text-sm text-lf-cream/75">{ing.blurb}</p>
-              </div>
+              </Reveal>
             ))}
         </div>
 
@@ -58,13 +60,17 @@ export function IngredientsSpotlight() {
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {PRODUCT.functionalIngredients
             .filter((ing) => !ing.functional)
-            .map((ing) => (
-              <div key={ing.name} className="rounded-sm border border-white/10 bg-lf-charcoal/30 p-6">
+            .map((ing, i) => (
+              <Reveal
+                key={ing.name}
+                className="rounded-sm border border-white/10 bg-lf-charcoal/30 p-6"
+                delay={i * 100}
+              >
                 <h3 className="font-kicker text-lg uppercase tracking-wide2 text-lf-cream/80">
                   {ing.name}
                 </h3>
                 <p className="mt-2 text-sm text-lf-cream/60">{ing.blurb}</p>
-              </div>
+              </Reveal>
             ))}
         </div>
       </Container>

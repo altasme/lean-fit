@@ -1,5 +1,6 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
+import { Reveal } from '../ui/Reveal';
 import { SITE, TESTIMONIALS } from '../../content/site';
 
 /**
@@ -11,27 +12,30 @@ export function SocialProof() {
   return (
     <section className="bg-lf-charcoal py-20 sm:py-28">
       <Container>
-        <div className="text-center">
+        <Reveal className="text-center">
           <SectionKicker>Testimonials</SectionKicker>
           <h2 className="mx-auto max-w-xl text-4xl text-lf-white sm:text-5xl">
             What Our Customers Say
           </h2>
-        </div>
+        </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <figure
+          {TESTIMONIALS.map((t, i) => (
+            <Reveal
               key={t.name}
               className="flex flex-col rounded-sm border border-white/10 bg-lf-black/40 p-6 text-left"
+              delay={i * 120}
             >
-              <blockquote className="flex-1 text-lf-cream/90">&ldquo;{t.quote}&rdquo;</blockquote>
-              <figcaption className="mt-5">
-                <p className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
-                  {t.name}
-                </p>
-                <p className="mt-0.5 text-xs text-lf-cream/50">{t.role}</p>
-              </figcaption>
-            </figure>
+              <figure className="flex flex-1 flex-col">
+                <blockquote className="flex-1 text-lf-cream/90">&ldquo;{t.quote}&rdquo;</blockquote>
+                <figcaption className="mt-5">
+                  <p className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+                    {t.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-lf-cream/50">{t.role}</p>
+                </figcaption>
+              </figure>
+            </Reveal>
           ))}
         </div>
 

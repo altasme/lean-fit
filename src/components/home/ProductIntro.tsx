@@ -1,6 +1,7 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
 import { OrderNowButton } from '../ui/OrderNowButton';
+import { Reveal } from '../ui/Reveal';
 import { PRODUCT } from '../../content/product';
 import { useInView } from '../../hooks/useInView';
 import { useActiveProduct } from '../../hooks/useActiveProduct';
@@ -29,12 +30,14 @@ export function ProductIntro() {
   return (
     <section id="product" className="scroll-mt-16 bg-lf-black py-20 sm:scroll-mt-20 sm:py-28">
       <Container ref={ref} className="grid items-center gap-12 md:grid-cols-2">
-        <img
-          src={productShot}
-          alt={`${PRODUCT.name} sachet`}
-          className="mx-auto aspect-square w-full max-w-sm rounded-sm border border-lf-gold/20 object-cover"
-        />
-        <div>
+        <Reveal>
+          <img
+            src={productShot}
+            alt={`${PRODUCT.name} sachet`}
+            className="mx-auto aspect-square w-full max-w-sm rounded-sm border border-lf-gold/20 object-cover"
+          />
+        </Reveal>
+        <Reveal delay={150}>
           <SectionKicker>{PRODUCT.variant}</SectionKicker>
           <h2 className="text-4xl text-lf-white sm:text-5xl">{PRODUCT.name}</h2>
           <p className="mt-4 max-w-md text-lf-cream/80">
@@ -50,7 +53,7 @@ export function ProductIntro() {
             ))}
           </dl>
           <OrderNowButton className="mt-10" />
-        </div>
+        </Reveal>
       </Container>
     </section>
   );

@@ -1,5 +1,6 @@
 import { Container } from '../ui/Container';
 import { OrderNowButton } from '../ui/OrderNowButton';
+import { Reveal } from '../ui/Reveal';
 import { TAGLINE } from '../../content/product';
 
 export function FinalCTA() {
@@ -12,11 +13,13 @@ export function FinalCTA() {
         }}
       />
       <Container className="relative text-center">
-        <h2 className="mx-auto max-w-3xl text-4xl leading-[0.95] text-lf-white sm:text-6xl">
-          {TAGLINE.primary}
-        </h2>
-        <p className="mx-auto mt-6 max-w-md text-lf-cream/80">{TAGLINE.supporting}</p>
-        <OrderNowButton className="mt-10">Buy Lean &amp; Fit</OrderNowButton>
+        <Reveal>
+          <h2 className="mx-auto max-w-3xl text-4xl leading-[0.95] text-lf-white sm:text-6xl">
+            {TAGLINE.primary}
+          </h2>
+          <p className="mx-auto mt-6 max-w-md text-lf-cream/80">{TAGLINE.supporting}</p>
+          <OrderNowButton className="mt-10">Buy Lean &amp; Fit</OrderNowButton>
+        </Reveal>
       </Container>
     </section>
   );

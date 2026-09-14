@@ -1,5 +1,6 @@
 import { OrderNowButton } from '../ui/OrderNowButton';
 import { Container } from '../ui/Container';
+import { Reveal } from '../ui/Reveal';
 import { TAGLINE } from '../../content/product';
 import heroWide from '../../assets/hero-bg-wide.jpg';
 import heroMobile from '../../assets/hero-bg-mobile.jpg';
@@ -13,7 +14,7 @@ function HeroCopy({
 }) {
   const alignClasses = align === 'left' ? 'items-start text-left' : 'items-center text-center';
   return (
-    <div className={`relative flex flex-col ${alignClasses}`}>
+    <Reveal className={`relative flex flex-col ${alignClasses}`}>
       <p className="kicker">Lean &amp; Fit Protein Coffee</p>
       <h1
         className={`max-w-xl leading-[0.95] text-lf-white [text-shadow:0_2px_20px_rgba(0,0,0,0.7)] ${
@@ -30,7 +31,7 @@ function HeroCopy({
         High protein. Low sugar. Made for an active lifestyle.
       </p>
       <OrderNowButton className={compact ? 'mt-6' : 'mt-10'} />
-    </div>
+    </Reveal>
   );
 }
 

@@ -1,5 +1,6 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
+import { Reveal } from '../ui/Reveal';
 import { LIFESTYLE_MOMENTS } from '../../content/site';
 import morning from '../../assets/lifestyle/morning.jpg';
 import preWorkout from '../../assets/lifestyle/pre-workout.jpg';
@@ -21,16 +22,19 @@ export function Lifestyle() {
         style={{ background: 'linear-gradient(180deg, rgba(107,78,49,0.15), transparent 60%)' }}
       />
       <Container className="relative text-center">
-        <SectionKicker>Lifestyle</SectionKicker>
-        <h2 className="mx-auto max-w-2xl text-4xl leading-tight text-lf-white sm:text-6xl">
-          Train. Work. Move. Repeat.
-        </h2>
+        <Reveal>
+          <SectionKicker>Lifestyle</SectionKicker>
+          <h2 className="mx-auto max-w-2xl text-4xl leading-tight text-lf-white sm:text-6xl">
+            Train. Work. Move. Repeat.
+          </h2>
+        </Reveal>
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {LIFESTYLE_MOMENTS.map((m) => (
-            <div
+          {LIFESTYLE_MOMENTS.map((m, i) => (
+            <Reveal
               key={m.label}
               className="group relative aspect-[4/5] overflow-hidden rounded-sm border border-white/10"
+              delay={i * 100}
             >
               <img
                 src={MOMENT_IMAGES[m.label]}
@@ -49,7 +53,7 @@ export function Lifestyle() {
                 </p>
                 <p className="mt-1 text-sm text-lf-cream/90">{m.copy}</p>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </Container>

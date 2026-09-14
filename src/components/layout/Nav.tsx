@@ -3,10 +3,22 @@ import { Container } from '../ui/Container';
 import { Logo } from './Logo';
 import { OrderNowButton } from '../ui/OrderNowButton';
 import { NAV_LINKS } from '../../content/site';
+import { smoothScrollToElement } from '../../lib/smoothScroll';
 
 export function Nav() {
   const { pathname } = useLocation();
   const onHome = pathname === '/';
+
+  // Already on the homepage - animate to the section ourselves rather
+  // than letting the browser's native (fast, inconsistent-speed) anchor
+  // jump handle it. Off-home, fall through to a real react-router
+  // navigation to `/#section` below (lands there via ScrollToTop.tsx).
+  function handleSectionClick(e: React.MouseEvent, href: string) {
+    if (onHome) {
+      e.preventDefault();
+      smoothScrollToElement(href.slice(1));
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-lf-black/90 backdrop-blur">
@@ -18,6 +30,7 @@ export function Nav() {
               <a
                 key={link.href}
                 href={link.href}
+                onClick={(e) => handleSectionClick(e, link.href)}
                 className="font-kicker text-sm uppercase tracking-wide2 text-lf-cream transition-colors hover:text-lf-gold"
               >
                 {link.label}

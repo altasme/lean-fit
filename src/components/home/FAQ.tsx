@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
+import { Reveal } from '../ui/Reveal';
 import { FAQ as FAQ_ITEMS } from '../../content/faq';
 
 function AccordionItem({
@@ -39,10 +40,10 @@ export function FAQ() {
   return (
     <section id="faq" className="scroll-mt-16 bg-lf-charcoal py-20 sm:scroll-mt-20 sm:py-28">
       <Container className="max-w-3xl">
-        <div className="text-center">
+        <Reveal className="text-center">
           <SectionKicker>FAQ</SectionKicker>
           <h2 className="text-4xl text-lf-white sm:text-5xl">Questions, Answered</h2>
-        </div>
+        </Reveal>
 
         {groups.map((group) => (
           <div key={group} className="mt-12">

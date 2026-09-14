@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
 import { QtyStepper } from '../ui/QtyStepper';
+import { Reveal } from '../ui/Reveal';
 import { PRODUCT } from '../../content/product';
 import { formatPHP } from '../../lib/format';
 import { useCartStore } from '../../store/cart';
@@ -20,7 +21,7 @@ export function Purchase() {
   return (
     <section id="purchase" className="bg-lf-black py-20 sm:py-28">
       <Container>
-        <div className="mx-auto max-w-xl rounded-sm border border-lf-gold/40 bg-lf-charcoal p-8 shadow-gold-glow sm:p-12">
+        <Reveal className="mx-auto max-w-xl rounded-sm border border-lf-gold/40 bg-lf-charcoal p-8 shadow-gold-glow sm:p-12">
           <SectionKicker>Get Yours</SectionKicker>
           <h2 className="text-3xl text-lf-white sm:text-4xl">{displayName}</h2>
           <p className="mt-2 text-sm text-lf-cream/70">
@@ -63,7 +64,7 @@ export function Purchase() {
               Pricing is being finalized - check back soon.
             </p>
           )}
-        </div>
+        </Reveal>
       </Container>
     </section>
   );
