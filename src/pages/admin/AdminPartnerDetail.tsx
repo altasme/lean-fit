@@ -78,9 +78,17 @@ export default function AdminPartnerDetail() {
     if (!partner || accessPassword.length < 8) return;
     setBusy(true);
     try {
-      const { error } = await grantPartnerPortalAccess(partner.id, accessPassword, sendAccessEmail);
+      const { error, emailSent, emailError } = await grantPartnerPortalAccess(
+        partner.id,
+        accessPassword,
+        sendAccessEmail,
+      );
       if (error) {
         showToast(`Could not set portal access: ${error}`, 'error');
+      } else if (sendAccessEmail && !emailSent) {
+        showToast(`Portal access set, but the email could not be sent: ${emailError ?? 'unknown error'}`, 'error');
+        setAccessPassword('');
+        setSendAccessEmail(false);
       } else {
         showToast(sendAccessEmail ? 'Portal access set - credentials emailed.' : 'Portal access set.');
         setAccessPassword('');

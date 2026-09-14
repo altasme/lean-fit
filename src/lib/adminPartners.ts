@@ -40,13 +40,13 @@ export async function grantPartnerPortalAccess(
   partnerId: string,
   password: string,
   sendEmail = false,
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; emailSent: boolean; emailError: string | null }> {
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: { mode: 'partner', partnerId, password, sendEmail },
   });
-  if (error) return { error: await functionErrorMessage(error) };
-  if (data?.error) return { error: data.error as string };
-  return { error: null };
+  if (error) return { error: await functionErrorMessage(error), emailSent: false, emailError: null };
+  if (data?.error) return { error: data.error as string, emailSent: false, emailError: null };
+  return { error: null, emailSent: Boolean(data?.emailSent), emailError: (data?.emailError as string) ?? null };
 }
 
 /**

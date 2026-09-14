@@ -47,6 +47,8 @@ export type CreateStaffInput = {
   permissions?: StaffPermissions;
 };
 
+export type PortalAccessResult = { error: string | null; emailSent: boolean; emailError: string | null };
+
 /**
  * A full admin creates a Staff account directly - purely username(=email)
  * and password, no email required. The account/password is always set;
@@ -55,11 +57,15 @@ export type CreateStaffInput = {
  * environment, so the admin just as often tells them in person). Server-
  * side checks the CALLER is role='admin' (not just any admin_users
  * member) - this is a thin wrapper, the real gate is in the Edge Function.
+ * Returns `emailSent`/`emailError` (not just `error`) so the caller can
+ * tell "account created" apart from "...and the email actually went out" -
+ * the two used to be conflated, silently reporting success even when the
+ * email was never actually attempted (e.g. a missing RESEND_API_KEY).
  */
 export async function createStaffAccount(
   input: CreateStaffInput,
   sendEmail = false,
-): Promise<{ error: string | null }> {
+): Promise<PortalAccessResult> {
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: {
       mode: 'staff',
@@ -70,9 +76,9 @@ export async function createStaffAccount(
       sendEmail,
     },
   });
-  if (error) return { error: await functionErrorMessage(error) };
-  if (data?.error) return { error: data.error as string };
-  return { error: null };
+  if (error) return { error: await functionErrorMessage(error), emailSent: false, emailError: null };
+  if (data?.error) return { error: data.error as string, emailSent: false, emailError: null };
+  return { error: null, emailSent: Boolean(data?.emailSent), emailError: (data?.emailError as string) ?? null };
 }
 
 export type UpdateStaffInput = {
@@ -93,17 +99,23 @@ export type UpdateStaffInput = {
 export async function updateStaffAccount(
   input: UpdateStaffInput,
   sendEmail = false,
-): Promise<{ error: string | null }> {
+): Promise<PortalAccessResult> {
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: { mode: 'update_staff', ...input, sendEmail },
   });
-  if (error) return { error: await functionErrorMessage(error) };
-  if (data?.error) return { error: data.error as string };
-  return { error: null };
+  if (error) return { error: await functionErrorMessage(error), emailSent: false, emailError: null };
+  if (data?.error) return { error: data.error as string, emailSent: false, emailError: null };
+  return { error: null, emailSent: Boolean(data?.emailSent), emailError: (data?.emailError as string) ?? null };
 }
 
-/** Removes an account's admin_users row - the auth user itself is left alone, just cut off from the portal. */
-export async function revokeStaffAccount(staffUserId: string): Promise<{ error: string | null }> {
+/**
+ * Permanently deletes a staff account - both the admin_users row and the
+ * underlying Supabase Auth login. Client request: "give admins the ability
+ * to delete staff user accounts." A hard delete rather than just cutting
+ * off admin_users access, so the email is free to be re-used for a new
+ * account later instead of permanently "already registered."
+ */
+export async function deleteStaffAccount(staffUserId: string): Promise<{ error: string | null }> {
   const { data, error } = await supabase.functions.invoke('grant-portal-access', {
     body: { mode: 'revoke_staff', staffUserId },
   });

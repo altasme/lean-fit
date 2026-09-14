@@ -4,12 +4,33 @@ import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../components/auth/AuthProvider';
 import {
   createStaffAccount,
+  deleteStaffAccount,
   listStaffAccounts,
-  revokeStaffAccount,
   updateStaffAccount,
 } from '../../lib/adminStaff';
 import type { StaffAccount, StaffPermissions } from '../../lib/adminStaff';
 import type { AdminRole } from '../../types/partner';
+
+/**
+ * Builds the toast for a create/update result - reflects what the server
+ * actually reported (`emailSent`/`emailError`), not just whether the admin
+ * checked the "email it" box. A checked box whose email silently failed
+ * (missing secret, Resend rejecting it, etc.) used to still show
+ * "credentials emailed" - this makes that failure visible instead.
+ */
+function accountToastMessage(
+  baseMessage: string,
+  sendEmail: boolean,
+  emailSent: boolean,
+  emailError: string | null,
+): { message: string; variant: 'success' | 'error' } {
+  if (!sendEmail) return { message: baseMessage, variant: 'success' };
+  if (emailSent) return { message: `${baseMessage} - credentials emailed.`, variant: 'success' };
+  return {
+    message: `${baseMessage}, but the email could not be sent: ${emailError ?? 'unknown error'}`,
+    variant: 'error',
+  };
+}
 
 const inputClass =
   'w-full rounded-sm border border-white/15 bg-lf-black px-4 py-3 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none';
@@ -87,7 +108,7 @@ export default function AdminStaff() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const { error: createError } = await createStaffAccount(
+      const { error: createError, emailSent, emailError } = await createStaffAccount(
         { fullName: fullName.trim(), email: email.trim(), password, permissions },
         sendEmail,
       );
@@ -95,7 +116,8 @@ export default function AdminStaff() {
         setSubmitError(createError);
         return;
       }
-      showToast(sendEmail ? 'Staff account created - credentials emailed.' : 'Staff account created.');
+      const toast = accountToastMessage('Staff account created', sendEmail, emailSent, emailError);
+      showToast(toast.message, toast.variant);
       setFullName('');
       setEmail('');
       setPassword('');
@@ -107,14 +129,19 @@ export default function AdminStaff() {
     }
   }
 
-  async function handleRevoke(account: StaffAccount) {
-    if (!window.confirm(`Remove ${account.full_name ?? account.email}'s admin portal access?`)) return;
-    const { error: revokeError } = await revokeStaffAccount(account.user_id);
-    if (revokeError) {
-      showToast(revokeError, 'error');
+  async function handleDelete(account: StaffAccount) {
+    if (
+      !window.confirm(
+        `Permanently delete ${account.full_name ?? account.email}'s staff account? This removes their login entirely - it cannot be undone, though the email can be used to create a new account afterward.`,
+      )
+    )
+      return;
+    const { error: deleteError } = await deleteStaffAccount(account.user_id);
+    if (deleteError) {
+      showToast(deleteError, 'error');
       return;
     }
-    showToast('Access removed.');
+    showToast('Staff account deleted.');
     load();
   }
 
@@ -226,7 +253,7 @@ export default function AdminStaff() {
                     setEditingId(null);
                     load();
                   }}
-                  onRevoke={() => handleRevoke(a)}
+                  onDelete={() => handleDelete(a)}
                 />
               )}
             </div>
@@ -241,12 +268,12 @@ function EditStaffPanel({
   account,
   isSelf,
   onSaved,
-  onRevoke,
+  onDelete,
 }: {
   account: StaffAccount;
   isSelf: boolean;
   onSaved: () => void;
-  onRevoke: () => void;
+  onDelete: () => void;
 }) {
   const { showToast } = useToast();
   const [fullName, setFullName] = useState(account.full_name ?? '');
@@ -268,7 +295,7 @@ function EditStaffPanel({
     setSaving(true);
     setSaveError(null);
     try {
-      const { error } = await updateStaffAccount(
+      const { error, emailSent, emailError } = await updateStaffAccount(
         {
           staffUserId: account.user_id,
           fullName: fullName.trim(),
@@ -283,7 +310,8 @@ function EditStaffPanel({
         setSaveError(error);
         return;
       }
-      showToast('Account updated.');
+      const toast = accountToastMessage('Account updated', sendEmail, emailSent, emailError);
+      showToast(toast.message, toast.variant);
       onSaved();
     } finally {
       setSaving(false);
@@ -368,10 +396,10 @@ function EditStaffPanel({
         {!isSelf && (
           <button
             type="button"
-            onClick={onRevoke}
+            onClick={onDelete}
             className="text-xs uppercase tracking-wide2 text-lf-error hover:underline"
           >
-            Revoke Access
+            Delete Account
           </button>
         )}
       </div>

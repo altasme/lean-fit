@@ -15,11 +15,13 @@
 //     email/role/permissions, optional password reset). Same full-admin-
 //     only gate; refuses to demote the last remaining role='admin' account
 //     so the portal can never end up with nobody able to manage staff.
-//   mode: 'revoke_staff' - removes an admin_users row (the auth user
-//     itself is left alone - RequireAuth already treats "signed in but no
-//     admin_users row" as "not an admin," so this is enough to cut off
-//     portal access without a destructive auth.users delete). Same
-//     last-admin guard as update_staff.
+//   mode: 'revoke_staff' - fully deletes the staff account: removes the
+//     admin_users row AND the underlying auth.users account (client
+//     request: "give admins the ability to delete staff user accounts" -
+//     a bare admin_users delete used to leave an orphaned, permanently
+//     "already registered" auth user behind, blocking ever re-creating an
+//     account with that same email). Same last-admin guard as
+//     update_staff.
 //
 // Emailing the credentials is opt-in (`sendEmail: true` in the request
 // body), never automatic - staff and partners are both told their login in
@@ -67,8 +69,13 @@ async function wouldRemoveLastAdmin(targetUserId: string): Promise<boolean> {
 
 async function sendCredentialsEmail(to: string, name: string, email: string, password: string, portalLabel: string) {
   if (!RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set - skipping credentials email.', { to });
-    return;
+    // Throw rather than silently skip - the caller explicitly asked to
+    // email these credentials (sendEmail: true), so returning as if it
+    // succeeded would report `emailSent: true` for an email nothing ever
+    // actually tried to send (and that never shows up in Resend's logs,
+    // which is exactly the "no email, not even in Resend" symptom this
+    // used to cause silently).
+    throw new Error('RESEND_API_KEY is not set - cannot send credentials email.');
   }
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -139,6 +146,17 @@ Deno.serve(async (req) => {
       if (mode === 'revoke_staff') {
         const { error: deleteError } = await supabaseAdmin.from('admin_users').delete().eq('user_id', staffUserId);
         if (deleteError) return jsonResponse({ error: deleteError.message }, 500);
+
+        // admin_users row is gone either way (portal access already cut
+        // off); if the auth user delete itself fails, still report it
+        // rather than silently leaving an orphaned auth account.
+        const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(staffUserId);
+        if (authDeleteError) {
+          return jsonResponse(
+            { error: `Access was revoked, but the account could not be fully deleted: ${authDeleteError.message}` },
+            500,
+          );
+        }
         return jsonResponse({ ok: true });
       }
 

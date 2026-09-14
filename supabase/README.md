@@ -426,6 +426,48 @@
       `p_activate := false` creates no order; and an active partner with
       no package/payment data on file creates no order at all. No
       function redeploy needed - this is SQL-only.
+29. **Redeploy `grant-portal-access`** - client reports: "Sending and
+    creating portal access to partners and staff comes out as: Could not
+    set portal access: Edge Function returned a non-2xx status code" and
+    separately "No email received... didn't even reach or get recorded
+    in Resend." Two real fixes bundled in this redeploy, plus one new
+    capability:
+    - **Silent false-success bug fixed:** `sendCredentialsEmail()` used
+      to just `console.warn` and return normally when `RESEND_API_KEY`
+      wasn't set, so the function reported `emailSent: true` for an email
+      that was never actually attempted - exactly the "not even in
+      Resend" symptom. It now throws, so a missing/misconfigured secret
+      correctly comes back as `emailError`, and the admin UI (both the
+      partner "Portal Access" panel and the staff create/edit forms) now
+      shows that real result instead of blindly trusting the "email it"
+      checkbox state for its success toast.
+    - `mode: 'revoke_staff'` now **fully deletes** the staff account -
+      the `admin_users` row AND the underlying Supabase Auth login, not
+      just admin_users (client request: "give admins the ability to
+      delete staff user accounts"). Previously "Revoke Access" only cut
+      off portal access and left an orphaned auth user behind, which
+      permanently blocked ever re-creating an account with that same
+      email ("already registered"). Same last-remaining-admin guard as
+      before. Client-side: `lib/adminStaff.ts`'s `revokeStaffAccount` is
+      renamed `deleteStaffAccount`, and the button on `/admin/staff` now
+      reads "Delete Account" with a confirm dialog stating it's
+      permanent.
+    - **If "Could not set portal access: Edge Function returned a non-2xx
+      status code" is what you're actually seeing**, the real cause is
+      almost certainly that `grant-portal-access` was never deployed to
+      this project at all yet (see the "still not deployed" note below -
+      only the old, superseded `invite-partner` was ever confirmed live).
+      A generic 404-style failure from the Supabase gateway itself (not
+      from this function) looks exactly like that same non-2xx message
+      client-side (a separate client-side fix in this same pass makes
+      future failures show the function's own real reason instead of
+      that generic string - see `src/lib/functionsError.ts`). Deploy (or
+      redeploy) `grant-portal-access` with the current
+      `supabase/functions/grant-portal-access/index.ts` regardless of
+      which symptom you're chasing - it's the fix for both.
+    ```bash
+    supabase functions deploy grant-portal-access
+    ```
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -464,9 +506,10 @@ Pages"). Three follow-ups this creates, none done yet:
   the partner onboarding stage, the admin stage-override RPC, manual
   partner (reseller/distributor/franchise) orders, and auto-recording a
   partner's onboarding package as an order - steps 21-22 and 24-28
-  above), the `grant-portal-access` redeploy (step 23), plus setting the
-  `VITE_SITE_URL` build env var on Cloudflare Pages and the
-  `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
+  above), the `grant-portal-access` redeploys (steps 23 and 29 - **29 is
+  the current version and supersedes 23**, run it even if 23 was already
+  done), plus setting the `VITE_SITE_URL` build env var on Cloudflare
+  Pages and the `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never
