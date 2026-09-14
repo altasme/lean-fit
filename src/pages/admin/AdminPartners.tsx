@@ -8,20 +8,30 @@ import type { PartnerType } from '../../types/partner';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
 import { formatPHP } from '../../lib/format';
 
-const STATUS_EMOJI = { pending: '🟡', active: '🟢', suspended: '🟠', rejected: '🔴' } as const;
+const STATUS_EMOJI = {
+  pending: '🟡',
+  onboarding: '🔵',
+  active: '🟢',
+  suspended: '🟠',
+  rejected: '🔴',
+} as const;
 
-// Item #2's three admin-facing buckets - Pending (new leads + applications
-// awaiting onboarding), Active, and Inactive/Suspended (suspended and
-// rejected grouped together - both mean "not currently a live partner").
-type Tab = 'pending' | 'active' | 'inactive';
+// Item #2's admin-facing buckets - Pending (raw new leads, nothing
+// started), Onboarding (migration 0020 - actively being worked: type/
+// territory/package/payment may or may not be filled in yet), Active,
+// and Inactive/Suspended (suspended and rejected grouped together - both
+// mean "not currently a live partner").
+type Tab = 'pending' | 'onboarding' | 'active' | 'inactive';
 const TABS: { key: Tab; label: string }[] = [
   { key: 'pending', label: 'Pending Partners' },
+  { key: 'onboarding', label: 'Onboarding' },
   { key: 'active', label: 'Active Partners' },
   { key: 'inactive', label: 'Inactive / Suspended' },
 ];
 
 function matchesTab(p: Partner, tab: Tab): boolean {
   if (tab === 'pending') return p.status === 'pending';
+  if (tab === 'onboarding') return p.status === 'onboarding';
   if (tab === 'active') return p.status === 'active';
   return p.status === 'suspended' || p.status === 'rejected';
 }
@@ -40,9 +50,10 @@ export default function AdminPartners() {
   }, []);
 
   const counts = useMemo(() => {
-    if (!partners) return { pending: 0, active: 0, inactive: 0 };
+    if (!partners) return { pending: 0, onboarding: 0, active: 0, inactive: 0 };
     return {
       pending: partners.filter((p) => matchesTab(p, 'pending')).length,
+      onboarding: partners.filter((p) => matchesTab(p, 'onboarding')).length,
       active: partners.filter((p) => matchesTab(p, 'active')).length,
       inactive: partners.filter((p) => matchesTab(p, 'inactive')).length,
     };
@@ -131,8 +142,10 @@ export default function AdminPartners() {
           {filtered.length === 0 ? (
             <p className="mt-4 text-sm text-lf-cream/60">
               {tab === 'pending'
-                ? "No pending leads or applications right now."
-                : 'No partners match these filters.'}
+                ? 'No pending leads or applications right now.'
+                : tab === 'onboarding'
+                  ? 'Nobody is being onboarded right now.'
+                  : 'No partners match these filters.'}
             </p>
           ) : (
             <div className="tabular mt-2 overflow-x-auto rounded-sm border border-white/10">
@@ -152,7 +165,16 @@ export default function AdminPartners() {
                   {filtered.map((p) => (
                     <tr key={p.id} className="border-t border-white/5 hover:bg-white/5">
                       <td className="px-4 py-3">
-                        <Link to={`/admin/partners/${p.id}`} className="text-lf-gold hover:underline">
+                        <Link
+                          to={`/admin/partners/${p.id}`}
+                          className="inline-flex items-center gap-2 text-lf-gold hover:underline"
+                        >
+                          {p.status === 'pending' && !p.first_viewed_at && (
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full bg-lf-gold"
+                              title="New - not yet viewed"
+                            />
+                          )}
                           {p.full_name}
                         </Link>
                       </td>

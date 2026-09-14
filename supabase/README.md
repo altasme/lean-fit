@@ -272,6 +272,32 @@
     ```bash
     supabase functions deploy grant-portal-access
     ```
+24. Run `supabase/migrations/0020_partner_onboarding_stage.sql`, then
+    `supabase/migrations/0021_partner_onboarding_stage_functions.sql`, in
+    the SQL editor, after 0019 - **as two separate runs, in that exact
+    order**, not pasted together as one. Client request: split the
+    Partners list's "Pending" bucket into a raw new lead ("New") and an
+    explicit "Onboarding" stage the admin moves a lead into once they've
+    started working it, plus a notification badge on the Partners nav
+    for applications nobody's opened yet.
+    - 0020 adds the `partner_status` enum value `'onboarding'` and
+      `partners.first_viewed_at` (set the first time an admin opens a
+      still-pending application's detail page - that's what clears the
+      nav badge). 0021 updates `admin_create_partner()` so completing an
+      existing lead's onboarding without immediately activating it keeps
+      the partner in `'onboarding'` instead of reverting to `'pending'`.
+    - **Why two files, not one:** Postgres won't let a value just added
+      via `ALTER TYPE ... ADD VALUE` be referenced by a function created
+      later in the same transaction on every version/client - keeping
+      them in separate migration runs sidesteps that regardless of how a
+      given SQL editor batches a multi-statement paste. Confirmed fine
+      locally via `psql -f` (each statement auto-commits there by
+      default), but the Supabase SQL editor may batch differently - stick
+      to two separate runs to be safe rather than re-verifying that per
+      environment.
+    - `approve_partner()` needed no change - it already sets `'active'`
+      unconditionally with no status filter, so it works the same from
+      `'pending'` or `'onboarding'`.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -303,11 +329,12 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0019 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0021 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
-  path-based referral URLs/Top Sellers leaderboard, and staff permissions
-  - steps 21-22 above), the `grant-portal-access` redeploy (step 23), plus
-  setting the `VITE_SITE_URL` build env var on Cloudflare Pages.
+  path-based referral URLs/Top Sellers leaderboard, staff permissions,
+  and the partner onboarding stage - steps 21-22 and 24 above), the
+  `grant-portal-access` redeploy (step 23), plus setting the
+  `VITE_SITE_URL` build env var on Cloudflare Pages.
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never

@@ -120,6 +120,55 @@ export async function adminCreatePartner(input: AdminCreatePartnerInput): Promis
   return { partnerId: row.partner_id, status: row.status };
 }
 
+/**
+ * Client-requested onboarding pipeline (migration 0020): a raw new lead
+ * ("New" = status 'pending') moves here with zero data required - just a
+ * marker that the team has started working it. From here, admin fills in
+ * the existing "Complete Onboarding" form (type/territory/package/
+ * payment) to finish, or Reject. Plain update, no invariant to check
+ * (unlike suspend/reactivate's territory-capacity concerns), same
+ * pattern as rejectPartner/suspendPartner below.
+ */
+export async function moveToOnboarding(partnerId: string): Promise<void> {
+  const { error } = await supabase.from('partners').update({ status: 'onboarding' }).eq('id', partnerId);
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog({ entity_type: 'partner', entity_id: partnerId, action: 'moved_to_onboarding' });
+}
+
+/**
+ * How many still-'pending' applications nobody on the team has opened
+ * yet - powers the notification count on the Partners nav item. Scoped
+ * to 'pending' only (not 'onboarding') - the client's ask was
+ * specifically about a "new partner application" showing up unseen, not
+ * ongoing onboarding work.
+ */
+export async function countNewPendingPartners(): Promise<number> {
+  const { count, error } = await supabase
+    .from('partners')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .is('first_viewed_at', null);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+/**
+ * Called once when AdminPartnerDetail.tsx opens a still-pending partner -
+ * best-effort (a failed write here shouldn't block viewing the page, and
+ * there's nothing useful to show the admin if it fails). The `.is(...)`
+ * guard just avoids an unnecessary write on every subsequent view; it's
+ * not a correctness requirement since overwriting an existing timestamp
+ * would have the same effect on the badge count either way.
+ */
+export async function markPartnerViewed(partnerId: string): Promise<void> {
+  await supabase
+    .from('partners')
+    .update({ first_viewed_at: new Date().toISOString() })
+    .eq('id', partnerId)
+    .is('first_viewed_at', null);
+}
+
 export async function rejectPartner(partnerId: string): Promise<void> {
   const { error } = await supabase
     .from('partners')

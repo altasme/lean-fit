@@ -28,7 +28,11 @@ export type AdminRole = 'admin' | 'staff_admin';
 
 // --- Reseller Portal (Part 1) - individual partner accounts ---------
 
-export type PartnerStatus = 'pending' | 'active' | 'suspended' | 'rejected';
+// Migration 0020 - 'onboarding' sits between 'pending' (a raw new lead,
+// nothing started yet) and 'active': admin has clicked "Move to
+// Onboarding" and is working the lead (type/territory/package/payment
+// may or may not be filled in yet) but it isn't a live partner yet.
+export type PartnerStatus = 'pending' | 'onboarding' | 'active' | 'suspended' | 'rejected';
 
 export type Partner = {
   id: string;
@@ -74,12 +78,18 @@ export type Partner = {
   payment_date: string | null;
   payment_status: PaymentStatus;
   activated_at: string | null;
+  // Migration 0020 - set the first time an admin opens this partner's
+  // detail page while it's still 'pending', so the Partners nav badge
+  // ("new pending application") can count only ones nobody has looked at
+  // yet. Null forever for a partner an admin never viewed while pending.
+  first_viewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export const PARTNER_STATUS_LABELS: Record<PartnerStatus, string> = {
   pending: 'Pending',
+  onboarding: 'Onboarding',
   active: 'Active',
   suspended: 'Suspended',
   rejected: 'Rejected',

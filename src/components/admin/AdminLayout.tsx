@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { Logo } from '../layout/Logo';
 import { useAdminPermissions, useAdminRole } from './RequireAuth';
 import type { StaffPermissions } from '../../lib/adminStaff';
+import { countNewPendingPartners } from '../../lib/adminPartners';
 
 // Media, Territories, and Territory Map are all built but hidden from the
 // nav for now per client request - their routes also redirect away in
@@ -23,8 +24,19 @@ const NAV_LINKS: { to: string; label: string; permission?: keyof StaffPermission
 function PartnersMenu({ active, showPricing }: { active: boolean; showPricing: boolean }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
+  const [newCount, setNewCount] = useState(0);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // AdminLayout wraps every admin page fresh (it's not a single
+  // long-lived shell) - a plain mount-time fetch already refreshes this
+  // on every navigation, including "view a pending partner, then go
+  // back to Partners," which is exactly when the count should drop.
+  useEffect(() => {
+    countNewPendingPartners()
+      .then(setNewCount)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -62,13 +74,21 @@ function PartnersMenu({ active, showPricing }: { active: boolean; showPricing: b
         ref={buttonRef}
         type="button"
         onClick={toggle}
-        className={`flex items-center gap-1 whitespace-nowrap border-b-2 px-3 py-3 font-kicker text-xs uppercase tracking-wide2 transition-colors ${
+        className={`relative flex items-center gap-1 whitespace-nowrap border-b-2 px-3 py-3 font-kicker text-xs uppercase tracking-wide2 transition-colors ${
           active || open
             ? 'border-lf-gold text-lf-gold'
             : 'border-transparent text-lf-cream/60 hover:border-white/20 hover:text-lf-cream'
         }`}
       >
         Partners <span className="text-[10px]">{open ? '▴' : '▾'}</span>
+        {newCount > 0 && (
+          <span
+            className="tabular absolute -right-1.5 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-lf-gold px-1 text-[10px] font-semibold text-lf-black"
+            title={`${newCount} new application${newCount === 1 ? '' : 's'}`}
+          >
+            {newCount}
+          </span>
+        )}
       </button>
       {open &&
         createPortal(

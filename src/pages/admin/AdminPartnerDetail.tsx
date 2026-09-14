@@ -6,6 +6,8 @@ import {
   getPartner,
   getPartnerProofSignedUrl,
   grantPartnerPortalAccess,
+  markPartnerViewed,
+  moveToOnboarding,
   reactivatePartner,
   rejectPartner,
   suspendPartner,
@@ -40,6 +42,11 @@ export default function AdminPartnerDetail() {
       setPartner(p);
       setProofUrl(p.payment_proof_path ? await getPartnerProofSignedUrl(p.payment_proof_path) : null);
       setOnboardedBy(p.onboarded_by_partner_id ? await getPartner(p.onboarded_by_partner_id) : null);
+      // Clears this application off the Partners nav's "new" badge - best
+      // effort, never blocks viewing the page over it.
+      if (p.status === 'pending' && !p.first_viewed_at) {
+        void markPartnerViewed(p.id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load partner.');
     }
@@ -76,6 +83,20 @@ export default function AdminPartnerDetail() {
         setSendAccessEmail(false);
       }
       await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleMoveToOnboarding() {
+    if (!partner) return;
+    setBusy(true);
+    try {
+      await moveToOnboarding(partner.id);
+      showToast('Moved to onboarding.');
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to move to onboarding.', 'error');
     } finally {
       setBusy(false);
     }
@@ -139,7 +160,7 @@ export default function AdminPartnerDetail() {
     );
   }
 
-  const canDecide = partner.status === 'pending';
+  const canDecide = partner.status === 'pending' || partner.status === 'onboarding';
 
   return (
     <AdminLayout>
@@ -275,11 +296,38 @@ export default function AdminPartnerDetail() {
               </div>
             )}
 
-            {canDecide && !partner.partner_type && (
+            {partner.status === 'pending' && !partner.partner_type && (
               <>
                 <p className="mt-2 text-sm text-lf-cream/70">
-                  This is a lead from the public form - no type, territory, or package yet. Call
-                  them, then complete their onboarding here.
+                  New application - nobody's started working this one yet. Move it to onboarding
+                  once you've called them, or reject it outright.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleMoveToOnboarding}
+                    className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
+                  >
+                    Move to Onboarding
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={handleReject}
+                    className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
+                  >
+                    Reject Lead
+                  </button>
+                </div>
+              </>
+            )}
+
+            {partner.status === 'onboarding' && !partner.partner_type && (
+              <>
+                <p className="mt-2 text-sm text-lf-cream/70">
+                  Being onboarded - no type, territory, or package yet. Complete their onboarding
+                  once you've settled those with them.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <Link
@@ -294,7 +342,7 @@ export default function AdminPartnerDetail() {
                     onClick={handleReject}
                     className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
                   >
-                    Reject Lead
+                    Reject
                   </button>
                 </div>
               </>
