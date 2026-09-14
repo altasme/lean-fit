@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { OrderStats } from '../../components/admin/OrderStats';
+import { matchesQuickFilter } from '../../lib/orderQuickFilter';
+import type { OrderQuickFilter } from '../../lib/orderQuickFilter';
 import { listOrders } from '../../lib/adminOrders';
 import type { OrderWithPayment } from '../../lib/adminOrders';
 import { formatPHP } from '../../lib/format';
@@ -16,6 +18,17 @@ const METHOD_LABELS: Record<string, string> = {
   maya: 'Maya',
   bank_transfer: 'Bank Transfer',
   cod: 'COD',
+};
+
+const QUICK_FILTER_LABELS: Record<OrderQuickFilter, string> = {
+  all: 'All',
+  pending_verification: 'Pending Verification',
+  cod_outstanding: 'COD Outstanding',
+  paid_revenue: 'Revenue (Paid)',
+  to_pack: 'To Pack',
+  to_ship: 'To Ship',
+  shipped_out: 'Shipped Out / For Delivery',
+  delivered: 'Delivered',
 };
 
 const PAGE_SIZE = 20;
@@ -33,6 +46,14 @@ export default function AdminOrders() {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | 'all'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  // 'all' or 'YYYY-MM' - client request: view/filter the dashboard and
+  // table month by month.
+  const [month, setMonth] = useState<string>('all');
+  // Stat cards double as one-click filters (client request) - independent
+  // of the dropdowns above, and mutually exclusive with them (picking a
+  // dropdown value clears this, and vice versa) so the two mechanisms
+  // never silently combine into a confusing empty result.
+  const [quickFilter, setQuickFilter] = useState<OrderQuickFilter>('all');
   const [sortKey, setSortKey] = useState<SortKey>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
@@ -43,11 +64,39 @@ export default function AdminOrders() {
       .catch((err) => setError(err.message));
   }, []);
 
-  const filtered = useMemo(() => {
+  const availableMonths = useMemo(() => {
     if (!orders) return [];
+    const months = new Set(orders.map((o) => o.created_at.slice(0, 7)));
+    return [...months].sort((a, b) => (a < b ? 1 : -1));
+  }, [orders]);
+
+  function monthLabel(ym: string): string {
+    const [y, m] = ym.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+  }
+
+  // Scoped by month only - this is what the stat cards count against, so
+  // they read as "this month's numbers" regardless of what the table's
+  // own dropdown filters/search are doing.
+  const monthFiltered = useMemo(() => {
+    if (!orders) return [];
+    if (month === 'all') return orders;
+    return orders.filter((o) => o.created_at.slice(0, 7) === month);
+  }, [orders, month]);
+
+  function selectQuickFilter(next: OrderQuickFilter) {
+    setQuickFilter(next);
+    if (next !== 'all') {
+      setOrderStatus('all');
+      setPaymentStatus('all');
+    }
+    resetPage();
+  }
+
+  const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    return orders.filter((order) => {
+    return monthFiltered.filter((order) => {
       if (term) {
         const haystack =
           `${order.order_no} ${order.customer_name} ${order.mobile} ${order.email}`.toLowerCase();
@@ -56,12 +105,13 @@ export default function AdminOrders() {
       if (orderStatus !== 'all' && order.status !== orderStatus) return false;
       if (orderType !== 'all' && order.order_type !== orderType) return false;
       if (paymentStatus !== 'all' && order.payment?.status !== paymentStatus) return false;
+      if (!matchesQuickFilter(order, quickFilter)) return false;
       const orderDate = order.created_at.slice(0, 10);
       if (dateFrom && orderDate < dateFrom) return false;
       if (dateTo && orderDate > dateTo) return false;
       return true;
     });
-  }, [orders, search, orderStatus, orderType, paymentStatus, dateFrom, dateTo]);
+  }, [monthFiltered, search, orderStatus, orderType, paymentStatus, quickFilter, dateFrom, dateTo]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -114,9 +164,26 @@ export default function AdminOrders() {
     <AdminLayout>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-kicker text-2xl uppercase tracking-wide2 text-lf-white">Orders</h1>
-        <Link to="/admin/orders/new" className="btn-gold !px-4 !py-2 !text-sm">
-          + Add Order
-        </Link>
+        <div className="flex items-center gap-3">
+          <select
+            value={month}
+            onChange={(e) => {
+              setMonth(e.target.value);
+              resetPage();
+            }}
+            className="rounded-sm border border-white/10 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+          >
+            <option value="all">All Time</option>
+            {availableMonths.map((ym) => (
+              <option key={ym} value={ym}>
+                {monthLabel(ym)}
+              </option>
+            ))}
+          </select>
+          <Link to="/admin/orders/new" className="btn-gold !px-4 !py-2 !text-sm">
+            + Add Order
+          </Link>
+        </div>
       </div>
 
       {error && <p className="mt-4 text-sm text-lf-error">{error}</p>}
@@ -125,7 +192,7 @@ export default function AdminOrders() {
       {orders && (
         <>
           <div className="mt-6">
-            <OrderStats orders={orders} />
+            <OrderStats orders={monthFiltered} activeFilter={quickFilter} onSelectFilter={selectQuickFilter} />
           </div>
 
           <div className="mt-6 flex flex-wrap items-end gap-3">
@@ -153,6 +220,7 @@ export default function AdminOrders() {
                 value={orderStatus}
                 onChange={(e) => {
                   setOrderStatus(e.target.value as OrderStatus | 'all');
+                  setQuickFilter('all');
                   resetPage();
                 }}
                 className="mt-1 rounded-sm border border-white/10 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
@@ -195,6 +263,7 @@ export default function AdminOrders() {
                 value={paymentStatus}
                 onChange={(e) => {
                   setPaymentStatus(e.target.value as PaymentStatus | 'all');
+                  setQuickFilter('all');
                   resetPage();
                 }}
                 className="mt-1 rounded-sm border border-white/10 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
@@ -243,9 +312,21 @@ export default function AdminOrders() {
             </button>
           </div>
 
-          <p className="mt-4 text-xs text-lf-cream/50">
-            {sorted.length} order{sorted.length === 1 ? '' : 's'}
-            {sorted.length !== orders.length ? ` (of ${orders.length} total)` : ''}
+          <p className="mt-4 flex flex-wrap items-center gap-2 text-xs text-lf-cream/50">
+            <span>
+              {sorted.length} order{sorted.length === 1 ? '' : 's'}
+              {sorted.length !== monthFiltered.length ? ` (of ${monthFiltered.length} total)` : ''}
+              {month !== 'all' ? ` in ${monthLabel(month)}` : ''}
+            </span>
+            {quickFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => selectQuickFilter('all')}
+                className="rounded-full border border-lf-gold/40 bg-lf-gold/10 px-2.5 py-1 text-lf-gold hover:bg-lf-gold/20"
+              >
+                Filter: {QUICK_FILTER_LABELS[quickFilter]} ×
+              </button>
+            )}
           </p>
 
           {sorted.length === 0 ? (

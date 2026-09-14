@@ -392,6 +392,40 @@
       RPC correctly rejects `p_order_type = 'retail'`, an inactive
       partner, and a partner/order-type mismatch (e.g. a reseller partner
       id passed with `p_order_type = 'distributor'`).
+28. Run `supabase/migrations/0024_partner_onboarding_order.sql` in the SQL
+    editor, after 0023 (single paste). Client request: "When we
+    successfully onboard a partner, their orders too needs to get
+    recorded in the order management system" - until now a partner's
+    onboarding package (10/30/40 boxes, whatever payment they made for
+    it) only ever existed as fields on the `partners` row itself; it
+    never showed up in Order Management at all.
+    - Adds `record_partner_onboarding_order(p_partner_id)`: reads that
+      partner's `package_boxes`/`package_amount`/`payment_method`/etc.
+      and, if present, creates a real `orders` + `payments` row for it -
+      same RO-/DO-/FO- numbering and `partner_id` linkage as migration
+      0023's manual wholesale orders (this **is** conceptually that same
+      "partner buying stock for themselves" case, just automatic instead
+      of admin-keyed). Skips silently (does nothing) if the partner has
+      no package/payment data yet, or already has an order on file -
+      idempotent, so a later suspend/reactivate or a repeat admin
+      override to `'active'` never double-records the same package.
+    - Calls that helper from the three places a partner can become
+      `'active'`: `approve_partner()`, `admin_create_partner()` (only
+      when `p_activate = true`), and `admin_override_partner_status()`
+      (only when overriding to `'active'`). All three are reproduced here
+      via `create or replace` with their existing bodies otherwise
+      untouched - same convention 0021 used for `admin_create_partner`
+      - so nothing else about approval/onboarding/override changes, and
+      no client code needed updating (return shapes are identical).
+    - Validated locally: approving a pending partner with package data
+      creates the expected order (correct order type/number/quantity/
+      unit price/total, payment marked paid); re-approving or
+      re-overriding to `'active'` does not create a second order;
+      `admin_create_partner(..., p_activate := true)` with package data
+      creates the order too (tested for both reseller and franchise);
+      `p_activate := false` creates no order; and an active partner with
+      no package/payment data on file creates no order at all. No
+      function redeploy needed - this is SQL-only.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -424,11 +458,12 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0023 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0024 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
-  the partner onboarding stage, the admin stage-override RPC, and manual
-  partner (reseller/distributor/franchise) orders - steps 21-22 and 24-27
+  the partner onboarding stage, the admin stage-override RPC, manual
+  partner (reseller/distributor/franchise) orders, and auto-recording a
+  partner's onboarding package as an order - steps 21-22 and 24-28
   above), the `grant-portal-access` redeploy (step 23), plus setting the
   `VITE_SITE_URL` build env var on Cloudflare Pages and the
   `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
