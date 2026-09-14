@@ -4,24 +4,25 @@ import { Badge } from '../ui/Badge';
 import { Reveal } from '../ui/Reveal';
 import { PRODUCT } from '../../content/product';
 
-const NUTRITION_ROWS: Array<[string, string]> = [
-  ['Serving Size', PRODUCT.nutrition.servingSize],
-  ['Servings Per Box', String(PRODUCT.nutrition.servingsPerBox)],
-  ['Calories', PRODUCT.nutrition.calories],
-  ['Total Fat', PRODUCT.nutrition.totalFat],
-  ['Saturated Fat', PRODUCT.nutrition.saturatedFat],
-  ['Trans Fat', PRODUCT.nutrition.transFat],
-  ['Cholesterol', PRODUCT.nutrition.cholesterol],
-  ['Sodium', PRODUCT.nutrition.sodium],
-  ['Total Carbohydrate', PRODUCT.nutrition.totalCarb],
-  ['Dietary Fiber', PRODUCT.nutrition.dietaryFiber],
-  ['Total Sugars', PRODUCT.nutrition.totalSugars],
-  ['Added Sugars', PRODUCT.nutrition.addedSugars],
-  ['Protein', PRODUCT.nutrition.protein],
-  ['Vitamin D', PRODUCT.nutrition.vitaminD],
-  ['Calcium', PRODUCT.nutrition.calcium],
-  ['Iron', PRODUCT.nutrition.iron],
-  ['Potassium', PRODUCT.nutrition.potassium],
+type NutritionRow = { label: string; value: string; reni?: string };
+
+const RENI = PRODUCT.nutritionPercentRENI;
+
+const NUTRITION_ROWS: NutritionRow[] = [
+  { label: 'Serving Size', value: PRODUCT.nutrition.servingSize },
+  { label: 'Servings Per Box', value: String(PRODUCT.nutrition.servingsPerBox) },
+  { label: 'Calories', value: PRODUCT.nutrition.calories, reni: RENI.calories },
+  { label: 'Calories from Fat', value: PRODUCT.nutrition.caloriesFromFat },
+  { label: 'Total Fat', value: PRODUCT.nutrition.totalFat, reni: RENI.totalFat },
+  { label: 'Saturated Fat', value: PRODUCT.nutrition.saturatedFat, reni: RENI.saturatedFat },
+  { label: 'Unsaturated Fat', value: PRODUCT.nutrition.unsaturatedFat },
+  { label: 'Trans Fat', value: PRODUCT.nutrition.transFat },
+  { label: 'Cholesterol', value: PRODUCT.nutrition.cholesterol, reni: RENI.cholesterol },
+  { label: 'Sodium', value: PRODUCT.nutrition.sodium, reni: RENI.sodium },
+  { label: 'Total Carbohydrates', value: PRODUCT.nutrition.totalCarb, reni: RENI.totalCarb },
+  { label: 'Dietary Fiber', value: PRODUCT.nutrition.dietaryFiber, reni: RENI.dietaryFiber },
+  { label: 'Sugar', value: PRODUCT.nutrition.totalSugars },
+  { label: 'Total Protein', value: PRODUCT.nutrition.protein, reni: RENI.protein },
 ];
 
 export function ProductDetails() {
@@ -62,14 +63,26 @@ export function ProductDetails() {
           <h3 className="border-b-4 border-lf-white pb-2 font-display text-2xl uppercase text-lf-white">
             Nutrition Facts
           </h3>
+          <div className="flex items-center justify-between pt-2 text-[11px] uppercase tracking-wide2 text-lf-cream/50">
+            <span>Amount Per Serving</span>
+            <span>% RENI</span>
+          </div>
           <dl className="divide-y divide-white/10">
-            {NUTRITION_ROWS.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between py-2.5 text-sm">
-                <dt className="text-lf-cream/70">{label}</dt>
-                <dd className="font-medium text-lf-white">{value}</dd>
+            {NUTRITION_ROWS.map((row) => (
+              <div key={row.label} className="flex items-center justify-between py-2.5 text-sm">
+                <dt className="text-lf-cream/70">{row.label}</dt>
+                <dd className="flex items-baseline gap-3">
+                  <span className="font-medium text-lf-white">{row.value}</span>
+                  {row.reni && <span className="w-10 text-right text-lf-gold">{row.reni}</span>}
+                </dd>
               </div>
             ))}
           </dl>
+          <ul className="mt-4 space-y-1 text-[11px] leading-relaxed text-lf-cream/40">
+            {PRODUCT.nutritionFootnotes.map((note) => (
+              <li key={note}>* {note}</li>
+            ))}
+          </ul>
         </Reveal>
       </Container>
     </section>

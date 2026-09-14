@@ -18,9 +18,9 @@
 export const PRODUCT = {
   name: 'Lean & Fit Protein Coffee',
   variant: 'Classic',
-  sachetGrams: 25,
+  sachetGrams: 21,
   sachetsPerBox: 10,
-  boxGrams: 250,
+  boxGrams: 210,
 
   /**
    * Delivery fee(s). ⛔ Still a placeholder flat rate - client must confirm
@@ -32,31 +32,60 @@ export const PRODUCT = {
   currency: 'PHP',
 
   metrics: {
-    protein: '15g',
-    calories: '<100', // panel shows 90 kcal
-    sugar: 'Low', // 1g total, 0g added
+    protein: '11g',
+    calories: '100',
+    sugar: 'Low', // 1g total
     transFat: '0g',
   },
 
+  /**
+   * Client-supplied Nutrition Facts panel (confirmed 2026-09-14) - resolves
+   * §4c.4's open item: this is the manufacturer's actual verified label,
+   * not a corrected guess, so `sachetGrams` above and every value here
+   * were updated to match it exactly rather than the earlier 25g/15g
+   * placeholder figures. % RENI (Recommended Energy and Nutrient Intake)
+   * is the panel's own reference column - see `nutritionPercentRENI` /
+   * `nutritionFootnotes` below - and only covers the nutrients the panel
+   * itself lists a % for; nutrients with no % Daily Value under FDA
+   * guidelines (Unsaturated Fat, Trans Fat, Total/Added Sugars) don't get
+   * an entry. Micronutrients not on this panel (Vitamin D, Calcium, Iron,
+   * Potassium) were dropped entirely rather than carrying over the old
+   * placeholder numbers, which were never this formula's real values.
+   */
   nutrition: {
-    servingSize: '1 Sachet (25g)',
+    servingSize: '1 Sachet (21g)',
     servingsPerBox: 10,
-    calories: '90 kcal',
-    totalFat: '2g',
-    saturatedFat: '1g',
+    calories: '100 kcal',
+    caloriesFromFat: '30 kcal',
+    totalFat: '3g',
+    saturatedFat: '2g',
+    unsaturatedFat: '1g',
     transFat: '0g',
-    cholesterol: '5mg',
-    sodium: '60mg',
-    totalCarb: '6g',
+    cholesterol: '100mg',
+    sodium: '30mg',
+    totalCarb: '3g',
     dietaryFiber: '2g',
     totalSugars: '1g',
-    addedSugars: '0g',
-    protein: '15g',
-    vitaminD: '0mcg',
-    calcium: '80mg',
-    iron: '0.5mg',
-    potassium: '150mg',
+    protein: '11g',
   },
+
+  /** % RENI shown on the panel next to each nutrient it covers - see `nutrition` above. */
+  nutritionPercentRENI: {
+    calories: '4%',
+    totalFat: '5%',
+    saturatedFat: '12%',
+    cholesterol: '0%',
+    sodium: '3%',
+    totalCarb: '5%',
+    dietaryFiber: '1%',
+    protein: '23%',
+  },
+
+  nutritionFootnotes: [
+    'Percent RENI values are based on 2015 RENI for the reference requirement of 19–29-year-old male.',
+    'Daily Values: U.S. FDA, used if no RENI.',
+    'No recommended % Daily Values are provided for nutrients/elements where none are specified in the U.S. FDA guideline for Nutrition Labeling.',
+  ],
 
   badges: ['Low Sugar', 'No Added Preservatives', 'Gluten Free', 'Keto Friendly'],
 
@@ -67,18 +96,10 @@ export const PRODUCT = {
    * no Senna Leaf Extract in this formula (the "daily/anytime" usage copy
    * in §5 no longer needs the laxative caveat), and this is the one
    * approved ingredient list, superseding the placeholder that mixed
-   * ingredients from images 5/10/11.
-   *
-   * ⚠️ NOT YET RECONCILED: the client's ingredient-weight breakdown totals
-   * 21.00g net per sachet, not the 25g locked in `sachetGrams` above /
-   * `nutrition.servingSize` below, and its Whey Protein Concentrate line
-   * (10g of the sachet, and whey protein CONCENTRATE is well under 100%
-   * protein by weight) doesn't obviously support the locked "15g protein"
-   * in `metrics.protein` / `nutrition.protein`. Left those numbers
-   * untouched rather than guessing corrected figures - flag to the client
-   * before launch, since a nutrition panel overstating protein or the
-   * wrong net weight is a real labeling/compliance risk, not just
-   * marketing copy.
+   * ingredients from images 5/10/11. The 21g net sachet weight this list
+   * implied is now confirmed correct by the client's actual Nutrition
+   * Facts panel (see `nutrition` above) - `sachetGrams`/`metrics.protein`
+   * were corrected to match it, not the other way around.
    */
   ingredients: [
     'Whey Protein Concentrate',
@@ -159,7 +180,21 @@ export const PRODUCT = {
 
   social: {
     handle: '@leanfitcoffee',
-    platforms: ['Facebook', 'Instagram', 'TikTok'],
+    // ⚠️ The `handle` above is CLAUDE.md §3's locked brand handle, but the
+    // client-supplied real account URLs below (confirmed 2026-09-14) don't
+    // match it - Instagram is actually @leanandfit2026, TikTok is
+    // @leanandfit1, and the Facebook link is a share-link that doesn't
+    // reveal a page handle at all. Not silently reconciled either
+    // direction - flag to the client before launch (the footer/social-proof
+    // copy still displays `@leanfitcoffee`, which visitors could find
+    // confusing if the linked accounts show a different handle).
+    // Instagram/TikTok query strings are copied verbatim as given, not
+    // trimmed, since stripping them isn't guaranteed safe.
+    links: {
+      facebook: 'https://www.facebook.com/share/1BtNW8dHpa/',
+      instagram: 'https://www.instagram.com/leanandfit2026?stkn=MXNkbzFqcmNjaWdhNg==',
+      tiktok: 'https://www.tiktok.com/@leanandfit1?_r=1&_t=ZS-99ig8WwFP6K',
+    },
   },
 } as const;
 

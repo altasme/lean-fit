@@ -1,6 +1,7 @@
 import { Container } from '../ui/Container';
 import { SectionKicker } from '../ui/SectionKicker';
 import { Reveal } from '../ui/Reveal';
+import { SocialLinks } from '../layout/SocialLinks';
 import { SITE, TESTIMONIALS } from '../../content/site';
 
 /**
@@ -43,6 +44,7 @@ export function SocialProof() {
           Follow {SITE.social} for real training days, real routines, and real Lean &amp; Fit
           moments from the community.
         </p>
+        <SocialLinks className="mt-4 justify-center" />
       </Container>
     </section>
   );

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Container } from '../ui/Container';
 import { Logo } from './Logo';
+import { SocialLinks } from './SocialLinks';
 import { SITE } from '../../content/site';
 
 export function Footer() {
@@ -12,6 +13,7 @@ export function Footer() {
           We don&apos;t just make coffee. We fuel your discipline and power your transformation.
         </p>
         <p className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">{SITE.social}</p>
+        <SocialLinks />
         <Link
           to="/reseller"
           className="font-kicker text-sm uppercase tracking-wide2 text-lf-cream transition-colors hover:text-lf-gold"

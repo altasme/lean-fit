@@ -72,16 +72,19 @@ Primary monogram: white **L** / gold **F** (image 8 = cleanest, use for nav + fa
 export const PRODUCT = {
   name: "Lean & Fit Protein Coffee",
   variant: "Classic",
-  sachetGrams: 25, sachetsPerBox: 10, boxGrams: 250,
+  sachetGrams: 21, sachetsPerBox: 10, boxGrams: 210,
   price: null,            // BLOCKING — client must supply base price (PHP)
-  metrics: { protein: "15g", calories: "<100", sugar: "Low", transFat: "0g" },
-  nutrition: {            // image 5 back panel
-    servingSize: "1 Sachet (25g)", servingsPerBox: 10, calories: "90 kcal",
-    totalFat: "2g", saturatedFat: "1g", transFat: "0g", cholesterol: "5mg",
-    sodium: "60mg", totalCarb: "6g", dietaryFiber: "2g", totalSugars: "1g",
-    addedSugars: "0g", protein: "15g", vitaminD: "0mcg", calcium: "80mg",
-    iron: "0.5mg", potassium: "150mg",
+  metrics: { protein: "11g", calories: "100", sugar: "Low", transFat: "0g" },
+  nutrition: {            // client-supplied Nutrition Facts panel, confirmed 2026-09-14
+    servingSize: "1 Sachet (21g)", servingsPerBox: 10, calories: "100 kcal",
+    caloriesFromFat: "30 kcal", totalFat: "3g", saturatedFat: "2g",
+    unsaturatedFat: "1g", transFat: "0g", cholesterol: "100mg", sodium: "30mg",
+    totalCarb: "3g", dietaryFiber: "2g", totalSugars: "1g", protein: "11g",
   },
+  // % RENI (2015 RENI, 19–29yo male reference; FDA Daily Value where no RENI
+  // applies) — see §4c.4.
+  nutritionPercentRENI: { calories: "4%", totalFat: "5%", saturatedFat: "12%",
+    cholesterol: "0%", sodium: "3%", totalCarb: "5%", dietaryFiber: "1%", protein: "23%" },
   badges: ["Low Sugar", "No Added Preservatives", "Gluten Free", "Keto Friendly"],
   prep: ["Tear 1 sachet", "Add 180ml hot water", "Stir", "Enjoy"],
   ingredients: [ /* SEE §4c — includes senna, confirm before launch */ ],
@@ -101,11 +104,11 @@ export const TAGLINE = {
 
 ### 4c. CONFIRM BEFORE LAUNCH — not final
 1. **Price** — absent from every asset. Checkout math is blocked on this.
-2. **15g vs 20g** — image 11 is an older/dead design (20g, 24g serving, soya, different logo, `leanandfit.com`). Confirm dead; all live copy = 15g / whey / `@leanfitcoffee`.
+2. ✅ **15g vs 20g** — resolved 2026-09-14, and it turned out to be neither: image 11 (20g/soya/`leanandfit.com`) is confirmed dead, but the earlier "15g protein" figure was also just the original placeholder, not this formula's real number. The client's actual Nutrition Facts panel (item 6 below) verifies **11g protein per 21g sachet** — that's now the one canonical figure everywhere (`PRODUCT.metrics.protein`/`nutrition.protein`), superseding both 15g and 20g.
 3. ✅ **Senna** — resolved 2026-09-14: client-supplied final formula has no Senna Leaf Extract. The "daily/anytime" usage copy no longer needs a laxative caveat.
-4. ✅ **Ingredient list** — resolved 2026-09-14: client supplied the final formula (`src/content/product.ts` `PRODUCT.ingredients`/`functionalIngredients`) — Whey Protein Concentrate, Non-Dairy Creamer, Premix Coffee Powder, Garcinia Cambogia, Hydrolyzed Collagen, Chia Seed, Sweetener & Flavor Premix (Stevia/Sucralose Blend), Hazelnut Flavor.
-   - ⚠️ **New open item this created:** that formula's ingredient weights total **21g net per sachet**, not the `sachetGrams: 25` locked above / `nutrition.servingSize: "1 Sachet (25g)"` below — and its 10g Whey Protein *Concentrate* line (concentrate isn't 100% protein by weight) doesn't obviously add up to the locked `metrics.protein: "15g"`. Not corrected here since I have no basis to invent replacement numbers - confirm the true net sachet weight and get an updated protein/full-nutrition breakdown from the manufacturer before launch. A nutrition panel overstating protein or showing the wrong net weight is a labeling/compliance risk, not just a copy question.
+4. ✅ **Ingredient list** — resolved 2026-09-14: client supplied the final formula (`src/content/product.ts` `PRODUCT.ingredients`/`functionalIngredients`) — Whey Protein Concentrate, Non-Dairy Creamer, Premix Coffee Powder, Garcinia Cambogia, Hydrolyzed Collagen, Chia Seed, Sweetener & Flavor Premix (Stevia/Sucralose Blend), Hazelnut Flavor. The 21g net sachet weight this formula implied is now independently confirmed by item 6's real panel.
 5. **Final claims** — keep in `PRODUCT.claims`; default to lifestyle framing where unconfirmed.
+6. ✅ **Nutrition panel** — resolved 2026-09-14: client supplied the manufacturer's actual verified Nutrition Facts panel (21g serving size, 10 servings/box, 100 kcal, 3g total fat/2g saturated/1g unsaturated, 0g trans fat, 100mg cholesterol, 30mg sodium, 3g total carb/2g fiber/1g sugar, 11g protein, plus % RENI per the 2015 RENI for a 19–29yo male / FDA Daily Value where no RENI applies). This is the real label, not a corrected guess — `PRODUCT.sachetGrams`/`metrics`/`nutrition`/`nutritionPercentRENI`/`nutritionFootnotes` in `src/content/product.ts` were updated to match it exactly, replacing the old 25g/15g placeholder and dropping micronutrients (Vitamin D/Calcium/Iron/Potassium) that aren't on this panel rather than carrying over invented placeholder values for them.
 
 ---
 
@@ -385,13 +388,14 @@ Mode A needs `ENABLE_GARDEN_IMAGEGEN` + `OPENAI_API_KEY`; else the skill returns
 ## 15. Open inputs (client) — launch blocked until these land
 
 1. **Base price (PHP)** ✅ locked at ₱250 + delivery fee(s)/coverage — still open.
-2. Confirm image 11 (20g) dead → all copy 15g — still open (site treats 15g/whey as canonical in the meantime).
-3. ✅ Final ingredient list + senna — resolved 2026-09-14 (no senna in the final formula) — but see §4c.4's new open item: the supplied formula's weights total 21g/sachet and its whey concentrate line doesn't clearly support the locked 25g sachet / 15g protein figures. Needs a corrected nutrition breakdown from the manufacturer before launch.
+2. ✅ Image 11 (20g) confirmed dead — resolved 2026-09-14 — and the 15g-vs-20g question turned out moot: the real verified figure is 11g protein / 21g sachet (§4c.2/§4c.6).
+3. ✅ Final ingredient list + senna — resolved 2026-09-14 (no senna in the final formula), and §4c.4's nutrition-breakdown follow-up is now also resolved — see item 9 below.
 4. Approved claim list — still open.
 5. Locked tagline — still open (default in place).
 6. Payment account details + **GCash & Maya QR** + bank details — still open.
 7. Business notification email + who verifies payments — still open.
 8. Vector logo ✅ received and wired in. Final product/hero/lifestyle photos ✅ received and wired in. Testimonials — still placeholder. FAQ answers — still placeholder.
+9. ✅ Corrected nutrition breakdown — resolved 2026-09-14 (§4c.6): client supplied the manufacturer's actual verified Nutrition Facts panel, now live in `src/content/product.ts`/`ProductDetails.tsx`.
 
 ---
 

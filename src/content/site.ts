@@ -38,11 +38,11 @@ export const RESELLER = {
 export const BENEFITS = [
   {
     title: 'Fuels Discipline',
-    blurb: 'Start every session with 15g of protein and real focus, not just caffeine.',
+    blurb: 'Start every session with 11g of protein and real focus, not just caffeine.',
   },
   {
     title: 'Low Sugar, High Purpose',
-    blurb: 'Only 1g total sugar, 0g added - built for a lean, active lifestyle.',
+    blurb: 'Only 1g of sugar per sachet - built for a lean, active lifestyle.',
   },
   {
     title: 'Supports Recovery',
