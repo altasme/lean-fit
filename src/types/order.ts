@@ -21,6 +21,13 @@ export type OrderStatus =
 // value - see supabase/README.md's Part 2 scope note.
 export type FulfillmentMethod = 'lean_and_fit_dropship' | 'partner_fulfillment';
 
+// 'retail' = every checkout-created order (default, untouched). The other
+// three are wholesale/restock orders an admin manually keys in for an
+// existing ACTIVE partner buying more stock at their tier price - NOT a
+// referred retail sale, so they never populate referral_partner_id/
+// partner_earnings (see migration 0023).
+export type OrderType = 'retail' | 'reseller' | 'distributor' | 'franchise';
+
 export type Order = {
   id: string;
   order_no: string;
@@ -58,6 +65,11 @@ export type Order = {
   // just record which one (if any) so admin isn't left guessing.
   discount_amount: number;
   applied_promotion_id: string | null;
+  // Manually-added wholesale/restock order (migration 0023). 'retail' for
+  // every normal checkout order. partner_id is who the restock is for -
+  // distinct from referral_partner_id above, which tracks referred sales.
+  order_type: OrderType;
+  partner_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -105,4 +117,18 @@ export const ORDER_STATUS_EMOJI: Record<OrderStatus, string> = {
 export const FULFILLMENT_METHOD_LABELS: Record<FulfillmentMethod, string> = {
   lean_and_fit_dropship: 'Lean & Fit Dropship',
   partner_fulfillment: 'Partner Fulfillment',
+};
+
+export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
+  retail: 'Retail',
+  reseller: 'Reseller Order',
+  distributor: 'Distributor Order',
+  franchise: 'Franchise Order',
+};
+
+export const ORDER_TYPE_PREFIX: Record<OrderType, string> = {
+  retail: 'LF',
+  reseller: 'RO',
+  distributor: 'DO',
+  franchise: 'FO',
 };

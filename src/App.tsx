@@ -18,6 +18,7 @@ import PartnerDashboard from './pages/reseller/PartnerDashboard';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminOrders from './pages/admin/AdminOrders';
 import AdminOrderDetail from './pages/admin/AdminOrderDetail';
+import AdminOrderCreate from './pages/admin/AdminOrderCreate';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminProductForm from './pages/admin/AdminProductForm';
 import AdminPromotions from './pages/admin/AdminPromotions';
@@ -170,6 +171,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminOrders />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/orders/new"
+            element={
+              <RequireAuth>
+                <AdminOrderCreate />
               </RequireAuth>
             }
           />

@@ -348,6 +348,50 @@
       design for other callers; the client-side form is the enforcement
       point here, same pattern checkout's validation vs.
       `create_order_with_payment()` already uses elsewhere in this app.
+27. Run `supabase/migrations/0023_manual_partner_orders.sql` in the SQL
+    editor, after 0022 (single paste - it's a brand-new enum type used in
+    the same file, not `ALTER TYPE ... ADD VALUE` on an existing one, so
+    it doesn't need the two-file split step 24 needed). Client request:
+    "Admins should be able to manually add orders" with a Reseller/
+    Distributor/Franchise Order dropdown and RO-/DO-/FO- numbering, for a
+    partner buying more stock for themselves (a restock) rather than a
+    retail sale a partner referred.
+    - Adds the `order_type` enum (`retail`/`reseller`/`distributor`/
+      `franchise`, default `'retail'` - every existing and every future
+      checkout order is unaffected), `orders.partner_id` (nullable, who
+      the restock is for - deliberately separate from
+      `referral_partner_id`), three independent sequences + a
+      `next_order_no_for_type()` helper producing `RO-`/`DO-`/`FO-`
+      numbers (falling through to the existing `LF-` sequence for
+      `'retail'`), and the new `admin_create_manual_order()` RPC.
+    - `admin_create_manual_order()` is `is_admin()`-gated, rejects
+      `p_order_type = 'retail'` outright (that's checkout's job, not this
+      form's), and validates the selected partner is `status = 'active'`
+      and its `partner_type` matches the chosen order type before
+      creating the order/payment/history rows. It deliberately does
+      **not** touch `referral_partner_id`/`partner_earnings` - this is a
+      partner buying more inventory for themselves at their tier price
+      (mirrors how their one-time onboarding package is priced), not a
+      referred retail sale, so it must never inflate their Total Online
+      Sales / Top Sellers ranking (migration 0018). It shows up in the
+      partner's own portal "My Orders" automatically, with no extra
+      plumbing, because its `email` is set to the partner's own
+      registered email and `lib/partnerOrders.ts`'s `splitPartnerOrders()`
+      already treats "order email matches my own" as an order of theirs.
+    - No function redeploy needed - this is SQL-only. Admin UI: "+ Add
+      Order" on the orders list opens `/admin/orders/new` (order type →
+      active partner of that type, which auto-fills delivery details and
+      the tier-priced unit price, both still editable → product/qty →
+      manual payment fields → optional "payment already verified"
+      checkbox), and the order detail page shows an order-type badge plus
+      a "Linked Partner (Wholesale Order)" panel when `partner_id` is set.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 23 migrations: RO-/DO-/FO- numbers increment
+      independently starting at `000001` each, `referral_partner_id`/
+      `partner_earnings` stay null on every manually-added order, and the
+      RPC correctly rejects `p_order_type = 'retail'`, an inactive
+      partner, and a partner/order-type mismatch (e.g. a reseller partner
+      id passed with `p_order_type = 'distributor'`).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -380,13 +424,14 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0022 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0023 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
-  the partner onboarding stage, and the admin stage-override RPC - steps
-  21-22 and 24-26 above), the `grant-portal-access` redeploy (step 23),
-  plus setting the `VITE_SITE_URL` build env var on Cloudflare Pages and
-  the `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
+  the partner onboarding stage, the admin stage-override RPC, and manual
+  partner (reseller/distributor/franchise) orders - steps 21-22 and 24-27
+  above), the `grant-portal-access` redeploy (step 23), plus setting the
+  `VITE_SITE_URL` build env var on Cloudflare Pages and the
+  `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never

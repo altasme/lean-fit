@@ -6,8 +6,8 @@ import { listOrders } from '../../lib/adminOrders';
 import type { OrderWithPayment } from '../../lib/adminOrders';
 import { formatPHP } from '../../lib/format';
 import { downloadCsv } from '../../lib/csv';
-import { ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../types/order';
-import type { OrderStatus } from '../../types/order';
+import { ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS, ORDER_TYPE_LABELS } from '../../types/order';
+import type { OrderStatus, OrderType } from '../../types/order';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
 import type { PaymentStatus } from '../../types/payment';
 
@@ -29,6 +29,7 @@ export default function AdminOrders() {
 
   const [search, setSearch] = useState('');
   const [orderStatus, setOrderStatus] = useState<OrderStatus | 'all'>('all');
+  const [orderType, setOrderType] = useState<OrderType | 'all'>('all');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | 'all'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -53,13 +54,14 @@ export default function AdminOrders() {
         if (!haystack.includes(term)) return false;
       }
       if (orderStatus !== 'all' && order.status !== orderStatus) return false;
+      if (orderType !== 'all' && order.order_type !== orderType) return false;
       if (paymentStatus !== 'all' && order.payment?.status !== paymentStatus) return false;
       const orderDate = order.created_at.slice(0, 10);
       if (dateFrom && orderDate < dateFrom) return false;
       if (dateTo && orderDate > dateTo) return false;
       return true;
     });
-  }, [orders, search, orderStatus, paymentStatus, dateFrom, dateTo]);
+  }, [orders, search, orderStatus, orderType, paymentStatus, dateFrom, dateTo]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -93,6 +95,7 @@ export default function AdminOrders() {
       `lean-fit-orders-${new Date().toISOString().slice(0, 10)}.csv`,
       sorted.map((order) => ({
         'Order No': order.order_no,
+        Type: ORDER_TYPE_LABELS[order.order_type],
         Customer: order.customer_name,
         Email: order.email,
         Mobile: order.mobile,
@@ -109,7 +112,12 @@ export default function AdminOrders() {
 
   return (
     <AdminLayout>
-      <h1 className="font-kicker text-2xl uppercase tracking-wide2 text-lf-white">Orders</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-kicker text-2xl uppercase tracking-wide2 text-lf-white">Orders</h1>
+        <Link to="/admin/orders/new" className="btn-gold !px-4 !py-2 !text-sm">
+          + Add Order
+        </Link>
+      </div>
 
       {error && <p className="mt-4 text-sm text-lf-error">{error}</p>}
       {!orders && !error && <p className="mt-4 text-sm text-lf-cream/60">Loading orders…</p>}
@@ -153,6 +161,27 @@ export default function AdminOrders() {
                 {(Object.keys(ORDER_STATUS_LABELS) as OrderStatus[]).map((s) => (
                   <option key={s} value={s}>
                     {ORDER_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-kicker text-xs uppercase tracking-wide2 text-lf-cream/60">
+                Order Type
+              </label>
+              <select
+                value={orderType}
+                onChange={(e) => {
+                  setOrderType(e.target.value as OrderType | 'all');
+                  resetPage();
+                }}
+                className="mt-1 rounded-sm border border-white/10 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+              >
+                <option value="all">All</option>
+                {(Object.keys(ORDER_TYPE_LABELS) as OrderType[]).map((t) => (
+                  <option key={t} value={t}>
+                    {ORDER_TYPE_LABELS[t]}
                   </option>
                 ))}
               </select>
@@ -259,6 +288,11 @@ export default function AdminOrders() {
                           <Link to={`/admin/orders/${order.id}`} className="text-lf-gold hover:underline">
                             {order.order_no}
                           </Link>
+                          {order.order_type !== 'retail' && (
+                            <span className="ml-1.5 rounded-full border border-lf-gold/40 px-1.5 py-0.5 text-[10px] text-lf-gold">
+                              {ORDER_TYPE_LABELS[order.order_type]}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-lf-white">{order.customer_name}</td>
                         <td className="px-4 py-3 text-lf-white">{formatPHP(order.total)}</td>

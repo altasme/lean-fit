@@ -11,7 +11,12 @@ import {
 } from '../../lib/adminOrders';
 import { getPartner } from '../../lib/adminPartners';
 import { formatPHP } from '../../lib/format';
-import { FULFILLMENT_METHOD_LABELS, ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../types/order';
+import {
+  FULFILLMENT_METHOD_LABELS,
+  ORDER_STATUS_EMOJI,
+  ORDER_STATUS_LABELS,
+  ORDER_TYPE_LABELS,
+} from '../../types/order';
 import type { Order, OrderStatusHistory } from '../../types/order';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
 import type { Payment, PaymentStatusHistory } from '../../types/payment';
@@ -38,6 +43,7 @@ export default function AdminOrderDetail() {
   const [paymentHistory, setPaymentHistory] = useState<PaymentStatusHistory[]>([]);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [referralPartner, setReferralPartner] = useState<Partner | null>(null);
+  const [linkedPartner, setLinkedPartner] = useState<Partner | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -52,6 +58,7 @@ export default function AdminOrderDetail() {
         if (p.proof_path) setProofUrl(await getProofSignedUrl(p.proof_path));
       }
       setReferralPartner(o.referral_partner_id ? await getPartner(o.referral_partner_id) : null);
+      setLinkedPartner(o.partner_id ? await getPartner(o.partner_id) : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load order.');
     }
@@ -87,9 +94,16 @@ export default function AdminOrderDetail() {
         <h1 className="font-kicker text-2xl uppercase tracking-wide2 text-lf-white">
           {order.order_no}
         </h1>
-        <span className="rounded-full border border-white/10 bg-lf-charcoal px-4 py-1.5 text-sm">
-          {ORDER_STATUS_EMOJI[order.status]} {ORDER_STATUS_LABELS[order.status]}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {order.order_type !== 'retail' && (
+            <span className="rounded-full border border-lf-gold/40 bg-lf-gold/10 px-4 py-1.5 text-sm text-lf-gold">
+              {ORDER_TYPE_LABELS[order.order_type]}
+            </span>
+          )}
+          <span className="rounded-full border border-white/10 bg-lf-charcoal px-4 py-1.5 text-sm">
+            {ORDER_STATUS_EMOJI[order.status]} {ORDER_STATUS_LABELS[order.status]}
+          </span>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -146,6 +160,30 @@ export default function AdminOrderDetail() {
                   <Row label="Partner Earnings" value={formatPHP(order.partner_earnings)} />
                 )}
               </dl>
+            </section>
+          )}
+
+          {order.partner_id && (
+            <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+              <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+                Linked Partner (Wholesale Order)
+              </h2>
+              <p className="mt-1 text-xs text-lf-cream/50">
+                This partner is restocking their own inventory - not a referred retail sale, so
+                it isn't counted toward their referral earnings or Top Sellers ranking.
+              </p>
+              <dl className="tabular mt-3 space-y-1.5 text-sm">
+                <Row label="Partner" value={linkedPartner ? linkedPartner.full_name : 'Loading…'} />
+                <Row label="Order Type" value={ORDER_TYPE_LABELS[order.order_type]} />
+              </dl>
+              {linkedPartner && (
+                <Link
+                  to={`/admin/partners/${linkedPartner.id}`}
+                  className="mt-2 inline-block text-sm text-lf-gold hover:underline"
+                >
+                  View partner →
+                </Link>
+              )}
             </section>
           )}
 

@@ -1,9 +1,37 @@
-import { supabase, PAYMENT_PROOFS_BUCKET } from './supabase';
-import type { Order, OrderStatus, OrderStatusHistory } from '../types/order';
-import type { Payment, PaymentStatus, PaymentStatusHistory } from '../types/payment';
+import { supabase, PAYMENT_PROOFS_BUCKET, uploadPaymentProof } from './supabase';
+import type { DeliveryDetails, Order, OrderStatus, OrderStatusHistory, OrderType } from '../types/order';
+import type { Payment, PaymentMethodId, PaymentStatus, PaymentStatusHistory } from '../types/payment';
 import { writeAuditLog } from './auditLog';
 
 export type OrderWithPayment = Order & { payment: Payment | null };
+
+export type CreateManualPartnerOrderInput = {
+  orderType: Extract<OrderType, 'reseller' | 'distributor' | 'franchise'>;
+  partnerId: string;
+  delivery: DeliveryDetails;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  paymentMethod: PaymentMethodId;
+  paymentReference?: string | null;
+  paymentAmount?: number | null;
+  paymentDate?: string | null;
+  proofFile?: File | null;
+  /** Admin already confirmed the payment on their end - skip the usual verification step. */
+  markPaid?: boolean;
+};
+
+export type CreatedManualOrder = {
+  orderId: string;
+  orderNo: string;
+  orderStatus: OrderStatus;
+  paymentId: string;
+  paymentNo: string;
+  paymentStatus: PaymentStatus;
+};
 
 async function currentAdminId(): Promise<string | null> {
   const {
@@ -185,6 +213,67 @@ export async function refundPayment(paymentId: string): Promise<void> {
 
 export async function cancelOrder(orderId: string): Promise<void> {
   await setOrderStatus(orderId, 'cancelled', 'Cancelled by admin');
+}
+
+/**
+ * Admin-keyed wholesale/restock order for an existing ACTIVE Reseller/
+ * Distributor/Franchise partner buying more stock at their tier price -
+ * NOT a referred retail sale (see migration 0023 / types/order.ts).
+ * Calls the `admin_create_manual_order` RPC, which validates the partner
+ * is active and matches `orderType` server-side.
+ */
+export async function createManualPartnerOrder(
+  input: CreateManualPartnerOrderInput,
+): Promise<CreatedManualOrder> {
+  const proofPath = input.proofFile ? await uploadPaymentProof(input.proofFile) : null;
+
+  const { data, error } = await supabase.rpc('admin_create_manual_order', {
+    p_order_type: input.orderType,
+    p_partner_id: input.partnerId,
+    p_customer_name: input.delivery.customerName,
+    p_email: input.delivery.email,
+    p_mobile: input.delivery.mobile,
+    p_address: input.delivery.address,
+    p_barangay: input.delivery.barangay,
+    p_city: input.delivery.city,
+    p_province: input.delivery.province,
+    p_postal_code: input.delivery.postalCode,
+    p_delivery_notes: input.delivery.deliveryNotes || null,
+    p_product: input.productName,
+    p_quantity: input.quantity,
+    p_unit_price: input.unitPrice,
+    p_subtotal: input.subtotal,
+    p_delivery_fee: input.deliveryFee,
+    p_total: input.total,
+    p_payment_method: input.paymentMethod,
+    p_payment_reference: input.paymentReference ?? null,
+    p_payment_amount: input.paymentAmount ?? null,
+    p_payment_date: input.paymentDate ?? null,
+    p_payment_proof_path: proofPath,
+    p_mark_paid: input.markPaid ?? false,
+  });
+
+  if (error) throw new Error(`Failed to create order: ${error.message}`);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Order was not created.');
+
+  await writeAuditLog({
+    entity_type: 'order',
+    entity_id: row.order_id,
+    action: 'created',
+    field: 'Order',
+    new_value: row.order_no,
+    note: `Manually added ${input.orderType} order for partner`,
+  });
+
+  return {
+    orderId: row.order_id,
+    orderNo: row.order_no,
+    orderStatus: row.order_status,
+    paymentId: row.payment_id,
+    paymentNo: row.payment_no,
+    paymentStatus: row.payment_status,
+  };
 }
 
 export async function advanceOrderStatus(
