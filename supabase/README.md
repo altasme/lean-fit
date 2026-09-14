@@ -468,6 +468,91 @@
     ```bash
     supabase functions deploy grant-portal-access
     ```
+30. Run `supabase/migrations/0025_partner_invite_links.sql` in the SQL
+    editor, after 0024 (single paste). Client request: admin-assignable
+    upline/downline (already fully built and unused since Phase G -
+    `assignParentPartner`/`fetchEligibleParentPartners` in
+    `lib/adminPartners.ts` - only the admin UI to use it was missing) plus
+    a brand-new partner-to-partner **invite link** system: "Distributors
+    can invite resellers and they have their own invite link... their
+    partner record will state who the upline is... Franchise are the
+    upline of Distributors and can invite both Distributors and
+    resellers... Resellers cannot have a downline nor invite other
+    resellers... The link must show in the partner portal but is not the
+    same as the unique partner link."
+    - Adds `partners.invite_code` (unique, nullable) - a SEPARATE code
+      from `referral_code`. `referral_code` attributes retail sales
+      (commission/Top Sellers); `invite_code` attributes partner
+      recruitment (who onboarded whom in the hierarchy). Never shares a
+      value or a URL path with the referral link on purpose - the invite
+      URL is `/join/{invite_code}`, never the bare `/{code}` the referral
+      link uses.
+    - `generate_invite_code()` mirrors `generate_referral_code()`
+      (migration 0018) but checks uniqueness against **both** columns, so
+      an invite code and a referral code can never collide with each
+      other either. Generated automatically alongside `referral_code`
+      whenever a Distributor or Franchise activates (`approve_partner()`,
+      `admin_create_partner(..., p_activate := true)`,
+      `admin_override_partner_status(..., 'active')` - all three
+      reproduced here with this one addition, otherwise unchanged from
+      migration 0024). A Reseller never gets one - no downline to invite.
+      Existing already-active Distributors/Franchises are backfilled in
+      this same migration, no status change needed to pick one up.
+    - `get_invite_info(code)` (anon+authenticated) is a narrow public
+      lookup for the `/join/:code` landing page - returns ONLY the
+      inviter's name and partner type, nothing else, so a stranger
+      following a shared link can see "You've been invited by X" before
+      submitting anything.
+    - `submit_partner_lead()` (the public lead-capture form, migration
+      0014) gets two new optional trailing params, `p_invite_code` and
+      `p_partner_type` - note this is a genuinely different parameter
+      list from the existing 5-arg version, so the migration explicitly
+      `drop function if exists`s the old signature first rather than
+      relying on `create or replace` (which would otherwise add a second
+      overload and make the trailing `grant execute` ambiguous - caught
+      by this migration's own local validation, not a hypothetical).
+      When an invite code is given: a Distributor's invite always
+      resolves the new lead to `partner_type = 'reseller'` (the only
+      option, and not trusted from client input - a Distributor's own
+      invite code can never produce anything else, even if the request
+      claims otherwise); a Franchise's invite requires the caller to
+      choose Reseller or Distributor and validates that choice
+      server-side. Either way, `parent_partner_id`/`onboarded_by_partner_id`
+      are set on the new lead immediately at submission - "their partner
+      record will state who the upline is" from the moment they sign up,
+      not only after admin later completes onboarding by phone (that step
+      is untouched; it just now inherits a lead that already has its type
+      and upline set, and the admin "Complete Onboarding" form pre-fills
+      the type and shows an "Invited by: X" hint for it).
+    - No function redeploy needed - this is SQL-only. Admin UI: a new
+      "Upline & Downline" section on the partner detail page (reassign
+      upline via the already-existing eligible-parents dropdown, view
+      downline read-only). Partner portal: a new "Your Partner Invite
+      Link" section on the Overview tab (copy + QR, shown only for an
+      active Distributor/Franchise), clearly separated from the existing
+      "Your Referral Identity" section. Public: `/join/:inviteCode` (new
+      route, reuses the existing `/reseller` lead-capture form/component)
+      shows an inviter banner and, for a Franchise invite, a Reseller/
+      Distributor picker; an invalid/inactive code falls back gracefully
+      to a plain "apply without an invite" link rather than erroring the
+      whole page.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 25 migrations (both incrementally on top of the
+      existing test DB and from a completely fresh `create database`, to
+      confirm the `drop function` step is actually needed and works on a
+      true first run, not just a patched-up local state): Distributor and
+      Franchise both get an `invite_code` on activation, Reseller never
+      does; `get_invite_info` returns the right name/type for a valid
+      code and an empty result for an invalid one; a Distributor's invite
+      always produces a Reseller lead with the correct
+      `parent_partner_id` regardless of what `p_partner_type` is passed;
+      a Franchise's invite correctly produces either a Reseller or
+      Distributor lead when chosen, and is rejected with a clear error
+      when no type is chosen; an invalid invite code is rejected; and an
+      organic (non-invited) lead submission is completely unaffected
+      (still no type, no parent, exactly as before). Exercised as both
+      `authenticated` and `anon` (the real caller role for a public
+      visitor).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -500,14 +585,15 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0024 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0025 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
-  partner (reseller/distributor/franchise) orders, and auto-recording a
-  partner's onboarding package as an order - steps 21-22 and 24-28
-  above), the `grant-portal-access` redeploys (steps 23 and 29 - **29 is
-  the current version and supersedes 23**, run it even if 23 was already
+  partner (reseller/distributor/franchise) orders, auto-recording a
+  partner's onboarding package as an order, and partner invite links -
+  steps 21-22 and 24-28 and 30 above), the `grant-portal-access`
+  redeploys (steps 23 and 29 - **29 is the current version and
+  supersedes 23**, run it even if 23 was already
   done), plus setting the `VITE_SITE_URL` build env var on Cloudflare
   Pages and the `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
   **If migration 0014 genuinely hasn't run live yet** (see the note right

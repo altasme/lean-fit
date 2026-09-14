@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import {
   approvePartner,
+  assignParentPartner,
+  fetchEligibleParentPartners,
   getPartner,
   getPartnerProofSignedUrl,
   grantPartnerPortalAccess,
@@ -13,6 +15,7 @@ import {
   rejectPartner,
   suspendPartner,
 } from '../../lib/adminPartners';
+import { fetchDownstreamPartners } from '../../lib/partners';
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
 import type { Partner, PartnerStatus } from '../../types/partner';
@@ -33,6 +36,10 @@ export default function AdminPartnerDetail() {
   const [partner, setPartner] = useState<Partner | null>(null);
   const [proofUrl, setProofUrl] = useState<string | null>(null);
   const [onboardedBy, setOnboardedBy] = useState<Partner | null>(null);
+  const [parentPartner, setParentPartner] = useState<Partner | null>(null);
+  const [eligibleParents, setEligibleParents] = useState<Partner[]>([]);
+  const [downstreamPartners, setDownstreamPartners] = useState<Partner[]>([]);
+  const [selectedParentId, setSelectedParentId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [accessPassword, setAccessPassword] = useState('');
@@ -46,6 +53,19 @@ export default function AdminPartnerDetail() {
       setPartner(p);
       setProofUrl(p.payment_proof_path ? await getPartnerProofSignedUrl(p.payment_proof_path) : null);
       setOnboardedBy(p.onboarded_by_partner_id ? await getPartner(p.onboarded_by_partner_id) : null);
+      setParentPartner(p.parent_partner_id ? await getPartner(p.parent_partner_id) : null);
+      setSelectedParentId(p.parent_partner_id ?? '');
+      if (p.partner_type) {
+        const [eligible, downstream] = await Promise.all([
+          fetchEligibleParentPartners(p.partner_type),
+          fetchDownstreamPartners(p.id),
+        ]);
+        setEligibleParents(eligible);
+        setDownstreamPartners(downstream);
+      } else {
+        setEligibleParents([]);
+        setDownstreamPartners([]);
+      }
       // Clears this application off the Partners nav's "new" badge - best
       // effort, never blocks viewing the page over it.
       if (p.status === 'pending' && !p.first_viewed_at) {
@@ -131,6 +151,20 @@ export default function AdminPartnerDetail() {
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to override stage.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAssignParent() {
+    if (!partner) return;
+    setBusy(true);
+    try {
+      await assignParentPartner(partner.id, selectedParentId || null);
+      showToast(selectedParentId ? 'Upline assigned.' : 'Upline cleared.');
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to assign upline.', 'error');
     } finally {
       setBusy(false);
     }
@@ -280,6 +314,79 @@ export default function AdminPartnerDetail() {
               </p>
             )}
           </section>
+
+          {/* Client request: "Admins must be able to assign who the
+              upline/downline/parent partner is." Only meaningful once a
+              type is set (fetchEligibleParentPartners needs one) - a raw
+              lead with no type yet has nothing to assign. */}
+          {partner.partner_type && (
+            <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+              <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+                Upline &amp; Downline
+              </h2>
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <Row
+                  label="Current Upline"
+                  value={
+                    parentPartner
+                      ? `${parentPartner.full_name} (${partnerTypeLabel(parentPartner.partner_type)})`
+                      : '—'
+                  }
+                />
+              </dl>
+
+              {eligibleParents.length > 0 ? (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <select
+                    value={selectedParentId}
+                    onChange={(e) => setSelectedParentId(e.target.value)}
+                    className="rounded-sm border border-white/15 bg-lf-black px-3 py-2.5 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+                  >
+                    <option value="">— None —</option>
+                    {eligibleParents.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.full_name} ({partnerTypeLabel(p.partner_type)})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={busy || selectedParentId === (partner.parent_partner_id ?? '')}
+                    onClick={handleAssignParent}
+                    className="btn-outline !px-4 !py-2 !text-sm disabled:opacity-50"
+                  >
+                    Save Upline
+                  </button>
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-lf-cream/50">
+                  {partnerTypeLabel(partner.partner_type)} is the top of the hierarchy - no eligible
+                  upline to assign.
+                </p>
+              )}
+
+              <p className="mt-4 text-xs uppercase tracking-wide2 text-lf-cream/50">Downline</p>
+              {downstreamPartners.length > 0 ? (
+                <ul className="mt-2 space-y-2">
+                  {downstreamPartners.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between rounded-sm border border-white/10 bg-lf-black px-3 py-2 text-sm"
+                    >
+                      <Link to={`/admin/partners/${p.id}`} className="text-lf-gold hover:underline">
+                        {p.full_name}
+                      </Link>
+                      <span className="text-xs uppercase tracking-wide2 text-lf-cream/50">
+                        {partnerTypeLabel(p.partner_type)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs text-lf-cream/50">No downstream partners yet.</p>
+              )}
+            </section>
+          )}
         </div>
 
         <div className="space-y-6">

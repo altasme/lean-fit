@@ -9,7 +9,7 @@ import { fetchPartnerPackage } from '../../lib/partners';
 import { validateAdminCreatePartner } from '../../lib/validation';
 import type { AdminCreatePartnerErrors, AdminCreatePartnerInput } from '../../lib/validation';
 import { PAYMENT_METHODS } from '../../content/payment';
-import { PARTNER_TYPE_LABELS } from '../../types/partner';
+import { PARTNER_TYPE_LABELS, partnerTypeLabel } from '../../types/partner';
 import type { PartnerType } from '../../types/partner';
 
 const PARTNER_TYPES: PartnerType[] = ['reseller', 'distributor', 'franchise'];
@@ -50,6 +50,7 @@ export default function AdminPartnerCreate() {
   const [form, setForm] = useState<AdminCreatePartnerInput>(EMPTY);
   const [errors, setErrors] = useState<AdminCreatePartnerErrors>({});
   const [leadHint, setLeadHint] = useState<string | null>(null);
+  const [inviterHint, setInviterHint] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [packageAmountTouched, setPackageAmountTouched] = useState(false);
@@ -57,9 +58,29 @@ export default function AdminPartnerCreate() {
   useEffect(() => {
     if (!leadId) return;
     getPartner(leadId)
-      .then((lead) => {
-        setForm((f) => ({ ...f, existingLeadId: lead.id, fullName: lead.full_name, email: lead.email, mobile: lead.mobile }));
+      .then(async (lead) => {
+        setForm((f) => ({
+          ...f,
+          existingLeadId: lead.id,
+          fullName: lead.full_name,
+          email: lead.email,
+          mobile: lead.mobile,
+          // A lead that arrived via another partner's invite link
+          // (migration 0025) already has its type resolved server-side -
+          // prefill it rather than making the admin re-pick it, though
+          // they can still change it here if it's wrong.
+          partnerType: lead.partner_type ?? f.partnerType,
+        }));
         setLeadHint([lead.city, lead.province].filter(Boolean).join(', '));
+
+        if (lead.parent_partner_id) {
+          try {
+            const inviter = await getPartner(lead.parent_partner_id);
+            setInviterHint(`${inviter.full_name} (${partnerTypeLabel(inviter.partner_type)})`);
+          } catch {
+            // Non-critical - the form still works without this hint.
+          }
+        }
       })
       .catch(() => showToast('Could not load that lead - starting a fresh form.', 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,6 +146,9 @@ export default function AdminPartnerCreate() {
       </h1>
       {leadHint && (
         <p className="mt-1 text-sm text-lf-cream/60">Lead's stated location: {leadHint}</p>
+      )}
+      {inviterHint && (
+        <p className="mt-1 text-sm text-lf-gold">Invited by: {inviterHint}</p>
       )}
 
       <form onSubmit={handleSubmit} className="mt-6 max-w-2xl space-y-6">

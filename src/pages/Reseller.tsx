@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { SectionKicker } from '../components/ui/SectionKicker';
 import { RESELLER } from '../content/site';
-import { submitPartnerLead } from '../lib/partners';
+import { getInviteInfo, submitPartnerLead } from '../lib/partners';
+import type { InviteInfo } from '../lib/partners';
 import { fetchAllProvinces, fetchCitiesForProvince } from '../lib/phLocations';
 import type { PhCity, PhProvinceOption } from '../lib/phLocations';
 import { validatePartnerLead } from '../lib/validation';
 import type { PartnerLead, PartnerLeadErrors } from '../lib/validation';
+import { ONBOARDABLE_PARTNER_TYPES, PARTNER_TYPE_LABELS } from '../types/partner';
+import type { PartnerType } from '../types/partner';
 
 const EMPTY: PartnerLead = { fullName: '', email: '', mobile: '', province: '', city: '' };
 
@@ -21,6 +24,7 @@ const labelClass = 'mb-1.5 block text-xs font-medium uppercase tracking-wide2 te
 // it shows up on the admin Pending Partners tab immediately; admin calls
 // the lead and completes onboarding themselves from there.
 export default function Reseller() {
+  const { inviteCode } = useParams<{ inviteCode?: string }>();
   const [done, setDone] = useState(false);
   const [form, setForm] = useState<PartnerLead>(EMPTY);
   const [errors, setErrors] = useState<PartnerLeadErrors>({});
@@ -29,6 +33,33 @@ export default function Reseller() {
 
   const [provinces, setProvinces] = useState<PhProvinceOption[] | null>(null);
   const [cities, setCities] = useState<PhCity[] | null>(null);
+
+  // undefined = still checking, null = no code or the code didn't resolve
+  // to an active Distributor/Franchise. A Distributor's invite only ever
+  // produces a Reseller, so there's nothing to pick; a Franchise's invite
+  // can produce either, so `invitedType` starts null and the visitor must
+  // choose before submitting.
+  const [inviteInfo, setInviteInfo] = useState<InviteInfo | null | undefined>(inviteCode ? undefined : null);
+  const [invitedType, setInvitedType] = useState<PartnerType | null>(null);
+
+  useEffect(() => {
+    if (!inviteCode) return;
+    let cancelled = false;
+    getInviteInfo(inviteCode)
+      .then((info) => {
+        if (cancelled) return;
+        setInviteInfo(info);
+        if (info && ONBOARDABLE_PARTNER_TYPES[info.inviterType].length === 1) {
+          setInvitedType(ONBOARDABLE_PARTNER_TYPES[info.inviterType][0]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInviteInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteCode]);
 
   useEffect(() => {
     fetchAllProvinces()
@@ -59,11 +90,18 @@ export default function Reseller() {
     const formErrors = validatePartnerLead(form);
     setErrors(formErrors);
     if (Object.keys(formErrors).length > 0) return;
+    if (inviteInfo && !invitedType) {
+      setSubmitError('Select whether you are joining as a Reseller or a Distributor.');
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await submitPartnerLead(form);
+      await submitPartnerLead(
+        form,
+        inviteCode && invitedType ? { inviteCode, partnerType: invitedType } : undefined,
+      );
       setDone(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -90,6 +128,36 @@ export default function Reseller() {
     );
   }
 
+  if (inviteCode && inviteInfo === undefined) {
+    return (
+      <div className="bg-lf-black py-24 sm:py-32">
+        <Container className="max-w-lg text-center">
+          <p className="text-sm text-lf-cream/60">Loading invite…</p>
+        </Container>
+      </div>
+    );
+  }
+
+  if (inviteCode && inviteInfo === null) {
+    return (
+      <div className="bg-lf-black py-24 sm:py-32">
+        <Container className="max-w-lg text-center">
+          <SectionKicker>{RESELLER.kicker}</SectionKicker>
+          <h1 className="text-4xl text-lf-white sm:text-5xl">Invite Link Invalid</h1>
+          <p className="mt-4 text-lf-cream/80">
+            This invite link is no longer valid - it may have expired or the partner who shared it
+            is no longer active. You can still apply directly below.
+          </p>
+          <Link to="/reseller" className="btn-gold mt-10 inline-flex">
+            Apply Without An Invite
+          </Link>
+        </Container>
+      </div>
+    );
+  }
+
+  const downlineOptions = inviteInfo ? ONBOARDABLE_PARTNER_TYPES[inviteInfo.inviterType] : [];
+
   return (
     <div className="bg-lf-black py-24 sm:py-32">
       <Container className="max-w-xl">
@@ -98,6 +166,15 @@ export default function Reseller() {
           <h1 className="text-4xl text-lf-white sm:text-5xl">{RESELLER.heading}</h1>
           <p className="mt-4 text-lf-cream/80">{RESELLER.intro}</p>
         </div>
+
+        {inviteInfo && (
+          <div className="mt-8 rounded-sm border border-lf-gold/30 bg-lf-gold/10 px-5 py-4 text-center">
+            <p className="text-sm text-lf-white">
+              You&apos;ve been invited by <span className="text-lf-gold">{inviteInfo.inviterName}</span> to
+              join Lean &amp; Fit{downlineOptions.length === 1 ? ` as a ${PARTNER_TYPE_LABELS[downlineOptions[0]]}` : ''}.
+            </p>
+          </div>
+        )}
 
         <ul className="mt-10 space-y-3 text-left">
           {RESELLER.benefits.map((benefit) => (
@@ -118,6 +195,28 @@ export default function Reseller() {
           <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
             Tell Us About Yourself
           </h2>
+
+          {downlineOptions.length > 1 && (
+            <div>
+              <label className={labelClass}>Join As</label>
+              <div className="grid grid-cols-2 gap-2">
+                {downlineOptions.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setInvitedType(type)}
+                    className={`rounded-sm border px-3 py-2.5 text-sm font-kicker uppercase tracking-wide2 transition-colors ${
+                      invitedType === type
+                        ? 'border-lf-gold bg-lf-gold text-lf-black'
+                        : 'border-white/15 text-lf-cream/70 hover:border-lf-gold/50'
+                    }`}
+                  >
+                    {PARTNER_TYPE_LABELS[type]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className={labelClass}>Full Name</label>

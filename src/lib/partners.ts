@@ -85,6 +85,42 @@ export function buildReferralUrl(referralCode: string): string {
   return `${protocol}//${bareHost}${portSuffix}/${referralCode}`;
 }
 
+/**
+ * A partner's INVITE URL: leanandfit.ph/join/{invite_code} - deliberately
+ * a different path than buildReferralUrl's bare /{referral_code} (client
+ * request: "not the same as the unique partner link"). This one attributes
+ * partner-to-partner recruitment, resolved by pages/Reseller.tsx's
+ * /join/:inviteCode route, not the customer-facing /:slug catch-all.
+ */
+export function buildInviteUrl(inviteCode: string): string {
+  const configured = (import.meta.env.VITE_SITE_URL as string | undefined)?.trim();
+  if (configured) {
+    return `${configured.replace(/\/+$/, '')}/join/${inviteCode}`;
+  }
+
+  const { protocol, hostname, port } = window.location;
+  const bareHost = stripPortalPrefix(hostname);
+  const portSuffix = port ? `:${port}` : '';
+  return `${protocol}//${bareHost}${portSuffix}/join/${inviteCode}`;
+}
+
+export type InviteInfo = { inviterName: string; inviterType: PartnerType };
+
+/**
+ * Public, pre-submission lookup for the /join/:code landing page - who
+ * invited this visitor and what type(s) of partner they can join as.
+ * Returns null for an invalid/inactive code (get_invite_info returns no
+ * row rather than erroring, so an unrecognized code just reads as "not
+ * found" here).
+ */
+export async function getInviteInfo(inviteCode: string): Promise<InviteInfo | null> {
+  const { data, error } = await supabase.rpc('get_invite_info', { p_invite_code: inviteCode });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return { inviterName: row.inviter_name, inviterType: row.inviter_type };
+}
+
 export type SubmittedLead = {
   partnerId: string;
   status: PartnerStatus;
@@ -97,14 +133,25 @@ export type SubmittedLead = {
  * status 'pending' so it shows up on the admin Pending Partners tab
  * immediately; admin completes onboarding later via adminCreatePartner()
  * (lib/adminPartners.ts) after calling the lead back.
+ *
+ * Migration 0025 - `invite` is optional: set when this lead arrived via
+ * another partner's /join/{code} link (see pages/Reseller.tsx). When
+ * present, the new lead's parent_partner_id/onboarded_by_partner_id and
+ * partner_type are set server-side from the invite immediately, rather
+ * than waiting for admin to complete onboarding.
  */
-export async function submitPartnerLead(lead: PartnerLead): Promise<SubmittedLead> {
+export async function submitPartnerLead(
+  lead: PartnerLead,
+  invite?: { inviteCode: string; partnerType?: PartnerType },
+): Promise<SubmittedLead> {
   const { data, error } = await supabase.rpc('submit_partner_lead', {
     p_full_name: lead.fullName,
     p_email: lead.email,
     p_mobile: lead.mobile,
     p_province: lead.province,
     p_city: lead.city,
+    p_invite_code: invite?.inviteCode ?? null,
+    p_partner_type: invite?.partnerType ?? null,
   });
 
   if (error) throw new Error(`Failed to submit: ${error.message}`);

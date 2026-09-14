@@ -65,6 +65,13 @@ export type Partner = {
   // aren't kept in sync afterward.
   onboarded_by_partner_id: string | null;
   referral_code: string | null;
+  // Migration 0025 - a SEPARATE code from `referral_code` above: this one
+  // attributes partner-to-partner RECRUITMENT (who invited whom into the
+  // hierarchy), not retail sales. Only ever set for an active Distributor
+  // or Franchise (client rule: Resellers can't invite/have a downline).
+  // Portal URL: buildInviteUrl() -> /join/{invite_code}, deliberately a
+  // different path than the referral link's /{referral_code}.
+  invite_code: string | null;
   package: string | null;
   // Package + payment (Phase C, spec §17-20) - attached to the same
   // partner row created at application time (Phase B), same manual-payment

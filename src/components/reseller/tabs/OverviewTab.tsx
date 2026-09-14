@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { useToast } from '../../ui/Toast';
-import { buildReferralUrl } from '../../../lib/partners';
+import { buildInviteUrl, buildReferralUrl } from '../../../lib/partners';
 import { formatPHP } from '../../../lib/format';
-import { partnerTypeLabel } from '../../../types/partner';
+import { ONBOARDABLE_PARTNER_TYPES, PARTNER_TYPE_LABELS, partnerTypeLabel } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
 import { SalesOverviewCards } from './SalesOverviewCards';
 import type { PartnerOrder } from '../../../lib/partnerOrders';
@@ -30,8 +30,15 @@ export function OverviewTab({
 }) {
   const { showToast } = useToast();
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [inviteQrDataUrl, setInviteQrDataUrl] = useState<string | null>(null);
 
   const referralUrl = partner.referral_code ? buildReferralUrl(partner.referral_code) : null;
+  const inviteUrl = partner.invite_code ? buildInviteUrl(partner.invite_code) : null;
+  // Client rule: only a Distributor or Franchise can invite (a Reseller
+  // has no downline at all), matching ONBOARDABLE_PARTNER_TYPES already
+  // used server-side to validate this.
+  const canInvite = partner.partner_type ? ONBOARDABLE_PARTNER_TYPES[partner.partner_type].length > 0 : false;
+  const invitableTypes = partner.partner_type ? ONBOARDABLE_PARTNER_TYPES[partner.partner_type] : [];
 
   useEffect(() => {
     if (!referralUrl) {
@@ -51,11 +58,39 @@ export function OverviewTab({
     };
   }, [referralUrl]);
 
+  useEffect(() => {
+    if (!inviteUrl) {
+      setInviteQrDataUrl(null);
+      return;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(inviteUrl, { margin: 1, width: 240, color: { dark: '#0D0D0D', light: '#F2E9DB' } })
+      .then((url) => {
+        if (!cancelled) setInviteQrDataUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setInviteQrDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteUrl]);
+
   async function handleCopy() {
     if (!referralUrl) return;
     try {
       await navigator.clipboard.writeText(referralUrl);
       showToast('Referral link copied.');
+    } catch {
+      showToast('Could not copy - copy it manually instead.', 'error');
+    }
+  }
+
+  async function handleCopyInvite() {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      showToast('Invite link copied.');
     } catch {
       showToast('Could not copy - copy it manually instead.', 'error');
     }
@@ -185,6 +220,50 @@ export function OverviewTab({
         </section>
       </div>
       </div>
+
+      {canInvite && (
+        <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+            Your Partner Invite Link
+          </h2>
+          <p className="mt-2 text-sm text-lf-cream/70">
+            Share this link to invite new{' '}
+            {invitableTypes.map((t) => `${PARTNER_TYPE_LABELS[t]}s`).join(invitableTypes.length > 1 ? ' or ' : '')}
+            {' '}- this is different from your Referral URL above, which is for customers buying
+            Lean &amp; Fit, not for recruiting other partners. Anyone who signs up through it will
+            show you as their upline.
+          </p>
+
+          {inviteUrl ? (
+            <div className="mt-4 grid gap-6 sm:grid-cols-[1fr_auto] sm:items-start">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide2 text-lf-cream/70">
+                  Invite URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={inviteUrl}
+                    onFocus={(e) => e.target.select()}
+                    className="w-full rounded-sm border border-white/15 bg-lf-black px-4 py-3 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+                  />
+                  <button type="button" onClick={handleCopyInvite} className="btn-outline shrink-0 !px-4 !text-sm">
+                    Copy
+                  </button>
+                </div>
+              </div>
+              {inviteQrDataUrl && (
+                <div className="flex flex-col items-center gap-2 rounded-sm border border-white/10 bg-lf-black p-4">
+                  <img src={inviteQrDataUrl} alt="Invite QR code" className="h-32 w-32" />
+                  <p className="text-xs text-lf-cream/50">Scan to open</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-lf-cream/60">Your invite link hasn't been generated yet.</p>
+          )}
+        </section>
+      )}
     </div>
   );
 }

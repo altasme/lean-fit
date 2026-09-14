@@ -146,6 +146,17 @@ export default function App() {
               </PublicLayout>
             }
           />
+          {/* Partner-to-partner invite links (client request) - deliberately
+              a different path than the /:slug retail-referral catch-all
+              below, since the two attribute completely different things. */}
+          <Route
+            path="/join/:inviteCode"
+            element={
+              <PublicLayout>
+                <Reseller />
+              </PublicLayout>
+            }
+          />
           <Route path="/reseller/login" element={<PartnerLogin />} />
           <Route path="/reseller/set-password" element={<PartnerSetPassword />} />
           <Route
