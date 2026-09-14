@@ -169,6 +169,30 @@ export async function markPartnerViewed(partnerId: string): Promise<void> {
     .is('first_viewed_at', null);
 }
 
+/**
+ * Client request: "Admin must be able to override all stages" - forces a
+ * partner directly to any status (migration 0022), bypassing every
+ * normal safeguard on the way (territory capacity, payment verification,
+ * the guided pipeline's own ordering) on purpose - this is the escape
+ * hatch for corrections/edge cases, not another guided transition. Kept
+ * entirely separate from moveToOnboarding/approvePartner/rejectPartner/
+ * suspendPartner/reactivatePartner above - those stay the normal path.
+ */
+export async function overridePartnerStage(partnerId: string, status: PartnerStatus): Promise<void> {
+  const { error } = await supabase.rpc('admin_override_partner_status', {
+    p_partner_id: partnerId,
+    p_status: status,
+  });
+  if (error) throw new Error(error.message);
+
+  await writeAuditLog({
+    entity_type: 'partner',
+    entity_id: partnerId,
+    action: 'stage_overridden',
+    note: `Manually set to ${status}`,
+  });
+}
+
 export async function rejectPartner(partnerId: string): Promise<void> {
   const { error } = await supabase
     .from('partners')

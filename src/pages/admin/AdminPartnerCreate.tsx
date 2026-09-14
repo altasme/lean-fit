@@ -159,6 +159,7 @@ export default function AdminPartnerCreate() {
           <div>
             <label className={labelClass}>Address</label>
             <input value={form.address} onChange={(e) => update('address', e.target.value)} className={inputClass} />
+            {errors.address && <p className="mt-1.5 text-xs text-lf-error">{errors.address}</p>}
           </div>
         </section>
 
@@ -203,6 +204,7 @@ export default function AdminPartnerCreate() {
                 onChange={(e) => update('packageBoxes', e.target.value === '' ? null : Number(e.target.value))}
                 className={`${inputClass} tabular`}
               />
+              {errors.packageBoxes && <p className="mt-1.5 text-xs text-lf-error">{errors.packageBoxes}</p>}
             </div>
             <div>
               <label className={labelClass}>Package Amount (₱)</label>
@@ -217,6 +219,7 @@ export default function AdminPartnerCreate() {
                 }}
                 className={`${inputClass} tabular`}
               />
+              {errors.packageAmount && <p className="mt-1.5 text-xs text-lf-error">{errors.packageAmount}</p>}
               {form.partnerType && form.packageAmount != null && (
                 <p className="mt-1 text-xs text-lf-cream/40">
                   Auto-filled from {PARTNER_TYPE_LABELS[form.partnerType]} tier pricing - edit if the actual
@@ -234,13 +237,16 @@ export default function AdminPartnerCreate() {
                 onChange={(e) => update('paymentMethod', (e.target.value || null) as AdminCreatePartnerInput['paymentMethod'])}
                 className={inputClass}
               >
-                <option value="">Not collected yet</option>
+                <option value="" disabled>
+                  Select a method
+                </option>
                 {MANUAL_METHODS.map((m) => (
                   <option key={m.code} value={m.code}>
                     {m.label}
                   </option>
                 ))}
               </select>
+              {errors.paymentMethod && <p className="mt-1.5 text-xs text-lf-error">{errors.paymentMethod}</p>}
             </div>
             <div>
               <label className={labelClass}>Reference No.</label>
@@ -249,6 +255,7 @@ export default function AdminPartnerCreate() {
                 onChange={(e) => update('paymentReference', e.target.value)}
                 className={inputClass}
               />
+              {errors.paymentReference && <p className="mt-1.5 text-xs text-lf-error">{errors.paymentReference}</p>}
             </div>
           </div>
 
@@ -263,6 +270,7 @@ export default function AdminPartnerCreate() {
                 onChange={(e) => update('paymentAmount', e.target.value === '' ? null : Number(e.target.value))}
                 className={`${inputClass} tabular`}
               />
+              {errors.paymentAmount && <p className="mt-1.5 text-xs text-lf-error">{errors.paymentAmount}</p>}
             </div>
             <div>
               <label className={labelClass}>Payment Date</label>
@@ -272,6 +280,7 @@ export default function AdminPartnerCreate() {
                 onChange={(e) => update('paymentDate', e.target.value)}
                 className={`${inputClass} tabular`}
               />
+              {errors.paymentDate && <p className="mt-1.5 text-xs text-lf-error">{errors.paymentDate}</p>}
             </div>
           </div>
 

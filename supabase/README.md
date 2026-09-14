@@ -327,6 +327,27 @@
     (`BUSINESS_NOTIFICATION_EMAIL`), and `package_payment_submitted`
     (partner) - none of those are being removed, only `payment_approved`'s
     and `shipped`'s copy changed (see `src/content/emails.ts`).
+26. Run `supabase/migrations/0022_admin_stage_override.sql` in the SQL
+    editor, after 0021 (single paste). Client request: "Admin must be
+    able to override all stages" - adds `admin_override_partner_status()`,
+    an `is_admin()`-gated escape hatch that forces a partner directly to
+    any status (Pending/Onboarding/Active/Suspended/Rejected) from any
+    other status, deliberately bypassing every normal safeguard on the
+    way (territory capacity, payment verification, the guided pipeline's
+    own ordering) - that's the point of an override, not a bug. Still
+    generates a referral code automatically if forcing a partner into
+    `'active'` who doesn't already have one, since a referral-code-less
+    active partner can't use the portal. Surfaced as a standalone
+    "Override Stage" section on the partner detail page, always visible
+    regardless of current status, separate from the guided Decision/
+    Status actions. No function redeploy needed - this is SQL-only.
+    - Same pass also made every field on the "Complete Onboarding" form
+      required client-side (`src/lib/validation.ts`
+      `validateAdminCreatePartner`) - no DB/RPC change, since
+      `admin_create_partner()`'s own parameters were already flexible by
+      design for other callers; the client-side form is the enforcement
+      point here, same pattern checkout's validation vs.
+      `create_order_with_payment()` already uses elsewhere in this app.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -359,12 +380,13 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0021 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0022 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
-  and the partner onboarding stage - steps 21-22 and 24 above), the
-  `grant-portal-access` redeploy (step 23), plus setting the
-  `VITE_SITE_URL` build env var on Cloudflare Pages.
+  the partner onboarding stage, and the admin stage-override RPC - steps
+  21-22 and 24-26 above), the `grant-portal-access` redeploy (step 23),
+  plus setting the `VITE_SITE_URL` build env var on Cloudflare Pages and
+  the `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never

@@ -71,10 +71,12 @@ export function validatePartnerLead(lead: PartnerLead): PartnerLeadErrors {
 }
 
 // Migration 0014's admin_create_partner() - the admin-side "Add Partner"
-// form (item #2), full manual onboarding after a phone call. Always
-// requires type/territory (payment/package/activation are the admin's
-// call - a partial save just means "not activated yet", not "no
-// territory reserved").
+// form (item #2), full manual onboarding after a phone call. Client
+// request: every field on this form is required - completing onboarding
+// means the admin has actually collected all of it over the phone, not a
+// partial save for later (see below - `activate` is the only exception,
+// still the admin's own call on whether to flip the partner live now vs.
+// approve separately once payment clears).
 export type AdminCreatePartnerInput = {
   existingLeadId: string | null;
   fullName: string;
@@ -105,6 +107,7 @@ export function validateAdminCreatePartner(input: AdminCreatePartnerInput): Admi
   if (!PH_MOBILE_RE.test(input.mobile.trim())) {
     errors.mobile = 'Enter a valid PH mobile number (e.g. 09171234567).';
   }
+  if (!input.address.trim()) errors.address = 'Address is required.';
   if (!input.partnerType) errors.partnerType = 'Select a partner type.';
   if (!input.territoryId) errors.territoryId = 'Select a territory.';
   if (
@@ -113,6 +116,18 @@ export function validateAdminCreatePartner(input: AdminCreatePartnerInput): Admi
   ) {
     errors.barangayName = 'Select a barangay.';
   }
+  if (input.packageBoxes == null || input.packageBoxes <= 0) {
+    errors.packageBoxes = 'Enter the number of boxes.';
+  }
+  if (input.packageAmount == null || input.packageAmount <= 0) {
+    errors.packageAmount = 'Enter the package amount.';
+  }
+  if (!input.paymentMethod) errors.paymentMethod = 'Select a payment method.';
+  if (!input.paymentReference.trim()) errors.paymentReference = 'Reference number is required.';
+  if (input.paymentAmount == null || input.paymentAmount <= 0) {
+    errors.paymentAmount = 'Enter the amount paid.';
+  }
+  if (!input.paymentDate.trim()) errors.paymentDate = 'Payment date is required.';
 
   return errors;
 }

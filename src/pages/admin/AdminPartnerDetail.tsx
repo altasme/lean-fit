@@ -8,15 +8,18 @@ import {
   grantPartnerPortalAccess,
   markPartnerViewed,
   moveToOnboarding,
+  overridePartnerStage,
   reactivatePartner,
   rejectPartner,
   suspendPartner,
 } from '../../lib/adminPartners';
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
-import type { Partner } from '../../types/partner';
+import type { Partner, PartnerStatus } from '../../types/partner';
 import { PARTNER_STATUS_LABELS, partnerTypeLabel } from '../../types/partner';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../types/payment';
+
+const ALL_STATUSES: PartnerStatus[] = ['pending', 'onboarding', 'active', 'suspended', 'rejected'];
 
 const METHOD_LABELS: Record<string, string> = {
   gcash: 'GCash',
@@ -34,6 +37,7 @@ export default function AdminPartnerDetail() {
   const [busy, setBusy] = useState(false);
   const [accessPassword, setAccessPassword] = useState('');
   const [sendAccessEmail, setSendAccessEmail] = useState(false);
+  const [overrideStatus, setOverrideStatus] = useState<PartnerStatus | ''>('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -97,6 +101,28 @@ export default function AdminPartnerDetail() {
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to move to onboarding.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleOverride() {
+    if (!partner || !overrideStatus || overrideStatus === partner.status) return;
+    if (
+      !window.confirm(
+        `Force ${partner.full_name} directly to "${PARTNER_STATUS_LABELS[overrideStatus]}"? This skips the normal payment-verification/capacity checks - only use it for corrections.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await overridePartnerStage(partner.id, overrideStatus);
+      showToast(`Stage overridden to ${PARTNER_STATUS_LABELS[overrideStatus]}.`);
+      setOverrideStatus('');
+      await load();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to override stage.', 'error');
     } finally {
       setBusy(false);
     }
@@ -401,6 +427,46 @@ export default function AdminPartnerDetail() {
               )}
             </section>
           )}
+
+          {/* Client request: "Admin must be able to override all stages" -
+              always visible regardless of current status, independent of
+              the guided actions above. Deliberately styled as a distinct,
+              secondary "advanced" tool rather than blended into Decision/
+              Status, since it bypasses the safeguards those go through. */}
+          <section className="rounded-sm border border-lf-error/30 bg-lf-charcoal p-6">
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-error">
+              Override Stage
+            </h2>
+            <p className="mt-2 text-sm text-lf-cream/60">
+              Force this partner directly to any stage. Skips the normal payment-verification and
+              territory-capacity checks - use only to correct a mistake, not as the usual path.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <select
+                value={overrideStatus}
+                onChange={(e) => setOverrideStatus(e.target.value as PartnerStatus | '')}
+                className="rounded-sm border border-white/15 bg-lf-black px-3 py-2.5 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+              >
+                <option value="" disabled>
+                  Select a stage
+                </option>
+                {ALL_STATUSES.map((s) => (
+                  <option key={s} value={s} disabled={s === partner.status}>
+                    {PARTNER_STATUS_LABELS[s]}
+                    {s === partner.status ? ' (current)' : ''}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={busy || !overrideStatus || overrideStatus === partner.status}
+                onClick={handleOverride}
+                className="btn-outline !border-lf-error !px-5 !py-2.5 !text-sm !text-lf-error hover:!bg-lf-error hover:!text-lf-black disabled:opacity-50"
+              >
+                Set Stage
+              </button>
+            </div>
+          </section>
         </div>
       </div>
     </AdminLayout>
