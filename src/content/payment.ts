@@ -98,7 +98,7 @@ export const PAYMENT_METHODS: PaymentMethodConfig[] = [
     provider: 'ganap',
     requiresProof: false,
     instructions:
-      "You'll be redirected to a secure payment page where you can pay via GCash, Maya, or online banking (QR Ph). Your order is confirmed automatically once payment clears - no need to upload a screenshot.",
+      "You'll be redirected to a secure payment page where you can pay via GCash, Maya, or online banking (QR Ph).",
   },
   {
     code: 'cod',
