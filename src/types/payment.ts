@@ -1,11 +1,18 @@
 // Payment lifecycle, independent of order fulfillment - see types/order.ts
 // and CLAUDE.md §6/§10 for the Order -> Payment -> Provider split.
-export type PaymentMethodId = 'gcash' | 'maya' | 'bank_transfer' | 'cod';
+// 'gcash'/'maya'/'bank_transfer' are retired from active checkout (client
+// request: replaced by the single 'ganap' gateway method) but stay valid
+// here forever - historical orders placed under them still need to
+// render correctly in admin.
+export type PaymentMethodId = 'gcash' | 'maya' | 'bank_transfer' | 'ganap' | 'cod';
 
-// 'manual' covers GCash/Maya/Bank Transfer today. 'cod' is its own
-// provider (no verification gate). A future 'paymongo' provider slots in
-// here without touching checkout/order/admin structure - see CLAUDE.md §13.
-export type PaymentProvider = 'manual' | 'cod';
+// 'manual' covered GCash/Maya/Bank Transfer (retired from active checkout,
+// kept for historical orders). 'ganap' is the live gateway - GCash/Maya/
+// Online Banking via Ganap's hosted QR Ph checkout, auto-verified by
+// webhook, no admin review. 'cod' is its own provider (no verification
+// gate). This is the CLAUDE.md §13 "future provider" slot actually being
+// used now.
+export type PaymentProvider = 'manual' | 'ganap' | 'cod';
 
 export type PaymentStatus =
   | 'pending'

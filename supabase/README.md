@@ -554,6 +554,98 @@
       `authenticated` and `anon` (the real caller role for a public
       visitor).
 
+31. **Ganap payment gateway** (client request: replace the three separate
+    manual GCash/Maya/Bank Transfer methods on **retail checkout only**
+    with one automated "GCash / Maya / Online Banking" method, powered by
+    Ganap's hosted checkout - QR Ph covers all three rails on one page,
+    settled automatically with no admin review). Cash on Delivery is
+    unchanged.
+    - Run `supabase/migrations/0026_ganap_payment_enums.sql` in the SQL
+      editor **as its own paste**, then - only after it has fully
+      committed - run `supabase/migrations/0027_ganap_payment_gateway.sql`
+      as a second, separate paste. Same reason as steps 24/26 earlier
+      (0020/0021): Postgres will not let a value just added via
+      `ALTER TYPE ... ADD VALUE` be referenced by anything created later
+      in the *same* transaction, on any Postgres version/client. 0026 only
+      adds `'ganap'` to the `payment_method`/`payment_provider` enums;
+      0027 reproduces `create_order_with_payment` (unchanged signature
+      from migration 0015) with one new `elsif` branch for it. Every
+      historical order/payment keeps working exactly as before - old enum
+      values are never removed, admin still renders them the same way.
+    - Deploy the three new Edge Functions:
+      ```bash
+      supabase functions deploy ganap-checkout
+      supabase functions deploy ganap-check-status
+      supabase functions deploy ganap-webhook --no-verify-jwt
+      ```
+      `ganap-webhook` needs `--no-verify-jwt` because Ganap calls it
+      directly from the open internet with no Supabase JWT at all - it's
+      authenticated by HMAC signature (`X-Ganap-Signature`) instead, the
+      same recipe Ganap's own checkout/status APIs use. The other two are
+      normal `supabase.functions.invoke()` targets from the browser, so
+      they keep the default JWT check (satisfied by the anon key
+      supabase-js already sends).
+    - Set secrets:
+      ```bash
+      supabase secrets set GANAP_PROJECT_UUID=a002d19e-33af-4b13-b05c-3cd9335f21c1
+      supabase secrets set GANAP_SIGNING_SECRET=<the signing secret Ganap gave you>
+      supabase secrets set SITE_URL=https://leanandfit.ph
+      ```
+      `SITE_URL` is reintroduced here for a new reason, unrelated to the
+      old `invite-partner` mechanism the historical note below describes -
+      `ganap-checkout` uses it to build the `successRedirectUrl` Ganap
+      sends the customer back to (`{SITE_URL}/order-confirmed?...`). Never
+      commit the actual signing secret to any file - set it only via this
+      command or the Dashboard's Edge Function secrets screen.
+    - **In the Ganap dashboard**, replace the placeholder Endpoint URL
+      (`https://leanandfit.ph/test`) with the deployed webhook's real URL:
+      `https://<project-ref>.supabase.co/functions/v1/ganap-webhook`.
+      Until this is updated, Ganap has nowhere real to deliver payment
+      notifications - `ganap-check-status`'s polling from
+      `/order-confirmed` and the admin "Check Ganap Status" button are the
+      fallback for exactly that gap, but the webhook is the primary path
+      and should be pointed at the real URL before taking live traffic.
+    - ⚠️ **Unverified before launch:** Ganap's docs give `"amount":1000` as
+      a checkout example with no stated unit. `ganap-checkout` sends the
+      order's raw PHP total as-is (a ₱1,500 order → `"amount":1500`), NOT
+      converted to centavos. Confirm the expected unit with Ganap
+      (dashboard/support) and run one real small transaction before
+      relying on this for actual charges - if Ganap actually expects
+      centavos, every charge would be off by 100x.
+    - Checkout branches on `payment.provider`: `'ganap'` order/payment
+      start at `order.status = 'pending'` / `payment.status = 'pending'`
+      (no proof, no reference/amount collected from the customer - nobody
+      is reviewing a screenshot, Ganap's webhook/status-check settles it
+      automatically). No customer/business email fires at checkout time
+      for this method (unlike every other method here) - emailing before
+      payment is confirmed would notify about orders that are abandoned
+      mid-checkout on Ganap's page. The existing `payment_approved`
+      email/business-notification pair fires once, from whichever settles
+      first: the webhook or a status-check poll, exactly the same event
+      the "Approve Payment" admin action already uses for manual orders.
+    - `content/payment.ts`: the original `PAYMENT_METHODS` array is
+      **unchanged** (still has `gcash`/`maya`/`bank_transfer`/`cod`, plus
+      the new `ganap` entry) - `PackagePaymentStep.tsx` (partner package
+      payment) and `AdminOrderCreate.tsx`/`AdminPartnerCreate.tsx` (admin
+      manual wholesale/onboarding orders) all still filter it by
+      `provider === 'manual'` for their own, untouched flows. A new
+      `RETAIL_CHECKOUT_METHODS` export (`ganap` + `cod` only) is what
+      `Checkout.tsx` actually renders - retiring the three manual methods
+      from retail checkout without breaking any of those other three
+      consumers.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 27 migrations (both incrementally on the existing
+      test DB and from a completely fresh `create database`, same
+      discipline as step 30): both enum values land correctly,
+      `create_order_with_payment('ganap', ...)` produces `order.status =
+      'pending'` / `payment.status = 'pending'` / `payment.provider =
+      'ganap'` as `anon`, and the full migration chain replays clean from
+      scratch with no ordering errors. `tsc`/`eslint`/`vite build` all
+      pass; Playwright-verified the retail checkout page now shows exactly
+      "GCash / Maya / Online Banking" and "Cash on Delivery" as its two
+      payment options, with the right instructions text and no
+      proof-upload field for either.
+
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
 are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
@@ -585,17 +677,19 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0025 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0027 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
   partner (reseller/distributor/franchise) orders, auto-recording a
-  partner's onboarding package as an order, and partner invite links -
-  steps 21-22 and 24-28 and 30 above), the `grant-portal-access`
-  redeploys (steps 23 and 29 - **29 is the current version and
-  supersedes 23**, run it even if 23 was already
-  done), plus setting the `VITE_SITE_URL` build env var on Cloudflare
-  Pages and the `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
+  partner's onboarding package as an order, partner invite links, and the
+  Ganap payment gateway enums/RPC branch - steps 21-22, 24-28, 30, and 31
+  above), the `grant-portal-access` redeploys (steps 23 and 29 - **29 is
+  the current version and supersedes 23**, run it even if 23 was already
+  done), the three new Ganap Edge Functions and their secrets plus the
+  Ganap-dashboard webhook URL update (step 31), plus setting the
+  `VITE_SITE_URL` build env var on Cloudflare Pages and the
+  `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never
@@ -629,8 +723,11 @@ Historical note (kept for context, now fully superseded by
 with no `SITE_URL` secret set, which was the confirmed cause of "Approve
 Partner"/"Resend Portal Invite" failing to send any email - purely a
 deployment/config gap, not a code bug. That whole invite-link mechanism
-(and the `SITE_URL` secret it needed) no longer exists in the current
-codebase; there is nothing left to configure for it.
+no longer exists in the current codebase. **`SITE_URL` itself has since
+been reintroduced** (step 31) for an unrelated purpose - `ganap-checkout`
+uses it to build the URL Ganap redirects the customer back to after
+payment - so it does need to be set again, just not for the reason this
+note originally described.
 
 ## Order → Payment → Provider (v2)
 

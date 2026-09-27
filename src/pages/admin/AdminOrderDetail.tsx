@@ -27,11 +27,13 @@ const METHOD_LABELS: Record<string, string> = {
   gcash: 'GCash',
   maya: 'Maya',
   bank_transfer: 'Bank Transfer',
+  ganap: 'GCash / Maya / Online Banking',
   cod: 'Cash on Delivery',
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
   manual: 'Manual',
+  ganap: 'Ganap',
   cod: 'COD',
 };
 

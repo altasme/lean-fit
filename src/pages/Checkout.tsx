@@ -7,9 +7,10 @@ import { PaymentMethodSelect } from '../components/checkout/PaymentMethodSelect'
 import { ProofUpload } from '../components/checkout/ProofUpload';
 import { useCartStore } from '../store/cart';
 import { useActiveProduct } from '../hooks/useActiveProduct';
-import { PAYMENT_METHODS } from '../content/payment';
+import { RETAIL_CHECKOUT_METHODS } from '../content/payment';
 import { createOrder } from '../lib/orders';
 import { notifyOrderEvent } from '../lib/notify';
+import { startGanapCheckout } from '../lib/ganap';
 import { getStoredReferralCode } from '../lib/referral';
 import { validateDeliveryDetails, validateProof } from '../lib/validation';
 import { trackInitiateCheckout, trackAddPaymentInfo, trackPurchase } from '../lib/pixel';
@@ -31,8 +32,9 @@ export default function Checkout() {
   const discountAmount = useCartStore((s) => s.discountAmount());
   const appliedDiscountPromotionId = useCartStore((s) => s.appliedDiscountPromotionId);
 
-  const selectedMethod = PAYMENT_METHODS.find((m) => m.code === paymentMethod);
+  const selectedMethod = RETAIL_CHECKOUT_METHODS.find((m) => m.code === paymentMethod);
   const requiresProof = selectedMethod?.requiresProof ?? false;
+  const isGatewayMethod = selectedMethod?.provider === 'ganap';
 
   const [deliveryErrors, setDeliveryErrors] = useState<ReturnType<typeof validateDeliveryDetails>>({});
   const [file, setFile] = useState<File | null>(null);
@@ -117,6 +119,28 @@ export default function Checkout() {
         orderId: order.orderId,
       });
 
+      if (isGatewayMethod) {
+        // No email yet - the customer hasn't paid. Ganap's webhook (or the
+        // OrderConfirmed status-poll fallback) fires the "payment verified"
+        // email once payment.status actually flips to 'paid'. Store the
+        // pending order so /order-confirmed can render something useful if
+        // the redirect back doesn't carry state (see OrderConfirmed.tsx).
+        sessionStorage.setItem(
+          LAST_ORDER_KEY,
+          JSON.stringify({
+            orderNo: order.orderNo,
+            customerName: delivery.customerName,
+            isCod: false,
+            isGateway: true,
+            orderId: order.orderId,
+          }),
+        );
+
+        const { redirectUrl } = await startGanapCheckout(order.orderId, order.paymentId);
+        window.location.href = redirectUrl;
+        return;
+      }
+
       void notifyOrderEvent(order.orderId, requiresProof ? 'order_submitted' : 'order_confirmed_cod', {
         isNewOrder: true,
       });
@@ -151,7 +175,12 @@ export default function Checkout() {
         <div id="checkout-errors" className="mt-10 space-y-6">
           <OrderSummary />
           <DeliveryForm values={delivery} errors={deliveryErrors} onChange={handleDeliveryChange} />
-          <PaymentMethodSelect selected={paymentMethod} onSelect={handlePaymentSelect} />
+          <PaymentMethodSelect
+            selected={paymentMethod}
+            onSelect={handlePaymentSelect}
+            methods={RETAIL_CHECKOUT_METHODS}
+            helpText="Choose how you'd like to pay. GCash, Maya, and Online Banking are processed securely through our payment partner; Cash on Delivery doesn't need any of that."
+          />
           {requiresProof && (
             <ProofUpload file={file} errors={proofErrors} onChange={handleProofChange} />
           )}

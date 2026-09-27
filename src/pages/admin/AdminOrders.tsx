@@ -17,6 +17,7 @@ const METHOD_LABELS: Record<string, string> = {
   gcash: 'GCash',
   maya: 'Maya',
   bank_transfer: 'Bank Transfer',
+  ganap: 'GCash / Maya / Online Banking',
   cod: 'COD',
 };
 

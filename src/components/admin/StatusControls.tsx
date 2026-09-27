@@ -9,6 +9,7 @@ import {
   rejectPayment,
 } from '../../lib/adminOrders';
 import { notifyOrderEvent } from '../../lib/notify';
+import { checkGanapStatus } from '../../lib/ganap';
 import { useToast } from '../ui/Toast';
 import type { Order } from '../../types/order';
 import type { Payment } from '../../types/payment';
@@ -49,6 +50,35 @@ export function StatusControls({
 
   return (
     <div className="space-y-4">
+      {payment && payment.provider === 'ganap' && payment.status !== 'paid' && payment.status !== 'refunded' && (
+        <div className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+          <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+            Ganap Payment
+          </h2>
+          <p className="mt-2 text-sm text-lf-cream/60">
+            This order pays via the Ganap gateway - it settles automatically once Ganap confirms
+            payment. If the customer says they paid but this still shows pending, check now
+            instead of waiting for the webhook.
+          </p>
+          {error && <p className="mt-2 text-xs text-lf-error">{error}</p>}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                run(async () => {
+                  const { paid } = await checkGanapStatus(order.id);
+                  if (!paid) throw new Error('Ganap has not confirmed this payment yet.');
+                }, 'Payment confirmed by Ganap')
+              }
+              className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
+            >
+              Check Ganap Status
+            </button>
+          </div>
+        </div>
+      )}
+
       {payment && payment.provider === 'manual' && payment.status === 'pending_verification' && (
         <div className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
           <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">

@@ -5,7 +5,7 @@ export function PaymentMethodSelect({
   selected,
   onSelect,
   methods = PAYMENT_METHODS,
-  helpText = "Choose how you'd like to pay. GCash, Maya, and Bank Transfer require proof of payment; Cash on Delivery doesn't.",
+  helpText = "Choose how you'd like to pay.",
 }: {
   selected: PaymentMethodId | null;
   onSelect: (id: PaymentMethodId) => void;
@@ -39,7 +39,7 @@ export function PaymentMethodSelect({
 
       {active && (
         <div className="mt-5 rounded-sm border border-white/10 bg-lf-black p-5 text-sm">
-          {active.code === 'cod' && (
+          {(active.code === 'cod' || active.code === 'ganap') && (
             <p className="text-lf-cream/80">{active.instructions}</p>
           )}
 
