@@ -116,9 +116,18 @@ Deno.serve(async (req) => {
     }
 
     const payload = JSON.parse(rawBody) as Record<string, unknown>;
+    const event = payload.event as string | undefined;
     const status = payload.status as string | undefined;
     const paid = Boolean(payload.paid);
     const referenceNumber = payload.referenceNumber as string | undefined;
+
+    // Ganap's real webhook payload has no `event`/`status` field for a plain
+    // status poll response, but DOES for the actual webhook delivery - only
+    // require `event` to look like a real webhook when it's present at all,
+    // so this still works from a manual redelivery/test that might omit it.
+    if (event && event !== 'transaction.paid') {
+      return jsonResponse({ ok: true, note: `ignored event "${event}"` });
+    }
 
     const payment = await findPayment(payload);
     if (!payment) {
@@ -126,7 +135,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Payment not found' }, 404);
     }
 
-    // Idempotent - Ganap may retry delivery, and this must never double-fire the settlement email.
+    // Idempotent - Ganap delivers at-least-once (retries/manual redelivery
+    // can resend the same event), and this must never double-fire the
+    // settlement email.
     if (payment.status === 'paid') {
       return jsonResponse({ ok: true, note: 'already settled' });
     }
