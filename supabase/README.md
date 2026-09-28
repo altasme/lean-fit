@@ -1008,6 +1008,66 @@
       `?gateway=1&order_no=...&order_id=...` in the URL correctly
       auto-switches to My Orders, shows the "confirming payment" banner,
       and strips the query params.
+40. Run `supabase/migrations/0032_cod_captcha_guard.sql` in the SQL
+    editor, after 0027 has committed (`create or replace`, same signature
+    as `create_order_with_payment` has had since 0027 - safe to run
+    regardless of where 0028-0031 stand, none of them touch this
+    function). Client request: "add a captcha before a Cash on delivery
+    order gets submitted... to protect from spam orders." Cloudflare
+    Turnstile (not reCAPTCHA) - this site is already on Cloudflare Pages,
+    so it's the same vendor, free, and needs no cookie-consent banner.
+    Scoped to COD only - the other retail method (Ganap) already has
+    real friction (an external payment gateway), COD does not.
+    - The actual Turnstile verification happens in a new
+      `submit-cod-order` Edge Function (has to be there - checking a
+      token against Cloudflare's siteverify API needs an HTTP call this
+      Postgres function can't make). This migration adds the other half:
+      `create_order_with_payment`'s `'cod'` branch now raises unless the
+      caller is `service_role` - closing the obvious bypass where a
+      spammer skips the browser/captcha entirely and calls the
+      already-anon-grantable RPC directly with `p_payment_method = 'cod'`.
+      Manual/Ganap orders are completely unaffected - checkout still
+      calls this RPC directly as `anon` for those, exactly like before.
+      ```bash
+      supabase functions deploy submit-cod-order
+      supabase secrets set TURNSTILE_SECRET_KEY=<your-secret-key>
+      ```
+    - **New: Cloudflare Turnstile site setup.** Cloudflare dashboard ->
+      Turnstile -> Add a site (same account this project's Pages site
+      already runs on). Add both keys:
+      - `VITE_TURNSTILE_SITE_KEY` - Cloudflare Pages env var (Production
+        + Preview), public/safe in the client bundle, same as any other
+        `VITE_*` var here.
+      - `TURNSTILE_SECRET_KEY` - Edge Function secret only, via the
+        `supabase secrets set` command above, never a `VITE_*` var.
+      **Until `VITE_TURNSTILE_SITE_KEY` is set, Cash on Delivery is
+      unusable** - `Turnstile.tsx` deliberately refuses to render a
+      widget without a site key and blocks submission rather than
+      silently skip the check, since a silently-skipped captcha would
+      defeat the whole point. Manual/Ganap checkout is unaffected either
+      way.
+    - Client code: new `src/components/checkout/Turnstile.tsx` (lazy-loads
+      Cloudflare's widget script only when a customer has COD selected,
+      not sitewide). `Checkout.tsx` shows it under a new "Quick
+      Verification" panel only for COD, and blocks submission with an
+      inline error until it's solved. `src/lib/orders.ts`'s `createOrder()`
+      now branches: COD calls the new `submit-cod-order` function
+      (`supabase.functions.invoke`) instead of the RPC directly; every
+      other method's code path is byte-for-byte unchanged.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 32 migrations from a completely fresh `create
+      database`: a plain `anon` call to `create_order_with_payment` with
+      `p_payment_method = 'cod'` is rejected with the new error message;
+      the identical call succeeds when the session's `request.jwt.claim.role`
+      is `service_role`; `gcash` and `ganap` calls as plain `anon` are
+      completely unaffected (unchanged order/payment status output).
+      `tsc -b`/`vite build`/eslint all pass. Playwright-verified (mocked
+      Supabase client + a stubbed `window.turnstile`, reverted before this
+      commit): the verification panel appears only after selecting Cash
+      on Delivery; submitting before solving it shows the inline error and
+      makes no network call; solving it then submitting calls
+      `submit-cod-order` with the token and full order payload, then
+      navigates to `/order-confirmed` on success.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`, and
 `EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
@@ -1040,7 +1100,7 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0031 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0032 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
@@ -1048,12 +1108,13 @@ Pages"). Three follow-ups this creates, none done yet:
   partner's onboarding package as an order, partner invite links, the
   Ganap payment gateway enums/RPC branch, the public order-tracking
   RPC, partner self-ordering + manual commission disbursements, the
-  partner self-order MOQ, and switching partner self-ordering to Ganap -
-  steps 21-22, 24-28, 30-32, and 37-39 above), the `grant-portal-access`
-  redeploys (steps 23 and 29 - **29 is the current version and
-  supersedes 23**, run it even if 23 was already done), the three new
-  Ganap Edge Functions (plus step 39's `ganap-checkout` redeploy on top
-  of that) and their secrets plus the Ganap-dashboard webhook
+  partner self-order MOQ, switching partner self-ordering to Ganap, and
+  the COD captcha guard - steps 21-22, 24-28, 30-32, and 37-40 above),
+  the `grant-portal-access` redeploys (steps 23 and 29 - **29 is the
+  current version and supersedes 23**, run it even if 23 was already
+  done), the three new Ganap Edge Functions (plus step 39's
+  `ganap-checkout` redeploy and step 40's new `submit-cod-order` function
+  on top of that) and their secrets plus the Ganap-dashboard webhook
   URL update (step 31), plus setting the `VITE_SITE_URL` build env var on
   Cloudflare Pages and the
   `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).

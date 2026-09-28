@@ -5,6 +5,7 @@ import { OrderSummary } from '../components/checkout/OrderSummary';
 import { DeliveryForm } from '../components/checkout/DeliveryForm';
 import { PaymentMethodSelect } from '../components/checkout/PaymentMethodSelect';
 import { ProofUpload } from '../components/checkout/ProofUpload';
+import { Turnstile } from '../components/checkout/Turnstile';
 import { useCartStore } from '../store/cart';
 import { useActiveProduct } from '../hooks/useActiveProduct';
 import { RETAIL_CHECKOUT_METHODS } from '../content/payment';
@@ -35,12 +36,17 @@ export default function Checkout() {
   const selectedMethod = RETAIL_CHECKOUT_METHODS.find((m) => m.code === paymentMethod);
   const requiresProof = selectedMethod?.requiresProof ?? false;
   const isGatewayMethod = selectedMethod?.provider === 'ganap';
+  const isCodMethod = selectedMethod?.provider === 'cod';
 
   const [deliveryErrors, setDeliveryErrors] = useState<ReturnType<typeof validateDeliveryDetails>>({});
   const [file, setFile] = useState<File | null>(null);
   const [proofErrors, setProofErrors] = useState<ReturnType<typeof validateProof>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Client request: captcha before a COD order can be submitted, to
+  // protect against spam orders - see components/checkout/Turnstile.tsx
+  // and migration 0032's server-side enforcement.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const initiateCheckoutFired = useMemo(() => ({ current: false }), []);
 
@@ -58,6 +64,7 @@ export default function Checkout() {
 
   const handlePaymentSelect = (method: PaymentMethodId) => {
     setPaymentMethod(method);
+    setCaptchaToken(null);
     if (total !== null) trackAddPaymentInfo(total);
   };
 
@@ -79,6 +86,10 @@ export default function Checkout() {
     }
     if (!paymentMethod) {
       setSubmitError('Please select a payment method.');
+      return;
+    }
+    if (isCodMethod && !captchaToken) {
+      setSubmitError('Please complete the verification challenge before submitting.');
       return;
     }
     if (unitPrice === null || productName === null || subtotal === null || total === null) {
@@ -111,6 +122,7 @@ export default function Checkout() {
         discountAmount,
         appliedPromotionId: appliedDiscountPromotionId,
         ...(requiresProof ? { proofFile: file ?? undefined } : {}),
+        ...(isCodMethod ? { captchaToken: captchaToken ?? undefined } : {}),
       });
 
       trackPurchase({
@@ -183,6 +195,20 @@ export default function Checkout() {
           />
           {requiresProof && (
             <ProofUpload file={file} errors={proofErrors} onChange={handleProofChange} />
+          )}
+
+          {isCodMethod && (
+            <div className="rounded-sm border border-white/10 bg-lf-charcoal p-6 sm:p-8">
+              <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+                Quick Verification
+              </h2>
+              <p className="mt-2 text-sm text-lf-cream/70">
+                Please complete this check before submitting your Cash on Delivery order.
+              </p>
+              <div className="mt-4">
+                <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
+              </div>
+            </div>
           )}
 
           {submitError && (

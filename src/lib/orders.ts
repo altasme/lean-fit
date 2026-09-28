@@ -1,4 +1,5 @@
 import { supabase, uploadPaymentProof } from './supabase';
+import { functionErrorMessage } from './functionsError';
 import type { DeliveryDetails, OrderStatus } from '../types/order';
 import type { PaymentMethodId, PaymentStatus } from '../types/payment';
 
@@ -19,6 +20,13 @@ export type CreateOrderInput = {
   /** Set when a discount code was applied at checkout - see store/cart.ts. */
   discountAmount?: number;
   appliedPromotionId?: string | null;
+  /**
+   * Required when paymentMethod is 'cod' (client request: captcha before
+   * COD submission, migration 0032/submit-cod-order Edge Function) -
+   * a Cloudflare Turnstile response token from the widget shown on
+   * checkout. Ignored for every other payment method.
+   */
+  captchaToken?: string;
 };
 
 export type CreatedOrder = {
@@ -30,7 +38,58 @@ export type CreatedOrder = {
   paymentStatus: PaymentStatus;
 };
 
+/**
+ * COD orders can no longer be created via the direct RPC call below -
+ * migration 0032 rejects a 'cod' order unless the caller is service_role,
+ * closing the anon-bypass-the-captcha hole. This goes through
+ * submit-cod-order instead, which verifies the Turnstile token server-side
+ * before creating the order with the service role key.
+ */
+async function createCodOrder(input: CreateOrderInput): Promise<CreatedOrder> {
+  if (!input.captchaToken) {
+    throw new Error('Please complete the verification challenge.');
+  }
+
+  const { data, error } = await supabase.functions.invoke('submit-cod-order', {
+    body: {
+      captchaToken: input.captchaToken,
+      customerName: input.delivery.customerName,
+      email: input.delivery.email,
+      mobile: input.delivery.mobile,
+      address: input.delivery.address,
+      barangay: input.delivery.barangay,
+      city: input.delivery.city,
+      province: input.delivery.province,
+      postalCode: input.delivery.postalCode,
+      deliveryNotes: input.delivery.deliveryNotes || null,
+      product: input.productName,
+      quantity: input.quantity,
+      unitPrice: input.unitPrice,
+      subtotal: input.subtotal,
+      deliveryFee: input.deliveryFee,
+      total: input.total,
+      referralCode: input.referralCode ?? null,
+      discountAmount: input.discountAmount ?? 0,
+      appliedPromotionId: input.appliedPromotionId ?? null,
+    },
+  });
+
+  if (error) throw new Error(await functionErrorMessage(error));
+  if (!data?.orderId) throw new Error('Order was not created.');
+
+  return {
+    orderId: data.orderId,
+    orderNo: data.orderNo,
+    orderStatus: data.orderStatus,
+    paymentId: data.paymentId,
+    paymentNo: data.paymentNo,
+    paymentStatus: data.paymentStatus,
+  };
+}
+
 export async function createOrder(input: CreateOrderInput): Promise<CreatedOrder> {
+  if (input.paymentMethod === 'cod') return createCodOrder(input);
+
   const proofPath = input.proofFile ? await uploadPaymentProof(input.proofFile) : null;
 
   const { data, error } = await supabase.rpc('create_order_with_payment', {
