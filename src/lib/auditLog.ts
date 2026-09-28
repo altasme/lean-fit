@@ -8,7 +8,8 @@ export type AuditEntityType =
   | 'order'
   | 'payment'
   | 'partner'
-  | 'territory';
+  | 'territory'
+  | 'commission_disbursement';
 
 async function currentAdminId(): Promise<string | null> {
   const {

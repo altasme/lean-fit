@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { PartnerLayout } from '../../components/reseller/PartnerLayout';
 import { usePartnerAuth } from '../../components/reseller/PartnerAuthProvider';
 import { OverviewTab } from '../../components/reseller/tabs/OverviewTab';
@@ -46,29 +46,25 @@ export default function PartnerDashboard() {
   const [downstreamPartners, setDownstreamPartners] = useState<Partner[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!partner) return;
-    let cancelled = false;
-
-    Promise.all([
-      fetchPartnerVisibleOrders(),
-      partner.parent_partner_id ? fetchParentPartner(partner.parent_partner_id) : Promise.resolve(null),
-      fetchDownstreamPartners(partner.id),
-    ])
-      .then(([o, parent, downstream]) => {
-        if (cancelled) return;
-        setOrders(o);
-        setParentPartner(parent);
-        setDownstreamPartners(downstream);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const [o, parent, downstream] = await Promise.all([
+        fetchPartnerVisibleOrders(),
+        partner.parent_partner_id ? fetchParentPartner(partner.parent_partner_id) : Promise.resolve(null),
+        fetchDownstreamPartners(partner.id),
+      ]);
+      setOrders(o);
+      setParentPartner(parent);
+      setDownstreamPartners(downstream);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard data.');
+    }
   }, [partner]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   if (!partner) return null; // RequirePartnerAuth guarantees this never renders without a partner
 
@@ -126,7 +122,9 @@ export default function PartnerDashboard() {
             )}
             {tab === 'top-sellers' && <TopSellersTab partner={partner} />}
             {tab === 'client-orders' && <ClientOrdersTab orders={clientOrders} />}
-            {tab === 'my-orders' && <MyOrdersTab orders={myOrders} />}
+            {tab === 'my-orders' && (
+              <MyOrdersTab orders={myOrders} partner={partner} onOrderPlaced={() => void load()} />
+            )}
             {tab === 'customers' && <CustomersTab customers={customers} />}
             {tab === 'commission' && <CommissionTab summary={earnings} />}
             {tab === 'marketing' && <MarketingMaterialsTab />}

@@ -831,6 +831,94 @@
     ```bash
     supabase functions deploy send-order-email
     ```
+37. Run `supabase/migrations/0029_partner_self_orders_commissions.sql` in
+    the SQL editor, after 0028 (single paste, no ordering restriction -
+    it only adds one function and one new table, no enum changes). Client
+    request, three parts bundled into one migration since all three touch
+    the partner/commission surface:
+    - **"Clients should be able to order for themselves inside the
+      partner portal... at a price that's already discounted according to
+      how much their % off is."** New `partner_create_order()` RPC - a
+      partner-facing counterpart to migration 0023's `admin_create_manual_order()`.
+      Self-scoped via `my_partner_id()` (migration 0009) instead of an
+      admin-supplied partner id, and prices the order SERVER-SIDE from
+      `products.srp` × the calling partner's own `partner_pricing_tiers.discount_pct`
+      (the exact formula `calculatePartnerPrice()` already uses) - never
+      client-supplied, so a tampered request can't buy below the partner's
+      real tier price. Creates the order with migration 0023's
+      `order_type`/`partner_id` wholesale shape, **not**
+      `referral_partner_id`/`partner_earnings` - this is the partner
+      buying stock for themselves, not a referred sale, same reasoning as
+      0023's header comment. Manual payment only (GCash/Maya/Bank
+      Transfer, proof required) - no COD/Ganap, and **no `p_mark_paid`
+      option at all** (unlike the admin RPC) - a partner must never be
+      able to self-certify their own payment. Delivery address is pulled
+      from the partner's own profile (same convention as 0024's
+      `record_partner_onboarding_order`), not re-collected. Client code:
+      `fetchPartnerOwnPricing()` (`src/lib/partners.ts`, a live price
+      preview) and `createPartnerOwnOrder()` (`src/lib/partnerOrders.ts`),
+      wired into a new "Order For Yourself" panel on the partner portal's
+      My Orders tab (`MyOrdersTab.tsx`) - orders placed this way show up
+      in that same list automatically since they're created with the
+      partner's own registered email.
+    - **"Their commission is not counted until the order is marked as
+      complete."** Pure application-layer fix, no schema change needed -
+      `earningsStatusForOrder()` (`src/lib/partnerOrders.ts`) now requires
+      `order.status === 'completed'` for an earning to be "payable"
+      (previously it went "payable" the moment `payment.status === 'paid'`,
+      even if the order hadn't shipped yet). Also now voids a `'returned'`
+      (Return to Seller) order the same as `'cancelled'`. This is the same
+      function both the partner portal's Commission tab and the new admin
+      "Pending Commission" figure below derive from, so the two can never
+      disagree about when a commission counts.
+    - **"In the admin panel, don't display package anymore. Instead
+      display how much commission is pending. There should also be a
+      commission management inside the partner's profile where the admin
+      can record if pending commission has been disbursed already and how
+      much."** New `commission_disbursements` table - a manual ledger an
+      admin writes to by hand when they've actually paid a partner their
+      commission. This is **not** the automated-payout processing
+      CLAUDE.md §13 rules out (that's about *automating* the act of
+      paying somebody; this only records, after the fact, that a human
+      already did). Admin-only RLS, same shape as `audit_log` (migration
+      0002) - no partner-facing read policy, since this is admin-side
+      record-keeping only. New `src/lib/commissions.ts`:
+      `fetchAccruedCommissionByPartner()` (the "two queries joined in JS"
+      pattern from `adminOrders.ts`'s `listOrders()`, reused rather than
+      an untested PostgREST embedded join), `fetchPendingCommissionByPartner()`
+      (accrued minus disbursed, per partner), `fetchPartnerCommissionSummary()`
+      (one partner's accrued/disbursed/pending + disbursement history),
+      and `recordCommissionDisbursement()`. `AdminPartners.tsx`'s list now
+      shows a "Pending Commission" column instead of "Package"; the
+      existing "Package & Payment" section on `AdminPartnerDetail.tsx`
+      (the one-time onboarding purchase, still useful as that audit trail
+      and still gates the Approve Partner button) is untouched - a new,
+      separate "Commission" panel sits alongside it with accrued/disbursed/
+      pending tiles, a form to record a disbursement (amount, date, note),
+      and the disbursement history.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 29 migrations from a completely fresh `create
+      database`, with `anon`/`authenticated` given the same blanket
+      table-level grants Supabase's real project applies by default (RLS
+      is what actually narrows access, not table grants): a signed-in
+      active Reseller successfully places an order via `partner_create_order`
+      at exactly their tier price (₱250 SRP × 80% = ₱200/box); calling it
+      with no signed-in partner, an invalid (COD) payment method, or no
+      proof path all correctly raise; the resulting order has
+      `order_type = 'reseller'`, `partner_id` set, and
+      `referral_partner_id`/`partner_earnings` both null. A non-admin
+      authenticated user (the partner themselves) can neither read nor
+      insert into `commission_disbursements` (RLS-blocked); an
+      `is_admin()` user can do both. `tsc`/`eslint`/`vite build` all pass.
+      Playwright-verified interactively (mocked Supabase client, reverted
+      before this commit): the partner portal's My Orders tab shows the
+      correct tier-discounted price and live-recalculates the total as
+      quantity changes; a completed+paid order correctly shows as
+      "Payable" in the Commission tab; the admin partner list shows the
+      correct "Pending Commission" figure (accrued minus a seeded
+      disbursement); the admin partner detail page's new Commission panel
+      shows the right accrued/disbursed/pending tiles and disbursement
+      history, separate from the existing Package & Payment section.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`, and
 `EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
@@ -863,14 +951,15 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0028 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0029 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
   partner (reseller/distributor/franchise) orders, auto-recording a
   partner's onboarding package as an order, partner invite links, the
-  Ganap payment gateway enums/RPC branch, and the public order-tracking
-  RPC - steps 21-22, 24-28, and 30-32 above), the `grant-portal-access`
+  Ganap payment gateway enums/RPC branch, the public order-tracking
+  RPC, and partner self-ordering + manual commission disbursements -
+  steps 21-22, 24-28, 30-32, and 37 above), the `grant-portal-access`
   redeploys (steps 23 and 29 - **29 is the current version and
   supersedes 23**, run it even if 23 was already done), the three new
   Ganap Edge Functions and their secrets plus the Ganap-dashboard webhook

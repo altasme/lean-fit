@@ -201,6 +201,42 @@ export async function fetchPartnerPackage(partnerType: PartnerType): Promise<Par
   };
 }
 
+export type PartnerOwnPricing = {
+  productName: string;
+  unitPrice: number;
+  srp: number;
+};
+
+/**
+ * Live per-box price for a partner buying restock for themselves inside
+ * the portal (client request - "clients should be able to order for
+ * themselves inside the partner portal... at a price that's already
+ * discounted according to how much their % off is"). Same pricing
+ * engine + product/tier fetch as fetchPartnerPackage's one-time
+ * onboarding package above, just not multiplied by a fixed box count -
+ * the partner picks their own quantity each time. This is a display-only
+ * preview; the actual order price is always recomputed server-side by
+ * migration 0029's partner_create_order() RPC, never trusted from here.
+ */
+export async function fetchPartnerOwnPricing(partnerType: PartnerType): Promise<PartnerOwnPricing | null> {
+  const { data: products, error: productError } = await supabase
+    .from('products')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (productError) throw new Error(productError.message);
+
+  const product = products?.[0] as Product | undefined;
+  if (!product) return null;
+
+  const { data: tiers, error: tierError } = await supabase.from('partner_pricing_tiers').select('*');
+  if (tierError) throw new Error(tierError.message);
+
+  const result = calculatePartnerPrice(product, partnerType, (tiers ?? []) as PartnerPricingTier[]);
+  return { productName: product.name, unitPrice: result.price, srp: result.srp };
+}
+
 export type PartnerPackagePaymentInput = {
   partnerId: string;
   pkg: PartnerPackage;

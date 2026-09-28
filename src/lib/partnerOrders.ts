@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
-import type { Order } from '../types/order';
-import type { Payment, PaymentStatus } from '../types/payment';
+import { supabase, uploadPaymentProof } from './supabase';
+import type { Order, OrderStatus } from '../types/order';
+import type { Payment, PaymentMethodId, PaymentStatus } from '../types/payment';
 
 export type PartnerOrder = Order & { payment: Payment | null };
 
@@ -94,18 +94,22 @@ export type EarningsStatus = 'payable' | 'pending' | 'void';
 
 /**
  * No separate earnings/payout table exists (spec §44's "Pending/Approved/
- * Paid" buckets aren't tracked as their own state machine - CLAUDE.md §13
- * rules out building automated payouts). Status is derived from the
- * underlying order + payment instead: a paid payment means the earning is
- * ready for Lean & Fit's (external, manual) payout process; a cancelled
- * order or a refunded/rejected/cancelled payment means no earning is
- * actually due; anything else is still pending.
+ * Paid" buckets aren't tracked as their own state machine). Status is
+ * derived from the underlying order + payment instead. Client request:
+ * "their commission is not counted until the order is marked as
+ * complete" - a paid-but-not-yet-fulfilled order is still `pending`, not
+ * `payable`; only order.status === 'completed' (the courier actually
+ * delivered it) makes an earning payable, ready for Lean & Fit's
+ * (external, manual) payout process - see commission_disbursements
+ * (migration 0029) for how that payout gets recorded once it happens. A
+ * cancelled or returned-to-seller order, or a refunded/rejected/
+ * cancelled/failed payment, means no earning is actually due.
  */
 export function earningsStatusForOrder(order: PartnerOrder): EarningsStatus {
-  if (order.status === 'cancelled') return 'void';
+  if (order.status === 'cancelled' || order.status === 'returned') return 'void';
   const voidPaymentStatuses: PaymentStatus[] = ['refunded', 'cancelled', 'rejected', 'failed'];
   if (order.payment && voidPaymentStatuses.includes(order.payment.status)) return 'void';
-  if (order.payment?.status === 'paid') return 'payable';
+  if (order.status === 'completed') return 'payable';
   return 'pending';
 }
 
@@ -152,6 +156,53 @@ export function summarizePartnerSalesByMonth(clientOrders: PartnerOrder[]): Map<
   }
 
   return byMonth;
+}
+
+export type PartnerOwnOrderInput = {
+  quantity: number;
+  paymentMethod: PaymentMethodId;
+  proofFile: File;
+  deliveryNotes?: string | null;
+};
+
+export type CreatedPartnerOwnOrder = {
+  orderId: string;
+  orderNo: string;
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
+};
+
+/**
+ * Client request: "clients should be able to order for themselves inside
+ * the partner portal... at a price that's already discounted according
+ * to how much their % off is." Calls migration 0029's partner_create_order()
+ * RPC, which prices the order SERVER-SIDE at the calling partner's own
+ * tier discount and creates it with the same order_type/partner_id
+ * wholesale-order shape as an admin-keyed manual order (migration 0023) -
+ * never referral_partner_id/partner_earnings, since this isn't a referred
+ * sale. Manual payment only (no COD/Ganap) with required proof upload,
+ * same shape as the one-time package payment (PackagePaymentStep.tsx).
+ */
+export async function createPartnerOwnOrder(input: PartnerOwnOrderInput): Promise<CreatedPartnerOwnOrder> {
+  const proofPath = await uploadPaymentProof(input.proofFile);
+
+  const { data, error } = await supabase.rpc('partner_create_order', {
+    p_quantity: input.quantity,
+    p_payment_method: input.paymentMethod,
+    p_payment_proof_path: proofPath,
+    p_delivery_notes: input.deliveryNotes || null,
+  });
+
+  if (error) throw new Error(`Failed to place order: ${error.message}`);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Order was not created.');
+
+  return {
+    orderId: row.order_id,
+    orderNo: row.order_no,
+    orderStatus: row.order_status,
+    paymentStatus: row.payment_status,
+  };
 }
 
 /** Spec §44 "Commission / Earnings" - summarized from Client Orders' partner_earnings. */

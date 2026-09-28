@@ -16,6 +16,12 @@ import {
   suspendPartner,
 } from '../../lib/adminPartners';
 import { fetchDownstreamPartners } from '../../lib/partners';
+import {
+  fetchPartnerCommissionSummary,
+  recordCommissionDisbursement,
+  type CommissionDisbursement,
+  type PartnerCommissionSummary,
+} from '../../lib/commissions';
 import { useToast } from '../../components/ui/Toast';
 import { formatPHP } from '../../lib/format';
 import type { Partner, PartnerStatus } from '../../types/partner';
@@ -46,11 +52,20 @@ export default function AdminPartnerDetail() {
   const [sendAccessEmail, setSendAccessEmail] = useState(false);
   const [overrideStatus, setOverrideStatus] = useState<PartnerStatus | ''>('');
 
+  const [commission, setCommission] = useState<
+    (PartnerCommissionSummary & { disbursements: CommissionDisbursement[] }) | null
+  >(null);
+  const [disbursementAmount, setDisbursementAmount] = useState('');
+  const [disbursementDate, setDisbursementDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [disbursementNote, setDisbursementNote] = useState('');
+  const [disbursementError, setDisbursementError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     if (!id) return;
     try {
       const p = await getPartner(id);
       setPartner(p);
+      setCommission(await fetchPartnerCommissionSummary(p.id));
       setProofUrl(p.payment_proof_path ? await getPartnerProofSignedUrl(p.payment_proof_path) : null);
       setOnboardedBy(p.onboarded_by_partner_id ? await getPartner(p.onboarded_by_partner_id) : null);
       setParentPartner(p.parent_partner_id ? await getPartner(p.parent_partner_id) : null);
@@ -165,6 +180,39 @@ export default function AdminPartnerDetail() {
       await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to assign upline.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRecordDisbursement(e: React.FormEvent) {
+    e.preventDefault();
+    if (!partner) return;
+
+    const amount = Number(disbursementAmount);
+    if (!disbursementAmount || Number.isNaN(amount) || amount <= 0) {
+      setDisbursementError('Enter a valid amount.');
+      return;
+    }
+    if (!disbursementDate) {
+      setDisbursementError('Select a date.');
+      return;
+    }
+    setDisbursementError(null);
+    setBusy(true);
+    try {
+      await recordCommissionDisbursement({
+        partnerId: partner.id,
+        amount,
+        disbursedAt: disbursementDate,
+        note: disbursementNote.trim() || null,
+      });
+      setDisbursementAmount('');
+      setDisbursementNote('');
+      setCommission(await fetchPartnerCommissionSummary(partner.id));
+      showToast('Disbursement recorded.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to record disbursement.', 'error');
     } finally {
       setBusy(false);
     }
@@ -312,6 +360,92 @@ export default function AdminPartnerDetail() {
               <p className="mt-3 text-sm text-lf-cream/50">
                 Applicant hasn't submitted their package payment yet.
               </p>
+            )}
+          </section>
+
+          {/* Client request: "instead display how much commission is
+              pending... commission management inside the partner's
+              profile where the admin can record if pending commission
+              has been disbursed already and how much" - a separate panel
+              from Package & Payment above (that one's the one-time
+              onboarding purchase; this tracks ongoing referral-sale
+              commission and its manual payout record). */}
+          <section className="rounded-sm border border-white/10 bg-lf-charcoal p-6">
+            <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Commission</h2>
+
+            {commission ? (
+              <>
+                <div className="tabular mt-3 grid grid-cols-3 gap-3 text-center">
+                  <div className="rounded-sm border border-white/10 bg-lf-black p-3">
+                    <p className="text-[10px] uppercase tracking-wide2 text-lf-cream/50">Accrued</p>
+                    <p className="mt-1 text-lg text-lf-white">{formatPHP(commission.accrued)}</p>
+                  </div>
+                  <div className="rounded-sm border border-white/10 bg-lf-black p-3">
+                    <p className="text-[10px] uppercase tracking-wide2 text-lf-cream/50">Disbursed</p>
+                    <p className="mt-1 text-lg text-lf-success">{formatPHP(commission.disbursed)}</p>
+                  </div>
+                  <div className="rounded-sm border border-white/10 bg-lf-black p-3">
+                    <p className="text-[10px] uppercase tracking-wide2 text-lf-cream/50">Pending</p>
+                    <p className="mt-1 text-lg text-lf-gold">{formatPHP(commission.pending)}</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleRecordDisbursement} className="mt-5 space-y-3 border-t border-white/10 pt-4">
+                  <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">Record a Disbursement</p>
+                  <div className="flex flex-wrap gap-3">
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={disbursementAmount}
+                      onChange={(e) => setDisbursementAmount(e.target.value)}
+                      placeholder="Amount"
+                      className="w-32 rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none"
+                    />
+                    <input
+                      type="date"
+                      value={disbursementDate}
+                      onChange={(e) => setDisbursementDate(e.target.value)}
+                      className="rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white focus:border-lf-gold focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={disbursementNote}
+                      onChange={(e) => setDisbursementNote(e.target.value)}
+                      placeholder="Note (optional)"
+                      className="min-w-[160px] flex-1 rounded-sm border border-white/15 bg-lf-black px-3 py-2 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none"
+                    />
+                  </div>
+                  {disbursementError && <p className="text-xs text-lf-error">{disbursementError}</p>}
+                  <button type="submit" disabled={busy} className="btn-outline !px-5 !py-2 !text-sm disabled:opacity-50">
+                    Record Disbursement
+                  </button>
+                </form>
+
+                <div className="mt-4">
+                  <p className="text-xs uppercase tracking-wide2 text-lf-cream/50">Disbursement History</p>
+                  {commission.disbursements.length === 0 ? (
+                    <p className="mt-2 text-xs text-lf-cream/50">No disbursements recorded yet.</p>
+                  ) : (
+                    <ul className="tabular mt-2 space-y-1.5 text-sm">
+                      {commission.disbursements.map((d) => (
+                        <li
+                          key={d.id}
+                          className="flex items-center justify-between rounded-sm border border-white/10 bg-lf-black px-3 py-2"
+                        >
+                          <span className="text-lf-cream/70">
+                            {d.disbursed_at}
+                            {d.note ? ` · ${d.note}` : ''}
+                          </span>
+                          <span className="text-lf-white">{formatPHP(d.amount)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-lf-cream/50">Loading commission data…</p>
             )}
           </section>
 

@@ -14,11 +14,11 @@ const STATUS_COLORS: Record<EarningsStatus, string> = {
 };
 
 // Spec §44 "Commission / Earnings." "Payable" here means the underlying
-// order's payment has cleared and the earning is ready for Lean & Fit's
-// external payout process (CLAUDE.md §13 - no automated payouts/refunds
-// are built) - it does not mean the partner has been paid out yet. There
-// is no separate "Paid" state to track that without a payout table this
-// phase deliberately doesn't add.
+// order has been marked completed (delivered) and the earning is ready
+// for Lean & Fit's external payout process - it does not mean the
+// partner has been paid out yet. Whether it's actually been disbursed is
+// tracked separately by admin (commission_disbursements, migration 0029),
+// not shown in this partner-facing summary.
 export function CommissionTab({ summary }: { summary: EarningsSummary }) {
   return (
     <div className="space-y-6">

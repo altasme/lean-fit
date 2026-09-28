@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../../components/admin/AdminLayout';
 import { listPartners } from '../../lib/adminPartners';
+import { fetchPendingCommissionByPartner } from '../../lib/commissions';
 import type { Partner } from '../../types/partner';
 import { PARTNER_STATUS_LABELS, partnerTypeLabel } from '../../types/partner';
 import type { PartnerType } from '../../types/partner';
@@ -38,14 +39,18 @@ function matchesTab(p: Partner, tab: Tab): boolean {
 
 export default function AdminPartners() {
   const [partners, setPartners] = useState<Partner[] | null>(null);
+  const [pendingCommission, setPendingCommission] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('pending');
   const [type, setType] = useState<PartnerType | 'all'>('all');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    listPartners()
-      .then(setPartners)
+    Promise.all([listPartners(), fetchPendingCommissionByPartner()])
+      .then(([p, commission]) => {
+        setPartners(p);
+        setPendingCommission(commission);
+      })
       .catch((err) => setError(err.message));
   }, []);
 
@@ -155,7 +160,7 @@ export default function AdminPartners() {
                     <th className="px-4 py-3">Name</th>
                     <th className="px-4 py-3">Type</th>
                     <th className="px-4 py-3">Location</th>
-                    <th className="px-4 py-3">Package</th>
+                    <th className="px-4 py-3">Pending Commission</th>
                     <th className="px-4 py-3">Payment</th>
                     <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3">Submitted</th>
@@ -183,7 +188,7 @@ export default function AdminPartners() {
                         {[p.city, p.province ?? p.region].filter(Boolean).join(', ') || '—'}
                       </td>
                       <td className="px-4 py-3 text-lf-white">
-                        {p.package ? `${p.package} (${formatPHP(p.package_amount)})` : '—'}
+                        {pendingCommission.has(p.id) ? formatPHP(pendingCommission.get(p.id)!) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className="whitespace-nowrap">
