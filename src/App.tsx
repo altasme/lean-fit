@@ -30,6 +30,7 @@ import AdminPartnerCreate from './pages/admin/AdminPartnerCreate';
 import AdminPartnerDetail from './pages/admin/AdminPartnerDetail';
 import AdminStaff from './pages/admin/AdminStaff';
 import AdminTopSellers from './pages/admin/AdminTopSellers';
+import AdminHelp from './pages/admin/AdminHelp';
 // AdminTerritories/AdminTerritoryMap and AdminMedia are hidden for now -
 // see the /admin/territories, /admin/territory-map, and /admin/media
 // routes below.
@@ -337,6 +338,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminTopSellers />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/help"
+            element={
+              <RequireAuth>
+                <AdminHelp />
               </RequireAuth>
             }
           />

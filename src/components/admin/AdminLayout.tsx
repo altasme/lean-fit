@@ -19,6 +19,7 @@ const NAV_LINKS: { to: string; label: string; permission?: keyof StaffPermission
   { to: '/admin/promotions', label: 'Promotions', permission: 'promotions' },
   { to: '/admin/top-sellers', label: 'Top Sellers' },
   { to: '/admin/audit-log', label: 'Audit Log' },
+  { to: '/admin/help', label: 'Help' },
 ];
 
 function PartnersMenu({ active, showPricing }: { active: boolean; showPricing: boolean }) {
