@@ -14,7 +14,7 @@ export const FAQ: FaqItem[] = [
     group: 'Product',
     question: 'How much protein is in each sachet?',
     answer:
-      'Each sachet delivers 11g of protein at 100 calories. See the full nutrition panel above for details.',
+      'Each sachet delivers 11g of protein at 90 calories. See the full nutrition panel above for details.',
   },
   {
     group: 'Product',

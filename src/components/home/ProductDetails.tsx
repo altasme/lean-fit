@@ -54,6 +54,17 @@ export function ProductDetails() {
               </li>
             ))}
           </ol>
+
+          <h3 className="mt-10 font-kicker text-sm uppercase tracking-wide2 text-lf-gold">
+            Serving Suggestions
+          </h3>
+          <ol className="tabular mt-3 space-y-2">
+            {PRODUCT.servingSuggestions.map((step, i) => (
+              <li key={step} className="flex gap-3 text-sm text-lf-cream/80">
+                <span className="font-kicker text-lf-gold">{i + 1}.</span> {step}
+              </li>
+            ))}
+          </ol>
         </Reveal>
 
         <Reveal

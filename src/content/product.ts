@@ -33,7 +33,7 @@ export const PRODUCT = {
 
   metrics: {
     protein: '11g',
-    calories: '100',
+    calories: '90',
     sugar: 'Low', // 1g total
     transFat: '0g',
   },
@@ -55,7 +55,7 @@ export const PRODUCT = {
   nutrition: {
     servingSize: '1 Sachet (21g)',
     servingsPerBox: 10,
-    calories: '100 kcal',
+    calories: '90 kcal', // ⛔ corrected from 100 kcal per client - confirm the 4% RENI figure below still applies at 90 kcal
     caloriesFromFat: '30 kcal',
     totalFat: '3g',
     saturatedFat: '2g',
@@ -90,6 +90,12 @@ export const PRODUCT = {
   badges: ['Low Sugar', 'No Added Preservatives', 'Gluten Free', 'Keto Friendly'],
 
   prep: ['Tear 1 sachet', 'Add 180ml hot water', 'Stir', 'Enjoy'],
+
+  servingSuggestions: [
+    'Empty contents of one (1) sachet into a cap',
+    'Add 180ml hot water',
+    'Stir well and enjoy',
+  ],
 
   /**
    * Final formula, client-supplied (2026-09-14) - resolves §4c.3/§4c.4:
