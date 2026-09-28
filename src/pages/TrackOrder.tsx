@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Container } from '../components/ui/Container';
 import { SectionKicker } from '../components/ui/SectionKicker';
+import { OrderTimeline } from '../components/track-order/OrderTimeline';
 import { trackOrder } from '../lib/orderTracking';
 import type { TrackedOrder } from '../lib/orderTracking';
-import { ORDER_STATUS_LABELS, ORDER_STATUS_EMOJI } from '../types/order';
-import { PAYMENT_STATUS_LABELS, PAYMENT_STATUS_EMOJI } from '../types/payment';
 
 const inputClass =
   'w-full rounded-sm border border-white/15 bg-lf-black px-4 py-3 text-sm text-lf-white placeholder:text-lf-cream/30 focus:border-lf-gold focus:outline-none';
@@ -86,43 +85,17 @@ export default function TrackOrder() {
             </p>
             <p className="font-display text-3xl text-lf-gold">#{result.orderNo}</p>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-lf-black px-4 py-2">
-                <span>{ORDER_STATUS_EMOJI[result.status]}</span>
-                <span className="font-kicker text-sm uppercase tracking-wide2 text-lf-white">
-                  {ORDER_STATUS_LABELS[result.status]}
-                </span>
-              </div>
-              {result.paymentStatus && (
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-lf-black px-4 py-2">
-                  <span>{PAYMENT_STATUS_EMOJI[result.paymentStatus]}</span>
-                  <span className="font-kicker text-sm uppercase tracking-wide2 text-lf-white">
-                    Payment: {PAYMENT_STATUS_LABELS[result.paymentStatus]}
-                  </span>
-                </div>
-              )}
-            </div>
+            <p className="mt-2 text-sm text-lf-cream/60">
+              {result.product} × {result.quantity}
+            </p>
 
-            <dl className="tabular mt-6 space-y-2 border-t border-white/10 pt-5 text-sm">
-              <div className="flex justify-between">
-                <dt className="text-lf-cream/60">Product</dt>
-                <dd className="text-lf-white">
-                  {result.product} × {result.quantity}
-                </dd>
-              </div>
-              {result.courier && (
-                <div className="flex justify-between">
-                  <dt className="text-lf-cream/60">Courier</dt>
-                  <dd className="text-lf-white">{result.courier}</dd>
-                </div>
-              )}
-              {result.trackingNumber && (
-                <div className="flex justify-between">
-                  <dt className="text-lf-cream/60">Tracking Number</dt>
-                  <dd className="text-lf-white">{result.trackingNumber}</dd>
-                </div>
-              )}
-            </dl>
+            <div className="mt-6 border-t border-white/10 pt-6">
+              <OrderTimeline
+                status={result.status}
+                courier={result.courier}
+                trackingNumber={result.trackingNumber}
+              />
+            </div>
           </div>
         )}
       </Container>
