@@ -50,7 +50,7 @@ export function WhyLeanFit() {
             </ul>
           </Reveal>
           <Reveal
-            className="rounded-sm border border-lf-gold bg-lf-black p-8 text-left shadow-gold-glow"
+            className="rounded-sm border border-lf-gold bg-lf-black p-8 text-left"
             delay={220}
           >
             <h3 className="font-kicker text-lg uppercase tracking-wide2 text-lf-gold">

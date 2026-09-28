@@ -63,7 +63,7 @@ export function ProductDetails() {
           <h3 className="border-b-4 border-lf-white pb-2 font-display text-2xl uppercase text-lf-white">
             Nutrition Facts
           </h3>
-          <div className="flex items-center justify-between pt-2 text-[11px] uppercase tracking-wide2 text-lf-cream/50">
+          <div className="flex items-center justify-between pt-2 text-xs uppercase tracking-wide2 text-lf-cream/50">
             <span>Amount Per Serving</span>
             <span>% RENI</span>
           </div>
@@ -78,7 +78,7 @@ export function ProductDetails() {
               </div>
             ))}
           </dl>
-          <ul className="mt-4 space-y-1 text-[11px] leading-relaxed text-lf-cream/40">
+          <ul className="mt-4 space-y-1 text-xs leading-relaxed text-lf-cream/40">
             {PRODUCT.nutritionFootnotes.map((note) => (
               <li key={note}>* {note}</li>
             ))}

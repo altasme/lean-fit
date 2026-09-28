@@ -23,12 +23,10 @@ function AccordionItem({
         className="flex w-full items-center justify-between gap-4 py-5 text-left"
         aria-expanded={open}
       >
-        <span className="font-kicker text-base uppercase tracking-wide2 text-lf-white sm:text-lg">
-          {question}
-        </span>
+        <span className="font-body text-base font-semibold text-lf-white sm:text-lg">{question}</span>
         <span className="font-display text-2xl text-lf-gold">{open ? '−' : '+'}</span>
       </button>
-      {open && <p className="pb-5 text-sm text-lf-cream/75">{answer}</p>}
+      {open && <p className="max-w-prose pb-5 text-sm text-lf-cream/75">{answer}</p>}
     </div>
   );
 }

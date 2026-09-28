@@ -15,7 +15,6 @@ function HeroCopy({
   const alignClasses = align === 'left' ? 'items-start text-left' : 'items-center text-center';
   return (
     <Reveal className={`relative flex flex-col ${alignClasses}`}>
-      <p className="kicker">Lean &amp; Fit Protein Coffee</p>
       <h1
         className={`max-w-xl leading-[0.95] text-lf-white [text-shadow:0_2px_20px_rgba(0,0,0,0.7)] ${
           compact ? 'text-4xl' : 'text-5xl'
@@ -24,7 +23,7 @@ function HeroCopy({
         {TAGLINE.hero}
       </h1>
       <p
-        className={`max-w-md font-body text-base text-lf-cream/90 [text-shadow:0_1px_12px_rgba(0,0,0,0.7)] sm:text-lg ${
+        className={`max-w-md font-body text-base text-lf-cream/95 [text-shadow:0_2px_10px_rgba(0,0,0,0.95),0_1px_3px_rgba(0,0,0,0.9)] sm:text-lg ${
           compact ? 'mt-3' : 'mt-6'
         }`}
       >

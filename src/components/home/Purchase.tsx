@@ -21,7 +21,7 @@ export function Purchase() {
   return (
     <section id="purchase" className="bg-lf-black py-20 sm:py-28">
       <Container>
-        <Reveal className="mx-auto max-w-xl rounded-sm border border-lf-gold/40 bg-lf-charcoal p-8 shadow-gold-glow sm:p-12">
+        <Reveal className="mx-auto max-w-xl rounded-sm border border-lf-gold/40 bg-lf-charcoal p-8 sm:p-12">
           <SectionKicker>Get Yours</SectionKicker>
           <h2 className="text-3xl text-lf-white sm:text-4xl">{displayName}</h2>
           <p className="mt-2 text-sm text-lf-cream/70">
