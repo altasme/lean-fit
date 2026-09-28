@@ -97,10 +97,15 @@ export const QUALITY = {
   // link to (e.g. a hosted copy of the certificates, or the FDA/Halal
   // certifying body's public lookup tool) before launch.
   verifyUrl: '#',
+  // 'flag-ph' is a marker for QualityStandards.tsx to render a custom inline
+  // SVG instead of an emoji glyph - flag emoji (unlike plain pictographs
+  // like 🔬/☕) have spotty font support across OSes/browsers and can render
+  // as blank/missing (client-reported), so this one needs a real vector
+  // rather than relying on an emoji font.
   tagline: [
-    { emoji: '🇵🇭', label: 'Proudly Filipino-made' },
-    { emoji: '🔬', label: 'Carefully formulated' },
-    { emoji: '☕', label: 'Made for Your Goals' },
+    { icon: 'flag-ph' as const, label: 'Proudly Filipino-made' },
+    { icon: '🔬', label: 'Carefully formulated' },
+    { icon: '☕', label: 'Made for Your Goals' },
   ],
 } as const;
 

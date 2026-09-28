@@ -4,10 +4,31 @@ import { OrderNowButton } from '../ui/OrderNowButton';
 import { Reveal } from '../ui/Reveal';
 import { COMPARISON } from '../../content/site';
 
+/**
+ * Purely decorative gold ring vectors - fills the large flat charcoal
+ * margins either side of the centered comparison cards on wide screens
+ * (client: "need vector shapes to remove the dull empty spaces"). Evokes
+ * a coffee cup rim / steam swirl without needing real photography.
+ */
+function RingsDecoration({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 400 400" className={className} aria-hidden="true" focusable="false">
+      <circle cx="0" cy="0" r="140" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.5" />
+      <circle cx="0" cy="0" r="220" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.3" />
+      <circle cx="0" cy="0" r="300" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.15" />
+    </svg>
+  );
+}
+
 export function WhyLeanFit() {
   return (
-    <section id="why" className="scroll-mt-16 bg-lf-charcoal py-20 sm:scroll-mt-20 sm:py-28">
-      <Container className="text-center">
+    <section
+      id="why"
+      className="relative scroll-mt-16 overflow-hidden bg-lf-charcoal py-20 sm:scroll-mt-20 sm:py-28"
+    >
+      <RingsDecoration className="pointer-events-none absolute -left-20 -top-20 hidden h-72 w-72 text-lf-gold sm:block lg:h-96 lg:w-96" />
+      <RingsDecoration className="pointer-events-none absolute -bottom-20 -right-20 hidden h-72 w-72 rotate-180 text-lf-gold sm:block lg:h-96 lg:w-96" />
+      <Container className="relative text-center">
         <Reveal>
           <SectionKicker>Why Lean &amp; Fit</SectionKicker>
           <h2 className="mx-auto max-w-2xl text-4xl text-lf-white sm:text-5xl">

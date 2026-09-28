@@ -24,6 +24,23 @@ function ShieldCheckIcon({ className = '' }: { className?: string }) {
   );
 }
 
+/**
+ * Simplified Philippine flag - a real vector rather than the 🇵🇭 emoji,
+ * which is a two-codepoint "flag" glyph many OS/browser font stacks don't
+ * render at all (unlike plain pictographs like 🔬/☕), leaving a blank gap
+ * in the tagline row (client-reported).
+ */
+function PhFlagIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 20 14" className={className} aria-hidden="true" focusable="false">
+      <rect width="20" height="7" fill="#0038A8" />
+      <rect y="7" width="20" height="7" fill="#CE1126" />
+      <polygon points="0,0 0,14 12,7" fill="#FFFFFF" />
+      <circle cx="5" cy="7" r="1.6" fill="#FCD116" />
+    </svg>
+  );
+}
+
 function CertificateIcon({ className = '' }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" fill="none" className={className} aria-hidden="true">
@@ -85,7 +102,11 @@ export function QualityStandards() {
           {QUALITY.tagline.map((t, i) => (
             <span key={t.label} className="inline-flex items-center gap-1.5">
               {i > 0 && <span className="mx-1 text-lf-cream/30">·</span>}
-              <span aria-hidden="true">{t.emoji}</span>
+              {t.icon === 'flag-ph' ? (
+                <PhFlagIcon className="h-3.5 w-5 shrink-0 rounded-[1px]" />
+              ) : (
+                <span aria-hidden="true">{t.icon}</span>
+              )}
               {t.label}
             </span>
           ))}

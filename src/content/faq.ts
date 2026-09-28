@@ -1,6 +1,9 @@
 /**
- * FAQ content. ⛔ Placeholder answers - client must supply final copy
- * (see CLAUDE.md §15.8). Keep grouping (Product / Ordering) when replacing.
+ * FAQ content. Client has confirmed the "Does it taste like regular
+ * coffee?" / "How long does delivery take?" / "What areas do you deliver
+ * to?" answers below; the rest are still ⛔ placeholder copy pending
+ * final client sign-off (see CLAUDE.md §15.8). Keep grouping (Product /
+ * Ordering) when replacing the remaining ones.
  */
 
 export type FaqItem = {
@@ -50,7 +53,7 @@ export const FAQ: FaqItem[] = [
     group: 'Product',
     question: 'Does it taste like regular coffee?',
     answer:
-      'Yes - it has the same rich coffee flavor you\'re used to, with the added protein and functional ingredients blended in, no chalky or artificial aftertaste.',
+      'Yes, plus a little more - Lean & Fit is brewed with a smooth hazelnut flavor blended right in, so you still get that familiar coffee taste with a subtle nutty finish, no chalky or artificial aftertaste.',
   },
   {
     group: 'Ordering',
@@ -62,7 +65,7 @@ export const FAQ: FaqItem[] = [
     group: 'Ordering',
     question: 'How long does delivery take?',
     answer:
-      'Delivery times will be confirmed once your payment is verified (or immediately for Cash on Delivery orders). You\'ll receive email updates at every step, from verification to shipping.',
+      'It depends on your delivery address, but orders typically arrive within 3-5 days once your payment is verified (or immediately for Cash on Delivery orders). You\'ll receive email updates at every step, from verification to shipping.',
   },
   {
     group: 'Ordering',
@@ -80,7 +83,7 @@ export const FAQ: FaqItem[] = [
     group: 'Ordering',
     question: 'What areas do you deliver to?',
     answer:
-      'We\'re finalizing our delivery coverage and fees - this section will be updated soon. In the meantime, place your order and we\'ll confirm delivery details with you directly.',
+      'We deliver anywhere in the Philippines. Just enter your address at checkout and we\'ll take care of the rest, from packing to delivery.',
   },
   {
     group: 'Ordering',
