@@ -5,7 +5,7 @@ import { Benefits } from '../components/home/Benefits';
 import { Lifestyle } from '../components/home/Lifestyle';
 import { ProductDetails } from '../components/home/ProductDetails';
 import { IngredientsSpotlight } from '../components/home/IngredientsSpotlight';
-import { SocialProof } from '../components/home/SocialProof';
+import { QualityStandards } from '../components/home/QualityStandards';
 import { Purchase } from '../components/home/Purchase';
 import { FAQ } from '../components/home/FAQ';
 import { FinalCTA } from '../components/home/FinalCTA';
@@ -20,7 +20,7 @@ export default function Home() {
       <Lifestyle />
       <ProductDetails />
       <IngredientsSpotlight />
-      <SocialProof />
+      <QualityStandards />
       <Purchase />
       <FAQ />
       <FinalCTA />

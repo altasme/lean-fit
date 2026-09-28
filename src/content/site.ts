@@ -71,29 +71,38 @@ export const LIFESTYLE_MOMENTS = [
 ] as const;
 
 /**
- * ⛔ PLACEHOLDER - no real customer testimonials yet. These are illustrative
- * only (structure/layout reference) and must be swapped for real, attributed
- * customer quotes before launch. No fabricated review counts/ratings per
- * §5.8 - that's why there are no star ratings or "N reviews" copy here.
+ * Client request: swap the testimonials section for a certifications/trust
+ * section instead ("Made With Confidence") - no real customer testimonials
+ * exist yet, and quality/regulatory certifications are stronger trust
+ * signals to lead with in the meantime.
  */
-export const TESTIMONIALS = [
-  {
-    quote:
-      "It's the first coffee that actually fits my routine - protein and my caffeine fix in one sachet.",
-    name: 'Marco T.',
-    role: 'Placeholder - Lean & Fit Customer',
-  },
-  {
-    quote: 'Easy to prep, tastes good, and keeps me full until my next meal.',
-    name: 'Andrea L.',
-    role: 'Placeholder - Lean & Fit Customer',
-  },
-  {
-    quote: "Finally a coffee that doesn't derail the rest of my day.",
-    name: 'Jules R.',
-    role: 'Placeholder - Lean & Fit Customer',
-  },
-] as const;
+export const QUALITY = {
+  kicker: 'Quality',
+  heading: 'Made With Confidence',
+  subheading: 'Quality you can feel good about.',
+  intro:
+    'Lean & Fit is proudly made in the Philippines and produced with a focus on quality, consistency, and everyday wellness.',
+  standardsLabel: 'Our Quality Standards',
+  certifications: [
+    {
+      title: 'FDA-Registered Manufacturer',
+      detail: 'FDA Registration No. LTO-3000014679901',
+    },
+    {
+      title: 'Halal Certified',
+      detail: 'Halal Certificate No. ARA-90273575-31204',
+    },
+  ],
+  // ⛔ PLACEHOLDER - client must supply where "Verify Certifications" should
+  // link to (e.g. a hosted copy of the certificates, or the FDA/Halal
+  // certifying body's public lookup tool) before launch.
+  verifyUrl: '#',
+  tagline: [
+    { emoji: '🇵🇭', label: 'Proudly Filipino-made' },
+    { emoji: '🔬', label: 'Carefully formulated' },
+    { emoji: '☕', label: 'Made for Your Goals' },
+  ],
+} as const;
 
 export const COMPARISON = {
   traditional: {
