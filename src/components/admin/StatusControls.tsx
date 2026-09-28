@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   advanceOrderStatus,
+  approveGanapPaymentManually,
   approvePayment,
   cancelOrder,
   completeCodOrder,
@@ -74,6 +75,26 @@ export function StatusControls({
               className="btn-gold !px-5 !py-2.5 !text-sm disabled:opacity-50"
             >
               Check Ganap Status
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    'Only use this if the customer paid you directly (e.g. GCash/bank transfer) instead of completing Ganap checkout. This bypasses Ganap entirely and marks the payment paid. Continue?',
+                  )
+                ) {
+                  return;
+                }
+                run(async () => {
+                  await approveGanapPaymentManually(payment.id, order);
+                  await notifyOrderEvent(order.id, 'payment_approved');
+                }, 'Payment marked paid manually');
+              }}
+              className="btn-outline !px-5 !py-2.5 !text-sm disabled:opacity-50"
+            >
+              Mark Paid Manually (Bypass Ganap)
             </button>
           </div>
         </div>

@@ -184,6 +184,23 @@ export async function rejectPayment(paymentId: string): Promise<void> {
 }
 
 /**
+ * Ganap only - fallback for when a customer pays outside the gateway
+ * (e.g. sends GCash/bank transfer directly instead of completing Ganap's
+ * hosted checkout) and the webhook/status-check therefore never settles
+ * it. Same effect as approvePayment (paid + auto-confirm from pending),
+ * but with its own history note so this is clearly distinguishable later
+ * from an actual Ganap settlement or a manual-method admin approval.
+ */
+export async function approveGanapPaymentManually(paymentId: string, order: Order): Promise<void> {
+  await setPaymentStatus(paymentId, 'paid', 'Payment manually verified by admin (paid outside Ganap)', {
+    verified: true,
+  });
+  if (order.status === 'pending') {
+    await setOrderStatus(order.id, 'confirmed', 'Auto-confirmed: payment manually verified');
+  }
+}
+
+/**
  * COD only - a COD order can't be marked paid independently of delivery
  * (there's nothing to verify beforehand, unlike manual payments). It's
  * only ever marked paid at the same moment it's marked completed, as one
