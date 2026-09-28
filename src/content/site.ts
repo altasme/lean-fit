@@ -57,6 +57,11 @@ export const BENEFITS = [
     title: 'Gluten Free & Keto Friendly',
     blurb: 'Fits your plan whether you\'re cutting, maintaining, or building.',
   },
+  {
+    title: 'Supports Weight Management',
+    blurb:
+      'A convenient coffee option designed to complement a balanced diet and active lifestyle, helping you stay consistent with your weight management goals.',
+  },
 ] as const;
 
 export const LIFESTYLE_MOMENTS = [

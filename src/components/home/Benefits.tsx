@@ -7,6 +7,7 @@ import iconLowSugar from '../../assets/icons/low-sugar-high-purpose.svg';
 import iconSupportsRecovery from '../../assets/icons/supports-recovery.svg';
 import iconGrabAndGo from '../../assets/icons/grab-and-go.svg';
 import iconGlutenFree from '../../assets/icons/gluten-free-keto-friendly.svg';
+import iconWeightManagement from '../../assets/icons/supports-weight-management.svg';
 import sectionBg from '../../assets/backgrounds/benefits-bg.jpg';
 
 const BENEFIT_ICONS: Record<string, string> = {
@@ -15,6 +16,7 @@ const BENEFIT_ICONS: Record<string, string> = {
   'Supports Recovery': iconSupportsRecovery,
   'Grab & Go': iconGrabAndGo,
   'Gluten Free & Keto Friendly': iconGlutenFree,
+  'Supports Weight Management': iconWeightManagement,
 };
 
 export function Benefits() {
@@ -35,7 +37,7 @@ export function Benefits() {
           </h2>
         </Reveal>
 
-        <div className="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-14 grid gap-8 sm:grid-cols-3 lg:grid-cols-6">
           {BENEFITS.map((b, i) => (
             <Reveal key={b.title} className="text-center sm:text-left" delay={i * 100}>
               <img
