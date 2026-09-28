@@ -24,9 +24,9 @@
 // Secrets required (set with `supabase secrets set KEY=value`):
 //   GANAP_SIGNING_SECRET
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are provided automatically.
-// Reuses RESEND_API_KEY/EMAIL_FROM/BUSINESS_NOTIFICATION_EMAIL indirectly,
-// via a server-to-server call to the existing send-order-email function -
-// nothing new to configure for email.
+// Reuses RESEND_API_KEY/EMAIL_FROM indirectly, via a server-to-server call
+// to the existing send-order-email function - nothing new to configure
+// for email.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';

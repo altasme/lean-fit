@@ -818,10 +818,23 @@
       Supabase function in this project - validated by careful review and
       by reusing already-proven query patterns from `lib/adminOrders.ts`
       instead of an untested PostgREST embedded-join query).
+36. **Redeploy `send-order-email`** again - client request: "do not fire
+    business emails anymore." The "New Order Submitted" email to
+    `BUSINESS_NOTIFICATION_EMAIL` (step 35's confirmed-working Discord
+    notification replaces it) is removed entirely - `renderBusinessNotification()`
+    and the `BUSINESS_EMAIL` constant are gone from the function, not just
+    disabled behind a flag. Customer-facing order emails are unaffected -
+    this only ever sent to the business inbox, never to a customer.
+    `BUSINESS_NOTIFICATION_EMAIL` is no longer read by anything in this
+    project (removed from `.env.example`) - unset the secret if you want,
+    it's simply ignored either way.
+    ```bash
+    supabase functions deploy send-order-email
+    ```
 
-**Status for the live project:** schema applied, `RESEND_API_KEY`,
-`BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
-are set. `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
+**Status for the live project:** schema applied, `RESEND_API_KEY`, and
+`EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
+longer used as of step 36 - see that step). `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
 not required for MVP launch). Migrations 0002-0013 have all been applied
 (0008-0011 confirmed run - 0008 fixes a real pricing bug: `partner_pricing_tiers`
 had no anon-read policy, so every partner package was quoted at full SRP

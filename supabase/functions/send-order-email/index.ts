@@ -1,4 +1,5 @@
-// Supabase Edge Function - sends customer + business order emails via Resend.
+// Supabase Edge Function - sends customer order emails via Resend, and
+// posts a "new order" Discord notification.
 //
 // Invoked by:
 //  - the client, right after a successful checkout (`event: "order_submitted"` /
@@ -9,11 +10,10 @@
 //    gateway payment settles (`event: "payment_approved"`)
 //
 // Secrets required (set with `supabase secrets set KEY=value`):
-//   RESEND_API_KEY, BUSINESS_NOTIFICATION_EMAIL, SUPABASE_SERVICE_ROLE_KEY
+//   RESEND_API_KEY, SUPABASE_SERVICE_ROLE_KEY
 // SUPABASE_URL is provided automatically in the Edge Function runtime.
 // SITE_URL (optional, defaults to https://leanandfit.ph) - used to link
-// the customer "Track My Order" CTA and the business "View In Admin" CTA
-// to the right domain/subdomain.
+// the customer "Track My Order" CTA to the right domain.
 //
 // See CLAUDE.md §10 for the subject/event mapping this mirrors from
 // src/content/emails.ts (kept in sync manually - see note there). Order and
@@ -24,13 +24,12 @@
 // must be fully branded with the Lean & Fit brand") - every email here used
 // to be a bare, unstyled `<p>...</p>` string with no logo/colors at all.
 //
-// Also posts a Discord "new order" notification (client request: "connect
-// this to Discord... new order notifications") via _shared/discord.ts,
-// gated on DISCORD_ORDERS_WEBHOOK_URL and completely independent of the
-// business email above - one can be configured without the other. Fires
-// at the exact same `isNewOrder` trigger point as the business email, so
-// a Ganap order's deliberately-deferred-until-paid timing (see
-// ganap-webhook/ganap-check-status) applies here too, without extra code.
+// The business "New Order Submitted" email (BUSINESS_NOTIFICATION_EMAIL)
+// is gone by client request - "do not fire business emails anymore" - the
+// Discord "new order" notification below is now the only internal
+// new-order alert. Fires at the same `isNewOrder` trigger point the
+// business email used to, so a Ganap order's deliberately-deferred-until-
+// paid timing (see ganap-webhook/ganap-check-status) still applies here.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
@@ -38,7 +37,6 @@ import { renderBrandedEmail, renderInfoBox } from '../_shared/emailTemplate.ts';
 import { postDiscordEmbed } from '../_shared/discord.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
-const BUSINESS_EMAIL = Deno.env.get('BUSINESS_NOTIFICATION_EMAIL') ?? '';
 const DISCORD_ORDERS_WEBHOOK_URL = Deno.env.get('DISCORD_ORDERS_WEBHOOK_URL');
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfit.ph>';
 const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://leanandfit.ph').replace(/\/+$/, '');
@@ -139,27 +137,6 @@ function renderCustomerEmail(event: OrderEmailEvent, order: Record<string, unkno
   });
 }
 
-function renderBusinessNotification(order: Record<string, unknown>, payment: Record<string, unknown> | null): string {
-  const bodyHtml =
-    `<p style="margin:0 0 4px;">A new order was just submitted on the website.</p>` +
-    renderInfoBox([
-      { label: 'Order Number', value: String(order.order_no) },
-      { label: 'Customer', value: String(order.customer_name) },
-      { label: 'Email', value: String(order.email) },
-      { label: 'Mobile', value: String(order.mobile) },
-      { label: 'Product', value: `${order.product} × ${order.quantity}` },
-      { label: 'Total', value: `₱${order.total}` },
-      { label: 'Payment Method', value: String(payment?.method ?? 'n/a') },
-      { label: 'Reference', value: String(payment?.reference ?? 'n/a') },
-    ]);
-  return renderBrandedEmail({
-    heading: 'New Order Submitted',
-    bodyHtml,
-    ctaLabel: 'View In Admin',
-    ctaUrl: `https://admin.${BARE_HOST}/admin/orders/${order.id}`,
-  });
-}
-
 async function postNewOrderDiscordNotification(
   order: Record<string, unknown>,
   payment: Record<string, unknown> | null,
@@ -230,14 +207,6 @@ Deno.serve(async (req) => {
 
     if (cfg) {
       await sendResendEmail(order.email, cfg.subject(order.order_no), renderCustomerEmail(event, order));
-    }
-
-    if (isNewOrder && BUSINESS_EMAIL) {
-      await sendResendEmail(
-        BUSINESS_EMAIL,
-        `New Order - #${order.order_no}`,
-        renderBusinessNotification(order, payment ?? null),
-      );
     }
 
     if (isNewOrder) {
