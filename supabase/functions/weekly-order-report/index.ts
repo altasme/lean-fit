@@ -29,7 +29,7 @@ const supabaseAdmin = createClient(
 );
 
 type OrderRow = { id: string; order_no: string; status: string; total: number; created_at: string };
-type PaymentRow = { order_id: string; status: string; method: string };
+type PaymentRow = { order_id: string; status: string; method: string; provider: string };
 
 function formatPHP(amount: number): string {
   return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -45,7 +45,7 @@ Deno.serve(async () => {
     // here, so this stays consistent with that established pattern.
     const [{ data: orders, error: ordersError }, { data: payments, error: paymentsError }] = await Promise.all([
       supabaseAdmin.from('orders').select('id, order_no, status, total, created_at').gte('created_at', since),
-      supabaseAdmin.from('payments').select('order_id, status, method'),
+      supabaseAdmin.from('payments').select('order_id, status, method, provider'),
     ]);
     if (ordersError) {
       console.error('weekly-order-report: failed to fetch orders', ordersError);
@@ -56,9 +56,18 @@ Deno.serve(async () => {
       return jsonResponse({ error: paymentsError.message }, 500);
     }
 
-    const rows = (orders ?? []) as OrderRow[];
     const paymentByOrderId = new Map(((payments ?? []) as PaymentRow[]).map((p) => [p.order_id, p]));
     const paymentOf = (o: OrderRow) => paymentByOrderId.get(o.id);
+
+    // Client "universal rule" (same predicate as lib/adminOrders.ts's
+    // isVisibleInOrderManagement): a Ganap checkout that never settled is a
+    // phantom order, not a real sale - exclude it here too so this report's
+    // numbers agree with what Order Management actually shows.
+    const rows = ((orders ?? []) as OrderRow[]).filter((o) => {
+      const payment = paymentByOrderId.get(o.id);
+      if (!payment || payment.provider !== 'ganap') return true;
+      return payment.status === 'paid' || payment.status === 'refunded';
+    });
 
     const pendingVerification = rows.filter((o) => paymentOf(o)?.status === 'pending_verification').length;
     const codOutstanding = rows.filter((o) => paymentOf(o)?.method === 'cod' && paymentOf(o)?.status !== 'paid').length;

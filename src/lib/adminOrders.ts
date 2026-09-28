@@ -5,6 +5,24 @@ import { writeAuditLog } from './auditLog';
 
 export type OrderWithPayment = Order & { payment: Payment | null };
 
+/**
+ * Client rule ("universal rule"): a Ganap checkout creates its order+payment
+ * row BEFORE the customer completes payment on Ganap's hosted page (see
+ * ganap-checkout/ganap-webhook) - a customer who abandons that page, or
+ * whose payment fails/expires, leaves a permanent phantom order that never
+ * became a real sale. Those must not clutter Order Management. COD is
+ * always visible (cash isn't collected until delivery, so 'pending' there
+ * is normal, not abandonment) and manual-method orders (gcash/maya/bank
+ * transfer) are always visible too - the customer already submitted proof,
+ * so admin still needs to see and act on them (approve/reject). A Ganap
+ * payment that reached 'paid' (or was later 'refunded', which only ever
+ * happens after 'paid') is a real settled sale and stays visible.
+ */
+export function isVisibleInOrderManagement(order: OrderWithPayment): boolean {
+  if (!order.payment || order.payment.provider !== 'ganap') return true;
+  return order.payment.status === 'paid' || order.payment.status === 'refunded';
+}
+
 export type CreateManualPartnerOrderInput = {
   orderType: Extract<OrderType, 'reseller' | 'distributor' | 'franchise'>;
   partnerId: string;
@@ -51,10 +69,12 @@ export async function listOrders(): Promise<OrderWithPayment[]> {
   if (paymentsError) throw new Error(paymentsError.message);
 
   const paymentByOrderId = new Map((payments as Payment[]).map((p) => [p.order_id, p]));
-  return (orders as Order[]).map((order) => ({
-    ...order,
-    payment: paymentByOrderId.get(order.id) ?? null,
-  }));
+  return (orders as Order[])
+    .map((order) => ({
+      ...order,
+      payment: paymentByOrderId.get(order.id) ?? null,
+    }))
+    .filter(isVisibleInOrderManagement);
 }
 
 export async function getOrder(id: string): Promise<Order> {

@@ -1069,6 +1069,54 @@
       `submit-cod-order` with the token and full order payload, then
       navigates to `/order-confirmed` on success.
 
+41. **Hide abandoned Ganap orders from Order Management** (client "universal
+    rule": "Orders that did not proceed to the actual payment or reached
+    ganap but no actual payment made must be hidden from the order
+    management. Only actual paid orders or CODs should be seen there.").
+    No migration - Ganap's checkout creates the order+payment row *before*
+    the customer completes payment on Ganap's hosted page (see step 31's
+    `ganap-checkout`/`ganap-webhook`), so a customer who abandons that page,
+    or whose payment fails/expires, leaves a permanent phantom `pending`
+    order that was never a real sale - both retail checkout and partner
+    self-ordering (step 39) create orders this way, so both are affected.
+    - `src/lib/adminOrders.ts` adds `isVisibleInOrderManagement()` and
+      filters `listOrders()` through it: a `payment.provider === 'ganap'`
+      order is hidden unless `payment.status` is `'paid'` or `'refunded'`
+      (refunded only ever follows paid, so it's still a real settled sale -
+      just later reversed). Every COD order stays visible regardless of
+      payment status (cash isn't collected until delivery, so `'pending'`
+      there is normal, not abandonment) and every manual-method
+      (gcash/maya/bank_transfer) order stays visible too (the customer
+      already submitted proof - admin still needs to see and act on it).
+      This is the *only* place the filter needs to live client-side: every
+      other admin order view (`AdminOrders.tsx`'s table/stat cards/CSV
+      export, `OrderStats.tsx`) reads from `listOrders()`'s result, so
+      hiding it at the source keeps all of them consistent automatically.
+      A direct link to `/admin/orders/:id` for a hidden order still works
+      (`AdminOrderDetail.tsx` calls `getOrder(id)` directly, not
+      `listOrders()`) - this is a list/dashboard declutter, not a
+      deletion or an access restriction.
+    - `supabase/functions/weekly-order-report/index.ts`'s Discord report
+      (step 35) applies the identical predicate before computing its
+      stats, since its own comments already document it as reusing "the
+      exact same stat definitions" as the admin dashboard - redeploy it
+      for the report to stop counting phantom Ganap orders:
+      ```bash
+      supabase functions deploy weekly-order-report
+      ```
+    - Deliberately left untouched: the partner portal's own "My Orders" /
+      "Client Orders" tabs (`lib/partnerOrders.ts`) - the client's request
+      was specifically about admin's Order Management, and a partner
+      seeing their own abandoned checkout attempt is a different (and
+      arguably useful - "did my order go through?") concern than an admin
+      wading through phantom rows across every customer.
+    - Validated with `tsc -b`/`vite build`/eslint (all clean) and a
+      standalone predicate check covering all nine `provider`×`status`
+      combinations that matter (ganap pending/failed/paid/refunded, cod
+      pending/paid, manual pending_verification/paid, no payment row) -
+      only ganap-pending and ganap-failed are hidden, everything else
+      stays visible.
+
 **Status for the live project:** schema applied, `RESEND_API_KEY`, and
 `EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
 longer used as of step 36 - see that step). `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
@@ -1117,7 +1165,9 @@ Pages"). Three follow-ups this creates, none done yet:
   on top of that) and their secrets plus the Ganap-dashboard webhook
   URL update (step 31), plus setting the `VITE_SITE_URL` build env var on
   Cloudflare Pages and the
-  `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
+  `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25). Step 41's
+  `weekly-order-report` redeploy is also not yet live (no migration, so
+  it's independent of everything else pending here).
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never
