@@ -110,6 +110,19 @@ export const PARTNER_PACKAGE_BOXES: Record<PartnerType, number> = {
 };
 
 /**
+ * Minimum order quantity (boxes) for a partner ordering restock for
+ * themselves in the portal (client request, migration 0030's
+ * partner_create_order() - the actual enforcement, this is just the
+ * client-side mirror for the form hint/validation). No franchise figure
+ * was given, so it stays at 1 (no enforced minimum) rather than guessing.
+ */
+export const PARTNER_ORDER_MOQ: Record<PartnerType, number> = {
+  reseller: 5,
+  distributor: 15,
+  franchise: 1,
+};
+
+/**
  * Part 2 §2-5/§30 onboarding permission matrix - client-side mirror of
  * onboard_partner()'s server-side enforcement (migration 0011), used to
  * restrict the "Add Partner" form's type selector. The RPC is the source

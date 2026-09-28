@@ -89,6 +89,8 @@ export function QualityStandards() {
 
           <a
             href={QUALITY.verifyUrl}
+            target="_blank"
+            rel="noreferrer noopener"
             className="mt-8 inline-flex items-center gap-2 font-kicker text-sm uppercase tracking-wide2 text-lf-gold transition-colors hover:text-lf-cream"
           >
             Verify Certifications <span aria-hidden="true">→</span>

@@ -919,6 +919,36 @@
       disbursement); the admin partner detail page's new Commission panel
       shows the right accrued/disbursed/pending tiles and disbursement
       history, separate from the existing Package & Payment section.
+38. Run `supabase/migrations/0030_partner_order_moq.sql` in the SQL editor,
+    after 0029 (single paste - `create or replace`, same signature, no
+    drop needed). Client request: "Implement MOQ in the self ordering in
+    the partner portal. Reseller MOQ 5, Distributor MOQ 15." Reproduces
+    0029's `partner_create_order()` in full with one added check: a
+    Reseller's own restock order must be at least 5 boxes, a Distributor's
+    at least 15 - the same figures already used as the tier-qualification
+    minimums in the public Reseller page copy. No franchise figure was
+    given, so franchise orders keep the prior "quantity must be positive"
+    floor (1) rather than guessing one.
+    - Enforced server-side (a partner can't bypass it by calling the RPC
+      directly) via a new `PARTNER_ORDER_MOQ` constant mirrored client-side
+      in `src/types/partner.ts` for the form hint/validation only.
+    - `MyOrdersTab.tsx`'s Order For Yourself panel now opens with the
+      quantity field pre-filled at the partner's MOQ, shows a "Minimum
+      order: N boxes" hint, and the form now sets `noValidate` so a
+      below-MOQ submit shows the app's own styled error message instead of
+      the browser's native HTML5 validation tooltip (confirmed via
+      Playwright that without `noValidate`, the native `min` attribute
+      silently intercepted the submit before the custom message could
+      render).
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 30 migrations from a completely fresh `create
+      database`: a Reseller ordering 4 boxes is rejected ("Minimum order
+      for reseller partners is 5 boxes"), ordering exactly 5 succeeds; a
+      Distributor ordering 10 is rejected, ordering exactly 15 succeeds.
+      `tsc -b`/`vite build`/eslint all pass; Playwright-verified the
+      pre-filled MOQ quantity, the hint text, and the custom (not native)
+      error message on a below-MOQ submit attempt (mocked Supabase client,
+      reverted before this commit).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`, and
 `EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
@@ -951,16 +981,16 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0029 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0030 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
   partner (reseller/distributor/franchise) orders, auto-recording a
   partner's onboarding package as an order, partner invite links, the
   Ganap payment gateway enums/RPC branch, the public order-tracking
-  RPC, and partner self-ordering + manual commission disbursements -
-  steps 21-22, 24-28, 30-32, and 37 above), the `grant-portal-access`
-  redeploys (steps 23 and 29 - **29 is the current version and
+  RPC, partner self-ordering + manual commission disbursements, and the
+  partner self-order MOQ - steps 21-22, 24-28, 30-32, and 37-38 above),
+  the `grant-portal-access` redeploys (steps 23 and 29 - **29 is the current version and
   supersedes 23**, run it even if 23 was already done), the three new
   Ganap Edge Functions and their secrets plus the Ganap-dashboard webhook
   URL update (step 31), plus setting the `VITE_SITE_URL` build env var on

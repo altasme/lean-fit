@@ -12,7 +12,7 @@ import { ProofUpload } from '../../checkout/ProofUpload';
 import { PAYMENT_METHODS } from '../../../content/payment';
 import { validateProof } from '../../../lib/validation';
 import type { ProofFormErrors } from '../../../lib/validation';
-import { PARTNER_TYPE_LABELS } from '../../../types/partner';
+import { PARTNER_ORDER_MOQ, PARTNER_TYPE_LABELS } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
 
 // Restock is an investment payment, not a delivery order - same reasoning
@@ -91,11 +91,14 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
   const [pricing, setPricing] = useState<PartnerOwnPricing | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(() =>
+    partner.partner_type ? PARTNER_ORDER_MOQ[partner.partner_type] : 1,
+  );
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<ProofFormErrors>({});
   const [methodError, setMethodError] = useState<string | null>(null);
+  const [quantityError, setQuantityError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -114,9 +117,20 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
   // Partner type, so guard rather than assume.
   if (!partner.partner_type) return null;
 
+  // Client request: "Implement MOQ in the self ordering in the partner
+  // portal. Reseller MOQ 5, Distributor MOQ 15." Enforced server-side too
+  // (migration 0030) - this is the form-side mirror/hint.
+  const moq = PARTNER_ORDER_MOQ[partner.partner_type];
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!pricing) return;
+
+    if (quantity < moq) {
+      setQuantityError(`Minimum order is ${moq} boxes for ${PARTNER_TYPE_LABELS[partner.partner_type!]} partners.`);
+      return;
+    }
+    setQuantityError(null);
 
     if (!paymentMethod) {
       setMethodError('Select a payment method.');
@@ -135,7 +149,7 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
       setPlacedOrderNo(result.orderNo);
       setFile(null);
       setPaymentMethod(null);
-      setQuantity(1);
+      setQuantity(moq);
       onOrderPlaced();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
@@ -172,7 +186,8 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
         <div>
           <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-gold">Order For Yourself</h2>
           <p className="mt-1 text-xs text-lf-cream/60">
-            Restock at your {PARTNER_TYPE_LABELS[partner.partner_type]} partner price.
+            Restock at your {PARTNER_TYPE_LABELS[partner.partner_type]} partner price. Minimum order:{' '}
+            {moq} {moq === 1 ? 'box' : 'boxes'}.
           </p>
         </div>
         <button type="button" onClick={() => setOpen(true)} className="btn-gold !px-5 !py-2.5 !text-sm">
@@ -200,7 +215,7 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
       )}
 
       {pricing && (
-        <form onSubmit={handleSubmit} className="mt-5 space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-6">
           <div className="rounded-sm border border-white/10 bg-lf-black p-5">
             <div className="flex items-center justify-between gap-3">
               <label className="text-sm text-lf-cream/70" htmlFor="own-order-qty">
@@ -209,12 +224,19 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
               <input
                 id="own-order-qty"
                 type="number"
-                min={1}
+                min={moq}
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+                onChange={(e) => {
+                  setQuantity(Math.max(1, Math.floor(Number(e.target.value) || 1)));
+                  setQuantityError(null);
+                }}
                 className="w-20 rounded-sm border border-white/15 bg-lf-charcoal px-3 py-1.5 text-right text-sm text-lf-white focus:border-lf-gold focus:outline-none"
               />
             </div>
+            <p className="mt-2 text-xs text-lf-cream/50">
+              Minimum order: {moq} {moq === 1 ? 'box' : 'boxes'}.
+            </p>
+            {quantityError && <p className="mt-1.5 text-xs text-lf-error">{quantityError}</p>}
             <dl className="tabular mt-4 space-y-1.5 text-sm">
               <div className="flex justify-between">
                 <dt className="text-lf-cream/60">Your Price / Box</dt>

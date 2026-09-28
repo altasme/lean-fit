@@ -93,10 +93,12 @@ export const QUALITY = {
       detail: 'Halal Certificate No. ARA-90273575-31204',
     },
   ],
-  // ⛔ PLACEHOLDER - client must supply where "Verify Certifications" should
-  // link to (e.g. a hosted copy of the certificates, or the FDA/Halal
-  // certifying body's public lookup tool) before launch.
-  verifyUrl: '#',
+  // Client-supplied: FDA Philippines' public LTO/CPR verification portal -
+  // visitors search this FDA Registration No. there themselves. Doesn't
+  // cover the Halal certificate (no public lookup tool supplied for that
+  // certifying body yet); the link still serves both cards since it's the
+  // one verification resource the client provided.
+  verifyUrl: 'https://verification.fda.gov.ph/',
   // 'flag-ph' is a marker for QualityStandards.tsx to render a custom inline
   // SVG instead of an emoji glyph - flag emoji (unlike plain pictographs
   // like 🔬/☕) have spotty font support across OSes/browsers and can render
