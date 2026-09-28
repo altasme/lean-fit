@@ -102,11 +102,17 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
   const [placedOrderNo, setPlacedOrderNo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || pricing !== undefined) return;
+    if (!open || pricing !== undefined || !partner.partner_type) return;
     fetchPartnerOwnPricing(partner.partner_type)
       .then(setPricing)
       .catch((err) => setLoadError(err instanceof Error ? err.message : 'Failed to load pricing.'));
   }, [open, pricing, partner.partner_type]);
+
+  // A partner with no type set can't be priced (self-ordering needs a tier
+  // discount) - shouldn't happen in practice (only active partners, which
+  // always have a type, reach My Orders), but the field is nullable on the
+  // Partner type, so guard rather than assume.
+  if (!partner.partner_type) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
