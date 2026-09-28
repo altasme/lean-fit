@@ -22,6 +22,12 @@ export function Footer() {
         </Link>
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           <Link
+            to="/track-order"
+            className="text-xs uppercase tracking-wide2 text-lf-cream/50 transition-colors hover:text-lf-gold"
+          >
+            Track My Order
+          </Link>
+          <Link
             to="/privacy-policy"
             className="text-xs uppercase tracking-wide2 text-lf-cream/50 transition-colors hover:text-lf-gold"
           >

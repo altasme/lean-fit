@@ -645,6 +645,44 @@
       "GCash / Maya / Online Banking" and "Cash on Delivery" as its two
       payment options, with the right instructions text and no
       proof-upload field for either.
+32. Run `supabase/migrations/0028_track_order.sql` in the SQL editor, after
+    0027 (single paste, no ordering restriction this time - it only adds
+    a new function, no new enum values). Client request: a public "Track
+    My Order" link in the footer (`/track-order`) where a customer enters
+    their order number or shipping tracking number, no login, and sees
+    their order's status.
+    - New `track_order(p_query text)` RPC, the same "narrow SECURITY
+      DEFINER function" pattern as `get_invite_info` (step 30/migration
+      0025) - `orders`/`payments` have no anon `SELECT` policy at all
+      (§11 below), so this runs with elevated privilege but hand-picks
+      only non-sensitive columns to return: order number, order status,
+      payment status, product/quantity, courier, tracking number, and
+      timestamps. Deliberately excludes customer name, email, mobile,
+      address, and every monetary field.
+    - ⚠️ **Known tradeoff, not fixed here:** unlike `get_invite_info`'s
+      random invite codes, `order_no` (`LF-000123`) is sequential and
+      therefore guessable/enumerable - someone could script through order
+      numbers and see any order's fulfillment/payment status, courier,
+      and tracking number (though never who placed it or what they paid,
+      per the point above). This matches exactly what the client asked
+      for ("order number or tracking number," no second factor), but if
+      it becomes a concern later, the standard fix is requiring a second
+      factor at lookup time (e.g. order number + email) rather than the
+      order number alone.
+    - No function redeploy needed - this is SQL-only. Client code: new
+      `src/lib/orderTracking.ts` (`trackOrder()`), new `/track-order`
+      page (`src/pages/TrackOrder.tsx`, reusing the existing
+      `ORDER_STATUS_LABELS`/`PAYMENT_STATUS_LABELS` emoji/label maps so
+      the status chips match `/order-confirmed`'s conventions), and a new
+      "Track My Order" footer link.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 28 migrations from a completely fresh `create
+      database`: lookup by order number and by tracking number both
+      match case-insensitively as `anon`, no match returns an empty
+      result (not an error), and a blank/whitespace-only query returns
+      nothing rather than the whole table. `tsc`/`eslint`/`vite build`
+      all pass; Playwright-verified the found/not-found states on
+      `/track-order` and the footer link's presence on the homepage.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`
@@ -677,18 +715,19 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0027 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0028 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
   partner (reseller/distributor/franchise) orders, auto-recording a
-  partner's onboarding package as an order, partner invite links, and the
-  Ganap payment gateway enums/RPC branch - steps 21-22, 24-28, 30, and 31
-  above), the `grant-portal-access` redeploys (steps 23 and 29 - **29 is
-  the current version and supersedes 23**, run it even if 23 was already
-  done), the three new Ganap Edge Functions and their secrets plus the
-  Ganap-dashboard webhook URL update (step 31), plus setting the
-  `VITE_SITE_URL` build env var on Cloudflare Pages and the
+  partner's onboarding package as an order, partner invite links, the
+  Ganap payment gateway enums/RPC branch, and the public order-tracking
+  RPC - steps 21-22, 24-28, and 30-32 above), the `grant-portal-access`
+  redeploys (steps 23 and 29 - **29 is the current version and
+  supersedes 23**, run it even if 23 was already done), the three new
+  Ganap Edge Functions and their secrets plus the Ganap-dashboard webhook
+  URL update (step 31), plus setting the `VITE_SITE_URL` build env var on
+  Cloudflare Pages and the
   `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff

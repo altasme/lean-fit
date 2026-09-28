@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Checkout from './pages/Checkout';
 import OrderConfirmed from './pages/OrderConfirmed';
+import TrackOrder from './pages/TrackOrder';
 import ReferralRedirect from './pages/ReferralRedirect';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import RefundPolicy from './pages/RefundPolicy';
@@ -111,6 +112,14 @@ export default function App() {
             element={
               <PublicLayout>
                 <OrderConfirmed />
+              </PublicLayout>
+            }
+          />
+          <Route
+            path="/track-order"
+            element={
+              <PublicLayout>
+                <TrackOrder />
               </PublicLayout>
             }
           />

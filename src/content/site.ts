@@ -24,6 +24,7 @@ export const RESELLER = {
     "Bring Lean & Fit Protein Coffee to your community. We're building out our reseller program - reach out and we'll follow up as soon as it's ready.",
   benefits: [
     'Resellers Get 25% OFF when you purchase a minimum of 5 boxes',
+    'Start with 15 boxes and become a Lean & Fit Distributor with 30% OFF',
     'Marketing assets and product training',
     'Dedicated reseller support',
   ],
