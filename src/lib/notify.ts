@@ -36,3 +36,20 @@ export async function notifyPartnerEvent(partnerId: string, event: PartnerEmailE
     console.error('Failed to send partner email notification:', await functionErrorMessage(error));
   }
 }
+
+/**
+ * Fires the notify-discord Edge Function (client request: "connect this to
+ * Discord... new partner sign up notifications"), right after a public
+ * lead submission succeeds. Same fire-and-forget contract as the two
+ * functions above - a Discord outage (or the webhook simply not being
+ * configured yet) must never block the application flow.
+ */
+export async function notifyDiscordNewPartner(partnerId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('notify-discord', {
+    body: { event: 'new_partner', partnerId },
+  });
+
+  if (error) {
+    console.error('Failed to send Discord new-partner notification:', await functionErrorMessage(error));
+  }
+}

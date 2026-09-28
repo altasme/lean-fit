@@ -5,6 +5,7 @@ import { SectionKicker } from '../components/ui/SectionKicker';
 import { RESELLER } from '../content/site';
 import { getInviteInfo, submitPartnerLead } from '../lib/partners';
 import type { InviteInfo } from '../lib/partners';
+import { notifyDiscordNewPartner } from '../lib/notify';
 import { fetchAllProvinces, fetchCitiesForProvince } from '../lib/phLocations';
 import type { PhCity, PhProvinceOption } from '../lib/phLocations';
 import { validatePartnerLead } from '../lib/validation';
@@ -98,10 +99,11 @@ export default function Reseller() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await submitPartnerLead(
+      const lead = await submitPartnerLead(
         form,
         inviteCode && invitedType ? { inviteCode, partnerType: invitedType } : undefined,
       );
+      void notifyDiscordNewPartner(lead.partnerId);
       setDone(true);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');

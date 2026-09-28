@@ -724,6 +724,100 @@
       documentation rather than drifting from what's actually sent.
     - No migration, no client-side route/component changes beyond what
       step 32 already added - this step is Edge Function redeploys only.
+34. **Redeploy `send-order-email`** again - client request: the "Action
+    Required" (payment rejected) email's CTA now points at a client-
+    supplied Messenger link (`https://m.me/61592822620105`) instead of
+    "Track My Order," and its body copy asks the customer to message
+    instead of reply-by-email. Every other order-lifecycle email is
+    unchanged. No secret/config change - the Messenger URL is a plain
+    constant in the function (not sensitive, unlike a webhook URL).
+    ```bash
+    supabase functions deploy send-order-email
+    ```
+35. **Discord notifications** (client request: "connect this to Discord" -
+    new order notifications, new partner sign-up notifications, and a
+    weekly order management report). Three independent Discord channels,
+    each its own Incoming Webhook URL (Discord: channel settings ->
+    Integrations -> Webhooks -> New Webhook -> Copy Webhook URL) - set
+    only the ones you want:
+    ```bash
+    supabase secrets set DISCORD_ORDERS_WEBHOOK_URL=<your orders channel's webhook URL>
+    supabase secrets set DISCORD_PARTNERS_WEBHOOK_URL=<your partners channel's webhook URL>
+    supabase secrets set DISCORD_REPORTS_WEBHOOK_URL=<your reports channel's webhook URL>
+    ```
+    New shared `supabase/functions/_shared/discord.ts` (`postDiscordEmbed()`)
+    posts a branded gold embed via Discord's plain incoming-webhook API (no
+    bot/OAuth needed) - fire-and-forget, logs on failure but never throws,
+    so a Discord outage or an unset webhook URL never blocks the order/
+    partner flow that triggered it.
+    - **New order notifications** - `send-order-email` posts to
+      `DISCORD_ORDERS_WEBHOOK_URL` from the exact same `isNewOrder`
+      trigger point as the existing business email (step 33), so a
+      Ganap order's deliberately-deferred-until-paid timing (§13/step 31)
+      applies here automatically, with zero extra logic. Redeploy:
+      ```bash
+      supabase functions deploy send-order-email
+      ```
+    - **New partner sign-up notifications** - new
+      `supabase/functions/notify-discord/index.ts` (`event: 'new_partner'`),
+      invoked client-side right after a successful public lead submission
+      (`src/pages/Reseller.tsx` -> `src/lib/notify.ts`'s
+      `notifyDiscordNewPartner`) - fire-and-forget, same contract as every
+      other notification call here. Posts to `DISCORD_PARTNERS_WEBHOOK_URL`.
+      Deploy (new function):
+      ```bash
+      supabase functions deploy notify-discord
+      ```
+    - **Weekly order management report** - new
+      `supabase/functions/weekly-order-report/index.ts`, posting to
+      `DISCORD_REPORTS_WEBHOOK_URL`. Reuses the exact same stat
+      definitions/labels as the admin dashboard's `OrderStats.tsx`/
+      `lib/orderQuickFilter.ts` (Total Orders, Pending Verification, COD
+      Outstanding, Revenue (Paid), To Pack, To Ship, Shipped Out, Delivered,
+      plus Cancelled/Returned and a payment-method breakdown, all scoped to
+      the last 7 days) so the numbers in Discord always mean the same thing
+      they do in Admin - reimplemented rather than imported, since a Deno
+      Edge Function can't import from `src/`. Also includes a "New Partner
+      Applications" count for the same window, tying it to the point above.
+      **Not client-invoked** - scheduled via Supabase's `pg_cron`, client
+      request timing: **Sunday 6pm Manila time (10:00 UTC)**.
+      ```bash
+      supabase functions deploy weekly-order-report
+      ```
+      Enable the `pg_cron` and `pg_net` extensions first (Dashboard ->
+      Database -> Extensions -> search each, enable), then run this once
+      in the SQL editor, substituting your own project ref and service
+      role key (never commit either of these to a file - this is a live
+      database write via the SQL editor, not a repo change):
+      ```sql
+      select cron.schedule(
+        'weekly-order-report',
+        '0 10 * * 0',
+        $$
+        select net.http_post(
+          url := 'https://<project-ref>.supabase.co/functions/v1/weekly-order-report',
+          headers := jsonb_build_object(
+            'Authorization', 'Bearer <your-service-role-key>',
+            'Content-Type', 'application/json'
+          ),
+          body := '{}'::jsonb
+        );
+        $$
+      );
+      ```
+      To test immediately without waiting for Sunday, either invoke the
+      function directly from the Dashboard's Edge Functions "Invoke"
+      tester, or run `select net.http_post(...)` (the same call the cron
+      job makes) directly in the SQL editor once. To stop the schedule
+      later: `select cron.unschedule('weekly-order-report');`.
+    - No migration for any of the three - all reuse existing tables via
+      the service-role client (RLS is bypassed for that role, same as
+      every other Edge Function here). `tsc`/`eslint`/`vite build` all
+      pass for the client-side pieces (the Discord Edge Functions
+      themselves aren't covered by that toolchain, same as every other
+      Supabase function in this project - validated by careful review and
+      by reusing already-proven query patterns from `lib/adminOrders.ts`
+      instead of an untested PostgREST embedded-join query).
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`

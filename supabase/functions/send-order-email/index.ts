@@ -23,13 +23,23 @@
 // Branded via _shared/emailTemplate.ts (client request: "these templates
 // must be fully branded with the Lean & Fit brand") - every email here used
 // to be a bare, unstyled `<p>...</p>` string with no logo/colors at all.
+//
+// Also posts a Discord "new order" notification (client request: "connect
+// this to Discord... new order notifications") via _shared/discord.ts,
+// gated on DISCORD_ORDERS_WEBHOOK_URL and completely independent of the
+// business email above - one can be configured without the other. Fires
+// at the exact same `isNewOrder` trigger point as the business email, so
+// a Ganap order's deliberately-deferred-until-paid timing (see
+// ganap-webhook/ganap-check-status) applies here too, without extra code.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 import { renderBrandedEmail, renderInfoBox } from '../_shared/emailTemplate.ts';
+import { postDiscordEmbed } from '../_shared/discord.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const BUSINESS_EMAIL = Deno.env.get('BUSINESS_NOTIFICATION_EMAIL') ?? '';
+const DISCORD_ORDERS_WEBHOOK_URL = Deno.env.get('DISCORD_ORDERS_WEBHOOK_URL');
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfit.ph>';
 const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://leanandfit.ph').replace(/\/+$/, '');
 const BARE_HOST = SITE_URL.replace(/^https?:\/\//, '');
@@ -150,6 +160,24 @@ function renderBusinessNotification(order: Record<string, unknown>, payment: Rec
   });
 }
 
+async function postNewOrderDiscordNotification(
+  order: Record<string, unknown>,
+  payment: Record<string, unknown> | null,
+): Promise<void> {
+  await postDiscordEmbed(
+    DISCORD_ORDERS_WEBHOOK_URL,
+    `🛒 New Order - #${order.order_no}`,
+    [
+      { name: 'Customer', value: String(order.customer_name), inline: true },
+      { name: 'Total', value: `₱${order.total}`, inline: true },
+      { name: 'Product', value: `${order.product} × ${order.quantity}` },
+      { name: 'Payment Method', value: String(payment?.method ?? 'n/a'), inline: true },
+      { name: 'Mobile', value: String(order.mobile), inline: true },
+    ],
+    { url: `https://admin.${BARE_HOST}/admin/orders/${order.id}` },
+  );
+}
+
 async function sendResendEmail(to: string, subject: string, html: string) {
   if (!RESEND_API_KEY) {
     console.warn('RESEND_API_KEY not set - skipping email send.', { to, subject });
@@ -210,6 +238,10 @@ Deno.serve(async (req) => {
         `New Order - #${order.order_no}`,
         renderBusinessNotification(order, payment ?? null),
       );
+    }
+
+    if (isNewOrder) {
+      await postNewOrderDiscordNotification(order, payment ?? null);
     }
 
     return jsonResponse({ ok: true });
