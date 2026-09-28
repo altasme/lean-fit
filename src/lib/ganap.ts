@@ -3,17 +3,24 @@ import { functionErrorMessage } from './functionsError';
 
 /**
  * Starts a Ganap hosted-checkout session for an order that was already
- * created (via createOrder(), method 'ganap') - see
- * supabase/functions/ganap-checkout. Only `orderId`/`paymentId` are sent;
- * the function re-fetches the authoritative amount/customer info itself
- * rather than trusting anything the client could tamper with.
+ * created (retail: createOrder(), method 'ganap'; partner self-order:
+ * partner_create_order()) - see supabase/functions/ganap-checkout. Only
+ * `orderId`/`paymentId` are sent; the function re-fetches the
+ * authoritative amount/customer info itself rather than trusting anything
+ * the client could tamper with. Pass `context: 'partner'` when called from
+ * the partner portal so Ganap's post-payment redirect lands back on the
+ * partner subdomain's dashboard instead of the public site.
  *
  * Throws with a real, specific message (via functionErrorMessage) rather
  * than supabase-js's generic "non-2xx status code" - see functionsError.ts.
  */
-export async function startGanapCheckout(orderId: string, paymentId: string): Promise<{ redirectUrl: string }> {
+export async function startGanapCheckout(
+  orderId: string,
+  paymentId: string,
+  context?: 'partner',
+): Promise<{ redirectUrl: string }> {
   const { data, error } = await supabase.functions.invoke('ganap-checkout', {
-    body: { orderId, paymentId },
+    body: { orderId, paymentId, context },
   });
 
   if (error) {

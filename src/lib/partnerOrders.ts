@@ -1,6 +1,6 @@
-import { supabase, uploadPaymentProof } from './supabase';
+import { supabase } from './supabase';
 import type { Order, OrderStatus } from '../types/order';
-import type { Payment, PaymentMethodId, PaymentStatus } from '../types/payment';
+import type { Payment, PaymentStatus } from '../types/payment';
 
 export type PartnerOrder = Order & { payment: Payment | null };
 
@@ -160,8 +160,6 @@ export function summarizePartnerSalesByMonth(clientOrders: PartnerOrder[]): Map<
 
 export type PartnerOwnOrderInput = {
   quantity: number;
-  paymentMethod: PaymentMethodId;
-  proofFile: File;
   deliveryNotes?: string | null;
 };
 
@@ -169,27 +167,29 @@ export type CreatedPartnerOwnOrder = {
   orderId: string;
   orderNo: string;
   orderStatus: OrderStatus;
+  paymentId: string;
   paymentStatus: PaymentStatus;
 };
 
 /**
  * Client request: "clients should be able to order for themselves inside
  * the partner portal... at a price that's already discounted according
- * to how much their % off is." Calls migration 0029's partner_create_order()
+ * to how much their % off is." Calls migration 0031's partner_create_order()
  * RPC, which prices the order SERVER-SIDE at the calling partner's own
  * tier discount and creates it with the same order_type/partner_id
  * wholesale-order shape as an admin-keyed manual order (migration 0023) -
  * never referral_partner_id/partner_earnings, since this isn't a referred
- * sale. Manual payment only (no COD/Ganap) with required proof upload,
- * same shape as the one-time package payment (PackagePaymentStep.tsx).
+ * sale. Payment goes through the Ganap gateway (client request: "update
+ * the payment method in the partner portal" -> switch off manual GCash/
+ * Maya/Bank Transfer proof-upload onto the same automated gateway retail
+ * checkout uses) - no proof upload, no admin review; the caller still
+ * needs to redirect to Ganap's checkout via startGanapCheckout(orderId,
+ * paymentId, 'partner') after this resolves, same two-step shape as
+ * Checkout.tsx's retail flow.
  */
 export async function createPartnerOwnOrder(input: PartnerOwnOrderInput): Promise<CreatedPartnerOwnOrder> {
-  const proofPath = await uploadPaymentProof(input.proofFile);
-
   const { data, error } = await supabase.rpc('partner_create_order', {
     p_quantity: input.quantity,
-    p_payment_method: input.paymentMethod,
-    p_payment_proof_path: proofPath,
     p_delivery_notes: input.deliveryNotes || null,
   });
 
@@ -201,6 +201,7 @@ export async function createPartnerOwnOrder(input: PartnerOwnOrderInput): Promis
     orderId: row.order_id,
     orderNo: row.order_no,
     orderStatus: row.order_status,
+    paymentId: row.payment_id,
     paymentStatus: row.payment_status,
   };
 }

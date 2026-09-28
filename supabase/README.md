@@ -949,6 +949,65 @@
       pre-filled MOQ quantity, the hint text, and the custom (not native)
       error message on a below-MOQ submit attempt (mocked Supabase client,
       reverted before this commit).
+39. Run `supabase/migrations/0031_partner_order_ganap.sql` in the SQL
+    editor, after 0030 (single paste - drops and recreates
+    `partner_create_order()` with a different signature, same reasoning
+    as migration 0008 dropping `create_order_with_payment`'s old
+    signature). Client request: "update the payment method in the
+    partner portal," confirmed as switching partner self-ordering off the
+    manual GCash/Maya/Bank Transfer + proof-upload flow (0029/0030) onto
+    the same Ganap gateway retail checkout already uses (0026/0027) - no
+    proof upload, no admin review, settled automatically by the existing
+    `ganap-webhook` function (already order_type-agnostic, no changes
+    needed there).
+    - `partner_create_order()`'s signature drops
+      `p_payment_method`/`p_payment_proof_path`/`p_payment_reference`/
+      `p_payment_date` entirely (none apply to a gateway payment) - now
+      just `(p_quantity, p_delivery_notes)`. Creates the payment row with
+      `method`/`provider = 'ganap'`, `status = 'pending'` (order stays
+      `'pending'` too, matching `create_order_with_payment`'s ganap
+      branch) - MOQ enforcement (migration 0030) is unchanged.
+    - **Redeploy `ganap-checkout`** - now accepts an optional
+      `context: "partner"` field in its request body; when set, it builds
+      `successRedirectUrl` pointing at the partner subdomain's dashboard
+      (`https://partner.<host>/reseller/dashboard?gateway=1&order_no=...
+      &order_id=...`) instead of the public site's `/order-confirmed`.
+      Retail checkout's call (no `context`) is completely unchanged.
+      ```bash
+      supabase functions deploy ganap-checkout
+      ```
+    - Client code: `startGanapCheckout()` (`src/lib/ganap.ts`) takes an
+      optional third `context` argument, passed straight through.
+      `createPartnerOwnOrder()` (`src/lib/partnerOrders.ts`) drops the
+      payment-method/proof-file fields from its input and now just prices
+      + creates the order. `MyOrdersTab.tsx`'s Order For Yourself panel
+      drops `PaymentMethodSelect`/`ProofUpload` entirely - quantity in, one
+      "Proceed To Payment" button, then `window.location.href` to Ganap's
+      hosted page, same two-step shape as `Checkout.tsx`'s retail flow.
+      `PartnerDashboard.tsx` now handles the cross-domain redirect back
+      from Ganap the same way `OrderConfirmed.tsx` does for retail: reads
+      `gateway=1&order_no=...&order_id=...` from the URL on mount,
+      switches to the My Orders tab, strips the query params, shows a
+      pending/paid/failed banner, and polls `checkGanapStatus` (5 attempts,
+      3s apart) in case the webhook hasn't landed yet, refreshing the
+      order list once it settles.
+    - Validated locally end to end via `psql -f` against a full replay of
+      the schema + all 31 migrations from a completely fresh `create
+      database`: MOQ rejection is unchanged; a Reseller ordering exactly
+      5 boxes succeeds with the new 2-argument signature, and the
+      resulting payment row has `method = 'ganap'`, `provider = 'ganap'`,
+      `status = 'pending'`; confirmed only one `partner_create_order`
+      overload exists afterward (the `drop function` actually ran, not
+      just `create or replace` silently leaving a dead second one).
+      `tsc -b`/`vite build`/eslint all pass. Playwright-verified (mocked
+      Supabase client, reverted before this commit): the Order For
+      Yourself panel shows no payment-method buttons or proof-upload
+      field, just the Ganap explainer copy and a single CTA; clicking it
+      creates the order then the browser actually navigates to the mocked
+      Ganap redirect URL; and loading the dashboard with
+      `?gateway=1&order_no=...&order_id=...` in the URL correctly
+      auto-switches to My Orders, shows the "confirming payment" banner,
+      and strips the query params.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`, and
 `EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
@@ -981,18 +1040,20 @@ Pages"). Three follow-ups this creates, none done yet:
   `grant-portal-access` function (steps 15-16 above) - this is the whole
   admin-restructure/RBAC/lead-funnel change from the prior session, not
   yet pushed to the live Supabase project.
-- **Also still not deployed:** migrations 0015-0030 (Order Management RTS/
+- **Also still not deployed:** migrations 0015-0031 (Order Management RTS/
   discount codes, territory level remap, partner-onboarding disablement,
   path-based referral URLs/Top Sellers leaderboard, staff permissions,
   the partner onboarding stage, the admin stage-override RPC, manual
   partner (reseller/distributor/franchise) orders, auto-recording a
   partner's onboarding package as an order, partner invite links, the
   Ganap payment gateway enums/RPC branch, the public order-tracking
-  RPC, partner self-ordering + manual commission disbursements, and the
-  partner self-order MOQ - steps 21-22, 24-28, 30-32, and 37-38 above),
-  the `grant-portal-access` redeploys (steps 23 and 29 - **29 is the current version and
+  RPC, partner self-ordering + manual commission disbursements, the
+  partner self-order MOQ, and switching partner self-ordering to Ganap -
+  steps 21-22, 24-28, 30-32, and 37-39 above), the `grant-portal-access`
+  redeploys (steps 23 and 29 - **29 is the current version and
   supersedes 23**, run it even if 23 was already done), the three new
-  Ganap Edge Functions and their secrets plus the Ganap-dashboard webhook
+  Ganap Edge Functions (plus step 39's `ganap-checkout` redeploy on top
+  of that) and their secrets plus the Ganap-dashboard webhook
   URL update (step 31), plus setting the `VITE_SITE_URL` build env var on
   Cloudflare Pages and the
   `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25).

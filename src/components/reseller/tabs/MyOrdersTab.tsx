@@ -2,22 +2,13 @@ import { useEffect, useState } from 'react';
 import { formatPHP } from '../../../lib/format';
 import { ORDER_STATUS_EMOJI, ORDER_STATUS_LABELS } from '../../../types/order';
 import { PAYMENT_STATUS_EMOJI, PAYMENT_STATUS_LABELS } from '../../../types/payment';
-import type { PaymentMethodId } from '../../../types/payment';
 import type { PartnerOrder } from '../../../lib/partnerOrders';
 import { createPartnerOwnOrder } from '../../../lib/partnerOrders';
 import { fetchPartnerOwnPricing } from '../../../lib/partners';
 import type { PartnerOwnPricing } from '../../../lib/partners';
-import { PaymentMethodSelect } from '../../checkout/PaymentMethodSelect';
-import { ProofUpload } from '../../checkout/ProofUpload';
-import { PAYMENT_METHODS } from '../../../content/payment';
-import { validateProof } from '../../../lib/validation';
-import type { ProofFormErrors } from '../../../lib/validation';
+import { startGanapCheckout } from '../../../lib/ganap';
 import { PARTNER_ORDER_MOQ, PARTNER_TYPE_LABELS } from '../../../types/partner';
 import type { Partner } from '../../../types/partner';
-
-// Restock is an investment payment, not a delivery order - same reasoning
-// as PackagePaymentStep.tsx's one-time package payment - no COD/Ganap here.
-const OWN_ORDER_PAYMENT_METHODS = PAYMENT_METHODS.filter((m) => m.provider === 'manual');
 
 // Spec §42 "My Orders" - orders personally placed by this partner (matched
 // by their account email). Client request: "clients should be able to
@@ -94,15 +85,10 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
   const [quantity, setQuantity] = useState(() =>
     partner.partner_type ? PARTNER_ORDER_MOQ[partner.partner_type] : 1,
   );
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [errors, setErrors] = useState<ProofFormErrors>({});
-  const [methodError, setMethodError] = useState<string | null>(null);
   const [quantityError, setQuantityError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [placedOrderNo, setPlacedOrderNo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || pricing !== undefined || !partner.partner_type) return;
@@ -119,9 +105,16 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
 
   // Client request: "Implement MOQ in the self ordering in the partner
   // portal. Reseller MOQ 5, Distributor MOQ 15." Enforced server-side too
-  // (migration 0030) - this is the form-side mirror/hint.
+  // (migration 0031) - this is the form-side mirror/hint.
   const moq = PARTNER_ORDER_MOQ[partner.partner_type];
 
+  // Client request: "update the payment method in the partner portal" ->
+  // switch off manual GCash/Maya/Bank Transfer proof-upload onto the same
+  // Ganap gateway retail checkout uses. The order is created first
+  // (server-priced, pending), then the browser leaves for Ganap's hosted
+  // checkout page - same two-step shape as Checkout.tsx's retail flow.
+  // onOrderPlaced() runs before the redirect so the new pending order is
+  // already in "My Orders" if the partner comes back without finishing.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!pricing) return;
@@ -132,52 +125,17 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
     }
     setQuantityError(null);
 
-    if (!paymentMethod) {
-      setMethodError('Select a payment method.');
-      return;
-    }
-    setMethodError(null);
-
-    const formErrors = validateProof({ file });
-    setErrors(formErrors);
-    if (Object.keys(formErrors).length > 0 || !file) return;
-
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const result = await createPartnerOwnOrder({ quantity, paymentMethod, proofFile: file });
-      setPlacedOrderNo(result.orderNo);
-      setFile(null);
-      setPaymentMethod(null);
-      setQuantity(moq);
+      const order = await createPartnerOwnOrder({ quantity });
       onOrderPlaced();
+      const { redirectUrl } = await startGanapCheckout(order.orderId, order.paymentId, 'partner');
+      window.location.href = redirectUrl;
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-    } finally {
       setSubmitting(false);
     }
-  }
-
-  if (placedOrderNo) {
-    return (
-      <section className="rounded-sm border border-lf-success/40 bg-lf-success/10 p-6">
-        <h2 className="font-kicker text-sm uppercase tracking-wide2 text-lf-success">Order Placed</h2>
-        <p className="mt-2 text-sm text-lf-cream/80">
-          Order #{placedOrderNo} has been submitted for payment verification - it'll appear in the
-          table below once confirmed.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setPlacedOrderNo(null);
-            setOpen(false);
-          }}
-          className="btn-outline mt-4 !px-5 !py-2 !text-sm"
-        >
-          Done
-        </button>
-      </section>
-    );
   }
 
   if (!open) {
@@ -249,21 +207,11 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
             </dl>
           </div>
 
-          <PaymentMethodSelect
-            selected={paymentMethod}
-            onSelect={setPaymentMethod}
-            methods={OWN_ORDER_PAYMENT_METHODS}
-            helpText="Pay the total using one of the methods below, then submit proof of payment."
-          />
-          {methodError && <p className="text-xs text-lf-error">{methodError}</p>}
-
-          <ProofUpload
-            file={file}
-            errors={errors}
-            onChange={(patch) => {
-              if (patch.file !== undefined) setFile(patch.file);
-            }}
-          />
+          <p className="text-xs text-lf-cream/60">
+            You'll be redirected to a secure payment page to pay via GCash, Maya, or online banking
+            (QR Ph). Your order is confirmed automatically once payment clears - no proof of payment
+            needed.
+          </p>
 
           {submitError && (
             <p className="rounded-sm border border-lf-error/40 bg-lf-error/10 px-4 py-3 text-sm text-lf-error">
@@ -272,7 +220,7 @@ function OrderNowPanel({ partner, onOrderPlaced }: { partner: Partner; onOrderPl
           )}
 
           <button type="submit" disabled={submitting} className="btn-gold w-full disabled:opacity-50">
-            {submitting ? 'Submitting…' : 'Submit Order'}
+            {submitting ? 'Redirecting…' : 'Proceed To Payment'}
           </button>
         </form>
       )}

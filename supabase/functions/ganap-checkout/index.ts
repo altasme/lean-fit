@@ -10,6 +10,15 @@
 // split is exactly what makes this a config/branch change instead of a
 // checkout rebuild, see §6/§13).
 //
+// Also used by the partner portal's self-order flow (migration 0031 -
+// client request: switch partner self-ordering off manual proof-upload
+// onto this same gateway) via the optional `context: "partner"` body
+// field - only changes which origin/path Ganap redirects the browser back
+// to after payment (the partner subdomain's dashboard instead of the
+// public site's /order-confirmed). Everything else - amount lookup,
+// signing, webhook settlement - is identical and already order_type-
+// agnostic, so no other change was needed for that reuse.
+//
 // SECURITY: the amount charged is always re-read from `orders`/`payments`
 // here, server-side, via the service-role client - the browser only ever
 // sends orderId/paymentId, never an amount, so a tampered client request
@@ -42,6 +51,16 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
 );
 
+/** partner.leanandfit.ph from https://leanandfit.ph - see supabase/README.md's subdomain routing note. */
+function partnerOrigin(siteUrl: string): string {
+  try {
+    const u = new URL(siteUrl);
+    return `${u.protocol}//partner.${u.host}`;
+  } catch {
+    return siteUrl;
+  }
+}
+
 async function hmacSha256Hex(secret: string, message: string): Promise<string> {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
@@ -63,10 +82,11 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Payment gateway is not configured yet. Please try again later.' }, 500);
     }
 
-    const { orderId, paymentId } = await req.json();
+    const { orderId, paymentId, context } = await req.json();
     if (!orderId || !paymentId) {
       return jsonResponse({ error: 'orderId and paymentId are required' }, 400);
     }
+    const isPartner = context === 'partner';
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
@@ -92,11 +112,14 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'This order has already been paid.' }, 409);
     }
 
-    const successRedirectUrl =
-      `${SITE_URL}/order-confirmed?gateway=1` +
-      `&order_no=${encodeURIComponent(order.order_no)}` +
-      `&order_id=${encodeURIComponent(order.id)}` +
-      `&customer=${encodeURIComponent(order.customer_name)}`;
+    const successRedirectUrl = isPartner
+      ? `${partnerOrigin(SITE_URL)}/reseller/dashboard?gateway=1` +
+        `&order_no=${encodeURIComponent(order.order_no)}` +
+        `&order_id=${encodeURIComponent(order.id)}`
+      : `${SITE_URL}/order-confirmed?gateway=1` +
+        `&order_no=${encodeURIComponent(order.order_no)}` +
+        `&order_id=${encodeURIComponent(order.id)}` +
+        `&customer=${encodeURIComponent(order.customer_name)}`;
 
     const ganapBody = JSON.stringify({
       projectUuid: GANAP_PROJECT_UUID,
