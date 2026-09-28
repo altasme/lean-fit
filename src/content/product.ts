@@ -89,8 +89,6 @@ export const PRODUCT = {
 
   badges: ['Low Sugar', 'No Added Preservatives', 'Gluten Free', 'Keto Friendly'],
 
-  prep: ['Tear 1 sachet', 'Add 180ml hot water', 'Stir', 'Enjoy'],
-
   servingSuggestions: [
     'Empty contents of one (1) sachet into a cap',
     'Add 180ml hot water',
