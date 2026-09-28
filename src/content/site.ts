@@ -59,8 +59,7 @@ export const BENEFITS = [
   },
   {
     title: 'Supports Weight Management',
-    blurb:
-      'A convenient coffee option designed to complement a balanced diet and active lifestyle, helping you stay consistent with your weight management goals.',
+    blurb: 'Helps you stay on track with your daily goals.',
   },
 ] as const;
 
