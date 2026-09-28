@@ -5,22 +5,35 @@
 //    `"order_confirmed_cod"`)
 //  - the admin dashboard, right after a status change (`event: "payment_approved"` /
 //    `"payment_rejected"` / `"packing"` / `"shipped"`)
+//  - the ganap-webhook/ganap-check-status Edge Functions, once a Ganap
+//    gateway payment settles (`event: "payment_approved"`)
 //
 // Secrets required (set with `supabase secrets set KEY=value`):
 //   RESEND_API_KEY, BUSINESS_NOTIFICATION_EMAIL, SUPABASE_SERVICE_ROLE_KEY
 // SUPABASE_URL is provided automatically in the Edge Function runtime.
+// SITE_URL (optional, defaults to https://leanandfit.ph) - used to link
+// the customer "Track My Order" CTA and the business "View In Admin" CTA
+// to the right domain/subdomain.
 //
 // See CLAUDE.md §10 for the subject/event mapping this mirrors from
 // src/content/emails.ts (kept in sync manually - see note there). Order and
 // payment now live in separate tables (CLAUDE.md §6/§11), so this function
 // joins both by order_id rather than reading payment fields off `orders`.
+//
+// Branded via _shared/emailTemplate.ts (client request: "these templates
+// must be fully branded with the Lean & Fit brand") - every email here used
+// to be a bare, unstyled `<p>...</p>` string with no logo/colors at all.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
+import { renderBrandedEmail, renderInfoBox } from '../_shared/emailTemplate.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const BUSINESS_EMAIL = Deno.env.get('BUSINESS_NOTIFICATION_EMAIL') ?? '';
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfit.ph>';
+const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://leanandfit.ph').replace(/\/+$/, '');
+const BARE_HOST = SITE_URL.replace(/^https?:\/\//, '');
+const TRACK_ORDER_URL = `${SITE_URL}/track-order`;
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -35,35 +48,97 @@ type OrderEmailEvent =
   | 'packing'
   | 'shipped';
 
-const CUSTOMER_SUBJECTS: Record<OrderEmailEvent, (orderNo: string) => string> = {
-  order_submitted: (orderNo) => `Lean & Fit Order Received - #${orderNo}`,
-  order_confirmed_cod: () => 'Your Lean & Fit COD Order Is Confirmed',
-  payment_approved: () => 'Your Lean & Fit Payment Has Been Verified',
-  payment_rejected: () => 'Action Required - Lean & Fit Payment Verification',
-  packing: () => 'Your Lean & Fit Order Is Being Packed',
-  shipped: () => 'Your Lean & Fit Order Has Shipped',
+const ORDER_EMAIL_CONFIG: Record<
+  OrderEmailEvent,
+  {
+    subject: (orderNo: string) => string;
+    heading: string;
+    body: (order: Record<string, unknown>) => string;
+    infoRows: (order: Record<string, unknown>) => { label: string; value: string }[];
+  }
+> = {
+  order_submitted: {
+    subject: (orderNo) => `Lean & Fit Order Received - #${orderNo}`,
+    heading: 'Order Received',
+    body: (o) =>
+      `Hi ${o.customer_name}, thanks for your order! We've received your order and payment details and our team is verifying your payment now. We'll email you as soon as it's confirmed.`,
+    infoRows: (o) => [
+      { label: 'Order Number', value: String(o.order_no) },
+      { label: 'Total', value: `₱${o.total}` },
+    ],
+  },
+  order_confirmed_cod: {
+    subject: () => 'Your Lean & Fit COD Order Is Confirmed',
+    heading: 'Order Confirmed',
+    body: (o) =>
+      `Hi ${o.customer_name}, your order is confirmed for Cash on Delivery. Please have your total ready when it arrives.`,
+    infoRows: (o) => [
+      { label: 'Order Number', value: String(o.order_no) },
+      { label: 'Total Due (COD)', value: `₱${o.total}` },
+    ],
+  },
+  payment_approved: {
+    subject: () => 'Your Lean & Fit Payment Has Been Verified',
+    heading: 'Payment Verified',
+    body: (o) =>
+      `Hi ${o.customer_name}, your payment has been verified. We'll pack your order shortly and get it ready for delivery 📦`,
+    infoRows: (o) => [{ label: 'Order Number', value: String(o.order_no) }],
+  },
+  payment_rejected: {
+    subject: () => 'Action Required - Lean & Fit Payment Verification',
+    heading: 'Action Required',
+    body: (o) =>
+      `Hi ${o.customer_name}, we couldn't verify the payment details submitted for this order. Please reply to this email or resubmit your proof of payment so we can continue processing it.`,
+    infoRows: (o) => [{ label: 'Order Number', value: String(o.order_no) }],
+  },
+  packing: {
+    subject: () => 'Your Lean & Fit Order Is Being Packed',
+    heading: 'Packing Your Order',
+    body: (o) => `Hi ${o.customer_name}, your order is now being packed! We'll notify you the moment it ships.`,
+    infoRows: (o) => [{ label: 'Order Number', value: String(o.order_no) }],
+  },
+  shipped: {
+    subject: () => 'Your Lean & Fit Order Has Shipped',
+    heading: 'Order Shipped',
+    body: (o) => `Hi ${o.customer_name}, your order has been shipped out!`,
+    infoRows: (o) => [
+      { label: 'Order Number', value: String(o.order_no) },
+      { label: 'Courier', value: String(o.courier ?? 'TBD') },
+      { label: 'Tracking Number', value: String(o.tracking_number ?? 'TBD') },
+    ],
+  },
 };
 
-function renderCustomerBody(event: OrderEmailEvent, order: Record<string, unknown>): string {
-  const name = order.customer_name as string;
-  const orderNo = order.order_no as string;
+function renderCustomerEmail(event: OrderEmailEvent, order: Record<string, unknown>): string {
+  const cfg = ORDER_EMAIL_CONFIG[event];
+  const bodyHtml = `<p style="margin:0 0 4px;">${cfg.body(order)}</p>${renderInfoBox(cfg.infoRows(order))}`;
+  return renderBrandedEmail({
+    heading: cfg.heading,
+    bodyHtml,
+    ctaLabel: 'Track My Order',
+    ctaUrl: TRACK_ORDER_URL,
+  });
+}
 
-  switch (event) {
-    case 'order_submitted':
-      return `<p>Hi ${name},</p><p>Thanks for your order. We've received your order and payment details for <strong>#${orderNo}</strong> and our team is verifying your payment now. We'll email you as soon as it's confirmed.</p>`;
-    case 'order_confirmed_cod':
-      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is confirmed for Cash on Delivery. Please have ₱${order.total} ready when your order arrives.</p>`;
-    case 'payment_approved':
-      return `<p>Hi ${name},</p><p>Your order and payment for <strong>#${orderNo}</strong> is confirmed. We will pack your order and ship it shortly.</p>`;
-    case 'payment_rejected':
-      return `<p>Hi ${name},</p><p>We couldn't verify the payment details submitted for order <strong>#${orderNo}</strong>. Please reply to this email or resubmit your proof of payment so we can continue processing your order.</p>`;
-    case 'packing':
-      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> is being packed and will ship soon.</p>`;
-    case 'shipped':
-      return `<p>Hi ${name},</p><p>Order <strong>#${orderNo}</strong> has been shipped through ${order.courier ?? 'our courier'} with tracking number ${order.tracking_number ?? 'TBD'}.</p>`;
-    default:
-      return `<p>Hi ${name}, there's an update on your order #${orderNo}.</p>`;
-  }
+function renderBusinessNotification(order: Record<string, unknown>, payment: Record<string, unknown> | null): string {
+  const bodyHtml =
+    `<p style="margin:0 0 4px;">A new order was just submitted on the website.</p>` +
+    renderInfoBox([
+      { label: 'Order Number', value: String(order.order_no) },
+      { label: 'Customer', value: String(order.customer_name) },
+      { label: 'Email', value: String(order.email) },
+      { label: 'Mobile', value: String(order.mobile) },
+      { label: 'Product', value: `${order.product} × ${order.quantity}` },
+      { label: 'Total', value: `₱${order.total}` },
+      { label: 'Payment Method', value: String(payment?.method ?? 'n/a') },
+      { label: 'Reference', value: String(payment?.reference ?? 'n/a') },
+    ]);
+  return renderBrandedEmail({
+    heading: 'New Order Submitted',
+    bodyHtml,
+    ctaLabel: 'View In Admin',
+    ctaUrl: `https://admin.${BARE_HOST}/admin/orders/${order.id}`,
+  });
 }
 
 async function sendResendEmail(to: string, subject: string, html: string) {
@@ -114,19 +189,17 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const event = rawEvent as OrderEmailEvent;
-    const subjectFn = CUSTOMER_SUBJECTS[event];
+    const cfg = ORDER_EMAIL_CONFIG[event];
 
-    if (subjectFn) {
-      await sendResendEmail(order.email, subjectFn(order.order_no), renderCustomerBody(event, order));
+    if (cfg) {
+      await sendResendEmail(order.email, cfg.subject(order.order_no), renderCustomerEmail(event, order));
     }
 
     if (isNewOrder && BUSINESS_EMAIL) {
       await sendResendEmail(
         BUSINESS_EMAIL,
         `New Order - #${order.order_no}`,
-        `<p>New order <strong>#${order.order_no}</strong> from ${order.customer_name} (${order.email}, ${order.mobile}).</p>
-         <p>Product: ${order.product} × ${order.quantity}<br/>Total: ₱${order.total}</p>
-         <p>Payment method: ${payment?.method ?? 'n/a'} - ref ${payment?.reference ?? 'n/a'}</p>`,
+        renderBusinessNotification(order, payment ?? null),
       );
     }
 

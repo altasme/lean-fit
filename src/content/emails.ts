@@ -9,6 +9,11 @@
  * covers both "just submitted, manual" and "rejected, needs correction" -
  * those need different emails even though neither maps to a distinct
  * status on its own).
+ *
+ * Fully branded (dark/gold, Lean & Fit wordmark header, "Track My Order"
+ * CTA) via supabase/functions/_shared/emailTemplate.ts server-side - `body`
+ * here is just the plain-text copy inside that branded wrapper, not the
+ * final rendered HTML.
  */
 
 export type OrderEmailEvent =
@@ -30,7 +35,7 @@ export const CUSTOMER_EMAILS: Record<OrderEmailEvent, EmailTemplate> = {
     subject: (orderNo) => `Lean & Fit Order Received - #${orderNo}`,
     heading: 'ORDER RECEIVED',
     body: (v) =>
-      `Hi ${v.customerName}, thanks for your order. We've received your order and payment details for #${v.orderNo} and our team is verifying your payment now. We'll email you as soon as it's confirmed.`,
+      `Hi ${v.customerName}, thanks for your order! We've received your order and payment details and our team is verifying your payment now. We'll email you as soon as it's confirmed.`,
   },
   order_confirmed_cod: {
     subject: () => 'Your Lean & Fit COD Order Is Confirmed',
@@ -42,7 +47,7 @@ export const CUSTOMER_EMAILS: Record<OrderEmailEvent, EmailTemplate> = {
     subject: () => 'Your Lean & Fit Payment Has Been Verified',
     heading: 'PAYMENT VERIFIED',
     body: (v) =>
-      `Hi ${v.customerName}, your order and payment for #${v.orderNo} is confirmed. We will pack your order and ship it shortly.`,
+      `Hi ${v.customerName}, your payment has been verified. We'll pack your order shortly and get it ready for delivery 📦`,
   },
   payment_rejected: {
     subject: () => 'Action Required - Lean & Fit Payment Verification',
@@ -53,13 +58,12 @@ export const CUSTOMER_EMAILS: Record<OrderEmailEvent, EmailTemplate> = {
   packing: {
     subject: () => 'Your Lean & Fit Order Is Being Packed',
     heading: 'PACKING YOUR ORDER',
-    body: (v) => `Hi ${v.customerName}, order #${v.orderNo} is being packed and will ship soon.`,
+    body: (v) => `Hi ${v.customerName}, your order is now being packed! We'll notify you the moment it ships.`,
   },
   shipped: {
     subject: () => 'Your Lean & Fit Order Has Shipped',
     heading: 'ORDER SHIPPED',
-    body: (v) =>
-      `Hi ${v.customerName}, order #${v.orderNo} has been shipped through ${v.courier} with tracking number ${v.trackingNumber}.`,
+    body: (v) => `Hi ${v.customerName}, your order has been shipped out! Courier: ${v.courier}, Tracking number: ${v.trackingNumber}.`,
   },
 };
 

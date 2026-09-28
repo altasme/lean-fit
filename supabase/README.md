@@ -683,6 +683,47 @@
       nothing rather than the whole table. `tsc`/`eslint`/`vite build`
       all pass; Playwright-verified the found/not-found states on
       `/track-order` and the footer link's presence on the homepage.
+33. **Redeploy `send-order-email`, `send-partner-email`, and
+    `grant-portal-access`** - client request: "these templates must be
+    fully branded with the Lean & Fit brand." Every email these three
+    functions send used to be a bare, unstyled `<p>...</p>` string with
+    no logo/colors at all, despite CLAUDE.md §10 always having called for
+    "dark/gold, logo header." Fixed by a new shared
+    `supabase/functions/_shared/emailTemplate.ts` (`renderBrandedEmail()`
+    + `renderInfoBox()`) that all three functions now import - a dark
+    charcoal card, a plain-text "LEAN & FIT" wordmark header (no hosted
+    logo image needed, so nothing to be blocked by an email client's
+    image-blocking default), a gold uppercase kicker heading per event,
+    an inset gold-bordered box for key details (order number, amount,
+    courier/tracking, credentials), and an optional gold CTA button -
+    table-based markup with inline styles throughout, no external CSS/
+    webfonts/images, for compatibility with Outlook's rendering engine
+    and clients that block remote content.
+    ```bash
+    supabase functions deploy send-order-email
+    supabase functions deploy send-partner-email
+    supabase functions deploy grant-portal-access
+    ```
+    - Customer order emails (`send-order-email`) now link a "Track My
+      Order" CTA to `{SITE_URL}/track-order` (step 32); the business
+      new-order notification links "View In Admin" to that order's admin
+      detail page; portal credential emails (`grant-portal-access`) link
+      a "Sign In" CTA to the right subdomain (`admin.{host}/admin/login`
+      for staff, `partner.{host}/reseller/login` for partners).
+    - **`SITE_URL` is now also read by `send-order-email` and
+      `grant-portal-access`** (not just `ganap-checkout`/`ganap-webhook`
+      from step 31) - defaults to `https://leanandfit.ph` if unset, so
+      this isn't a hard-blocking secret, just confirm it's actually set
+      to your real domain for the CTA links to point somewhere real:
+      ```bash
+      supabase secrets set SITE_URL=https://leanandfit.ph
+      ```
+    - `src/content/emails.ts` (the reference copy, never actually
+      imported by these Deno functions - see its own header comment)
+      updated to match the new body wording, so it stays accurate
+      documentation rather than drifting from what's actually sent.
+    - No migration, no client-side route/component changes beyond what
+      step 32 already added - this step is Edge Function redeploys only.
 
 **Status for the live project:** schema applied, `RESEND_API_KEY`,
 `BUSINESS_NOTIFICATION_EMAIL` (`vanamaranto1@gmail.com`), and `EMAIL_FROM`

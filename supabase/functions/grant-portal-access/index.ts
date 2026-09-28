@@ -32,14 +32,25 @@
 //   RESEND_API_KEY, EMAIL_FROM (already set - reused from send-order-email/
 //   send-partner-email, nothing new to configure)
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are provided automatically.
-// SITE_URL is no longer needed by this function - no redirect link is
-// generated anymore, the partner logs in directly with email + password.
+// SITE_URL (optional, defaults to https://leanandfit.ph) - used to build
+// the "Sign In" CTA link in the credentials email, pointed at the right
+// portal subdomain (admin.<host> for staff, partner.<host> for partners).
+// Not needed for a redirect-link flow (there isn't one) - just a
+// convenience link to the correct login page.
+//
+// Branded via _shared/emailTemplate.ts (client request: "these templates
+// must be fully branded with the Lean & Fit brand").
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
+import { renderBrandedEmail, renderInfoBox } from '../_shared/emailTemplate.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfit.ph>';
+const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://leanandfit.ph').replace(/\/+$/, '');
+const BARE_HOST = SITE_URL.replace(/^https?:\/\//, '');
+const STAFF_LOGIN_URL = `https://admin.${BARE_HOST}/admin/login`;
+const PARTNER_LOGIN_URL = `https://partner.${BARE_HOST}/reseller/login`;
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -67,7 +78,14 @@ async function wouldRemoveLastAdmin(targetUserId: string): Promise<boolean> {
   return (count ?? 0) === 0;
 }
 
-async function sendCredentialsEmail(to: string, name: string, email: string, password: string, portalLabel: string) {
+async function sendCredentialsEmail(
+  to: string,
+  name: string,
+  email: string,
+  password: string,
+  portalLabel: string,
+  loginUrl: string,
+) {
   if (!RESEND_API_KEY) {
     // Throw rather than silently skip - the caller explicitly asked to
     // email these credentials (sendEmail: true), so returning as if it
@@ -77,6 +95,15 @@ async function sendCredentialsEmail(to: string, name: string, email: string, pas
     // used to cause silently).
     throw new Error('RESEND_API_KEY is not set - cannot send credentials email.');
   }
+
+  const bodyHtml =
+    `<p style="margin:0 0 4px;">Hi ${name}, your Lean &amp; Fit ${portalLabel} login is ready.</p>` +
+    renderInfoBox([
+      { label: 'Email', value: email },
+      { label: 'Password', value: password },
+    ]) +
+    `<p style="margin:16px 0 0;font-size:13px;opacity:0.7;">Please sign in and change your password once you're in.</p>`;
+
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -84,9 +111,12 @@ async function sendCredentialsEmail(to: string, name: string, email: string, pas
       from: FROM_EMAIL,
       to,
       subject: `Your Lean & Fit ${portalLabel} Access`,
-      html: `<p>Hi ${name},</p><p>Your Lean & Fit ${portalLabel} login is ready.</p>
-        <p><strong>Email:</strong> ${email}<br/><strong>Password:</strong> ${password}</p>
-        <p>Please sign in and change your password once you're in.</p>`,
+      html: renderBrandedEmail({
+        heading: `Your ${portalLabel} Access`,
+        bodyHtml,
+        ctaLabel: 'Sign In',
+        ctaUrl: loginUrl,
+      }),
     }),
   });
   if (!res.ok) throw new Error(`Resend error (${res.status}): ${await res.text()}`);
@@ -190,7 +220,7 @@ Deno.serve(async (req) => {
       let emailError: string | null = null;
       if (sendEmail && password && email) {
         try {
-          await sendCredentialsEmail(email, fullName ?? 'there', email, password, 'Staff Admin');
+          await sendCredentialsEmail(email, fullName ?? 'there', email, password, 'Staff Admin', STAFF_LOGIN_URL);
         } catch (err) {
           emailError = String(err);
         }
@@ -235,7 +265,7 @@ Deno.serve(async (req) => {
       let emailError: string | null = null;
       if (sendEmail) {
         try {
-          await sendCredentialsEmail(email, fullName, email, password, 'Staff Admin');
+          await sendCredentialsEmail(email, fullName, email, password, 'Staff Admin', STAFF_LOGIN_URL);
         } catch (err) {
           emailError = String(err);
         }
@@ -294,7 +324,7 @@ Deno.serve(async (req) => {
     let emailError: string | null = null;
     if (sendEmail) {
       try {
-        await sendCredentialsEmail(partner.email, partner.full_name, partner.email, password, 'Partner Portal');
+        await sendCredentialsEmail(partner.email, partner.full_name, partner.email, password, 'Partner Portal', PARTNER_LOGIN_URL);
       } catch (err) {
         emailError = String(err);
       }

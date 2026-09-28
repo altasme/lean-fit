@@ -13,9 +13,13 @@
 //
 // See src/content/emails.ts's PARTNER_EMAILS for the copy this mirrors
 // (kept in sync manually - same convention as send-order-email/emails.ts).
+//
+// Branded via _shared/emailTemplate.ts (client request: "these templates
+// must be fully branded with the Lean & Fit brand").
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
+import { renderBrandedEmail, renderInfoBox } from '../_shared/emailTemplate.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfit.ph>';
@@ -37,15 +41,24 @@ const CUSTOMER_SUBJECTS: Record<PartnerEmailEvent, () => string> = {
   package_payment_submitted: () => 'Lean & Fit Partner Application - Payment Received',
 };
 
-function renderCustomerBody(event: PartnerEmailEvent, partner: Record<string, unknown>): string {
+function renderPartnerEmail(event: PartnerEmailEvent, partner: Record<string, unknown>): string {
   const name = partner.full_name as string;
   const typeLabel = PARTNER_TYPE_LABELS[partner.partner_type as string] ?? 'Partner';
 
   switch (event) {
     case 'package_payment_submitted':
-      return `<p>Hi ${name},</p><p>Thanks for applying to become a Lean & Fit <strong>${typeLabel}</strong> partner. We've received your package payment and our team is reviewing it now. Once it's verified, you'll get a separate email with your partner portal login details and referral code.</p>`;
+      return renderBrandedEmail({
+        heading: 'Payment Received',
+        bodyHtml:
+          `<p style="margin:0 0 4px;">Hi ${name}, thanks for applying to become a Lean &amp; Fit <strong style="color:#FFFFFF;">${typeLabel}</strong> partner! We've received your package payment and our team is reviewing it now.</p>` +
+          `<p style="margin:12px 0 0;">Once it's verified, you'll get a separate email with your partner portal login details and referral code.</p>` +
+          renderInfoBox([{ label: 'Partner Type', value: typeLabel }]),
+      });
     default:
-      return `<p>Hi ${name}, there's an update on your Lean & Fit partner application.</p>`;
+      return renderBrandedEmail({
+        heading: 'Application Update',
+        bodyHtml: `<p style="margin:0;">Hi ${name}, there's an update on your Lean &amp; Fit partner application.</p>`,
+      });
   }
 }
 
@@ -94,7 +107,7 @@ Deno.serve(async (req) => {
     const subjectFn = CUSTOMER_SUBJECTS[event];
 
     if (subjectFn) {
-      await sendResendEmail(partner.email, subjectFn(), renderCustomerBody(event, partner));
+      await sendResendEmail(partner.email, subjectFn(), renderPartnerEmail(event, partner));
     }
 
     return jsonResponse({ ok: true });
