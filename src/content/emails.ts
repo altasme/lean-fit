@@ -53,7 +53,7 @@ export const CUSTOMER_EMAILS: Record<OrderEmailEvent, EmailTemplate> = {
     subject: () => 'Action Required - Lean & Fit Payment Verification',
     heading: 'ACTION REQUIRED',
     body: (v) =>
-      `Hi ${v.customerName}, we couldn't verify the payment details submitted for order #${v.orderNo}. Please reply to this email or resubmit your proof of payment so we can continue processing your order.`,
+      `Hi ${v.customerName}, we couldn't verify the payment details submitted for this order. Please contact us via Messenger using the button below so we can assist you with your order and payment.`,
   },
   packing: {
     subject: () => 'Your Lean & Fit Order Is Being Packed',

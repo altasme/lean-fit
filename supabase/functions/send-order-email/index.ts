@@ -34,6 +34,11 @@ const FROM_EMAIL = Deno.env.get('EMAIL_FROM') ?? 'Lean & Fit <no-reply@leanandfi
 const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://leanandfit.ph').replace(/\/+$/, '');
 const BARE_HOST = SITE_URL.replace(/^https?:\/\//, '');
 const TRACK_ORDER_URL = `${SITE_URL}/track-order`;
+// Client-supplied Messenger link for the payment_rejected email's CTA -
+// a rejected payment needs a human conversation (what went wrong, how to
+// fix it), not a status page, so this one email points somewhere
+// different from every other order-lifecycle email here.
+const MESSENGER_URL = 'https://m.me/61592822620105';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -55,6 +60,8 @@ const ORDER_EMAIL_CONFIG: Record<
     heading: string;
     body: (order: Record<string, unknown>) => string;
     infoRows: (order: Record<string, unknown>) => { label: string; value: string }[];
+    ctaLabel?: string;
+    ctaUrl?: string;
   }
 > = {
   order_submitted: {
@@ -88,8 +95,10 @@ const ORDER_EMAIL_CONFIG: Record<
     subject: () => 'Action Required - Lean & Fit Payment Verification',
     heading: 'Action Required',
     body: (o) =>
-      `Hi ${o.customer_name}, we couldn't verify the payment details submitted for this order. Please reply to this email or resubmit your proof of payment so we can continue processing it.`,
+      `Hi ${o.customer_name}, we couldn't verify the payment details submitted for this order. Please contact us via Messenger using the button below so we can assist you with your order and payment.`,
     infoRows: (o) => [{ label: 'Order Number', value: String(o.order_no) }],
+    ctaLabel: 'Message Us',
+    ctaUrl: MESSENGER_URL,
   },
   packing: {
     subject: () => 'Your Lean & Fit Order Is Being Packed',
@@ -115,8 +124,8 @@ function renderCustomerEmail(event: OrderEmailEvent, order: Record<string, unkno
   return renderBrandedEmail({
     heading: cfg.heading,
     bodyHtml,
-    ctaLabel: 'Track My Order',
-    ctaUrl: TRACK_ORDER_URL,
+    ctaLabel: cfg.ctaLabel ?? 'Track My Order',
+    ctaUrl: cfg.ctaUrl ?? TRACK_ORDER_URL,
   });
 }
 
