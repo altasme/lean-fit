@@ -1117,6 +1117,37 @@
       only ganap-pending and ganap-failed are hidden, everything else
       stays visible.
 
+42. **Harden `submit-cod-order`'s Turnstile check** (client-reported: COD
+    checkout was failing with "Failed to send a request to the Edge
+    Function" because this function had never actually been deployed to
+    the live project yet, despite shipping in step 40 - deployed via the
+    Dashboard's web editor, no CLI access on this one. While fixing that,
+    also adopted Cloudflare's own recommended hardening for an existing
+    Turnstile integration: checking the siteverify response's `action`
+    and `hostname` fields, not just `success`.). No migration.
+    - `src/components/checkout/Turnstile.tsx`: the widget now renders
+      with `action: 'cod_checkout'`.
+    - `supabase/functions/submit-cod-order/index.ts`: `verifyTurnstileToken`
+      now also rejects a token whose `action` doesn't match `cod_checkout`
+      or whose `hostname` doesn't match `SITE_URL` (same `SITE_URL`/
+      `BARE_HOST` convention every other function here already uses,
+      defaults to `https://leanandfit.ph`) - defence-in-depth so a token
+      solved elsewhere can't be replayed against this checkout; `success`
+      failing is still the only case shown to a real customer as
+      "Verification failed, please try again."
+    - Redeploy:
+      ```bash
+      supabase functions deploy submit-cod-order
+      ```
+      **No CLI on this project** - re-paste the whole function over the
+      Dashboard's existing `submit-cod-order` editor instead (Edge
+      Functions → `submit-cod-order` → open its code → select all →
+      replace → Deploy). The self-contained (shared-CORS-helper-inlined)
+      version for that paste lives in this session's hand-off, not in
+      the repo - the repo's own copy above is the source of truth if a
+      future session has real CLI access.
+    - Validated with `tsc -b`/`vite build`/eslint (all clean).
+
 **Status for the live project:** schema applied, `RESEND_API_KEY`, and
 `EMAIL_FROM` are set (`BUSINESS_NOTIFICATION_EMAIL` was set but is no
 longer used as of step 36 - see that step). `META_CAPI_TOKEN`/`META_PIXEL_ID` remain unset (phase 2,
@@ -1167,7 +1198,11 @@ Pages"). Three follow-ups this creates, none done yet:
   Cloudflare Pages and the
   `RESEND_API_KEY`/`EMAIL_FROM` secrets (step 25). Step 41's
   `weekly-order-report` redeploy is also not yet live (no migration, so
-  it's independent of everything else pending here).
+  it's independent of everything else pending here). **Step 40's
+  `submit-cod-order` has now been confirmed deployed live (via the
+  Dashboard editor, client has no CLI access) - but that was step 40's
+  original version; step 42's hardened version (action/hostname checks)
+  still needs to be re-pasted over it** the same no-CLI way.
   **If migration 0014 genuinely hasn't run live yet** (see the note right
   above this list), that's very likely the actual cause of "Add Staff
   Account" 500ing in production: `is_full_admin()`/RBAC enforcement never

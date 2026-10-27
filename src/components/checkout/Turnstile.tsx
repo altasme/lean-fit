@@ -67,6 +67,10 @@ export function Turnstile({
         if (cancelled || !containerRef.current || !window.turnstile) return;
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey: SITE_KEY,
+          // Checked server-side too (submit-cod-order) - ties a solved
+          // challenge to this specific flow, so a token can't be lifted
+          // from some other widget on the site and replayed here.
+          action: 'cod_checkout',
           callback: onVerify,
           'expired-callback': onExpire,
           'error-callback': () => setLoadError('Verification failed to load. Please refresh and try again.'),

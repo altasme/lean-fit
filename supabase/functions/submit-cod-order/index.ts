@@ -15,12 +15,20 @@
 // Secrets required (set with `supabase secrets set KEY=value`):
 //   TURNSTILE_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY
 // SUPABASE_URL is provided automatically.
+// SITE_URL (optional, defaults to https://leanandfit.ph) - same convention
+// as every other function here - used to check the Turnstile response's
+// `hostname` so a token solved on a copy/clone of this site can't be
+// replayed against the real checkout.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { handleCorsPreflight, jsonResponse } from '../_shared/cors.ts';
 
 const TURNSTILE_SECRET_KEY = Deno.env.get('TURNSTILE_SECRET_KEY') ?? '';
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const SITE_URL = (Deno.env.get('SITE_URL') ?? 'https://leanandfit.ph').replace(/\/+$/, '');
+const BARE_HOST = SITE_URL.replace(/^https?:\/\//, '').toLowerCase();
+// Must match the `action` the widget renders with (Turnstile.tsx).
+const EXPECTED_ACTION = 'cod_checkout';
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -39,7 +47,14 @@ async function verifyTurnstileToken(token: string, remoteIp: string | null): Pro
   if (!res.ok) return false;
 
   const data = await res.json();
-  return Boolean(data.success);
+  if (!data.success) return false;
+  // Both checks are defence-in-depth, not the primary spam gate (that's
+  // `success` above) - a hostname/action mismatch means a token minted
+  // elsewhere is being replayed here, not that a real customer failed
+  // the challenge, so this never needs its own user-facing message.
+  if (data.action && data.action !== EXPECTED_ACTION) return false;
+  if (data.hostname && String(data.hostname).toLowerCase() !== BARE_HOST) return false;
+  return true;
 }
 
 Deno.serve(async (req) => {
